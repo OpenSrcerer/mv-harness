@@ -1,0 +1,72 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/impacts.schema.json",
+ "title": "mvh/events/impacts",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "sudden energy increases",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/impacts"
+    },
+    "name": {
+     "const": "impacts"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Dynamics impact id",
+        "pattern": "^I\\d{3,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "strength": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "delta_lu": {
+        "type": "number",
+        "x-unit": "LU"
+       },
+       "delta_bass_db": {
+        "type": "number",
+        "x-unit": "dB"
+       },
+       "bar": {
+        "type": [
+         "integer",
+         "null"
+        ],
+        "minimum": 0
+       }
+      },
+      "required": [
+       "bar",
+       "delta_bass_db",
+       "delta_lu",
+       "id",
+       "strength",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

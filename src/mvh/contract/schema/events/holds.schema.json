@@ -1,0 +1,90 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/holds.schema.json",
+ "title": "mvh/events/holds",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "sustained moments to hold a pose",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/holds"
+    },
+    "name": {
+     "const": "holds"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Choreography hold id",
+        "pattern": "^O\\d{3,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "vocal_note",
+         "chord",
+         "decay",
+         "silence"
+        ]
+       },
+       "strength": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "source": {
+        "type": "object",
+        "properties": {
+         "file": {
+          "type": "string",
+          "description": "path relative to the song folder"
+         },
+         "id": {
+          "type": "string",
+          "description": "item id, or a reference key 'beat:<beat_index>' / 'bar:<bar>'"
+         }
+        },
+        "required": [
+         "file",
+         "id"
+        ],
+        "description": "link to the item a derived item comes from"
+       }
+      },
+      "required": [
+       "d",
+       "id",
+       "kind",
+       "source",
+       "strength",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

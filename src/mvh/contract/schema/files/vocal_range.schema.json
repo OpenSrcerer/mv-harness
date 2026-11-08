@@ -1,0 +1,148 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/vocal_range.schema.json",
+ "title": "mvh/files/vocal_range",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "present": {
+   "type": "boolean",
+   "description": "false when < ~8 voiced seconds; then the statistics are null"
+  },
+  "voiced_s": {
+   "type": "number",
+   "x-unit": "s"
+  },
+  "lowest": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "properties": {
+    "midi": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 127
+    },
+    "name": {
+     "type": "string"
+    },
+    "hz": {
+     "type": "number",
+     "x-unit": "Hz"
+    },
+    "t": {
+     "type": "number",
+     "x-unit": "s",
+     "description": "time in seconds from the first sample of audio/mix.flac"
+    }
+   },
+   "required": [
+    "hz",
+    "midi",
+    "name",
+    "t"
+   ]
+  },
+  "highest": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "properties": {
+    "midi": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 127
+    },
+    "name": {
+     "type": "string"
+    },
+    "hz": {
+     "type": "number",
+     "x-unit": "Hz"
+    },
+    "t": {
+     "type": "number",
+     "x-unit": "s",
+     "description": "time in seconds from the first sample of audio/mix.flac"
+    }
+   },
+   "required": [
+    "hz",
+    "midi",
+    "name",
+    "t"
+   ]
+  },
+  "p2": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "MIDI"
+  },
+  "p98": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "MIDI"
+  },
+  "p10": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "MIDI"
+  },
+  "p90": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "MIDI"
+  },
+  "median_midi": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "MIDI"
+  },
+  "span_semitones": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "semitones"
+  },
+  "register": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "bass, baritone, tenor, alto, mezzo, soprano (low confidence)"
+  },
+  "conf": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  }
+ },
+ "required": [
+  "conf",
+  "highest",
+  "lowest",
+  "median_midi",
+  "p10",
+  "p2",
+  "p90",
+  "p98",
+  "present",
+  "register",
+  "span_semitones",
+  "voiced_s"
+ ]
+}

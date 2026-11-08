@@ -1,0 +1,161 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/tempo.schema.json",
+ "title": "mvh/files/tempo",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "bpm": {
+   "type": "number",
+   "x-unit": "BPM"
+  },
+  "confidence": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "feel": {
+   "type": "string",
+   "enum": [
+    "normal",
+    "half_time",
+    "double_time"
+   ]
+  },
+  "is_variable": {
+   "type": "boolean"
+  },
+  "candidates": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "bpm": {
+      "type": "number",
+      "x-unit": "BPM"
+     },
+     "score": {
+      "type": "number"
+     },
+     "relation": {
+      "type": "string",
+      "description": "x1, x2, x0.5, x1.5, x0.667, x1.333, x0.75"
+     }
+    },
+    "required": [
+     "bpm",
+     "relation",
+     "score"
+    ]
+   }
+  },
+  "meter": {
+   "type": "object",
+   "properties": {
+    "time_signature": {
+     "type": "string",
+     "pattern": "^\\d+/\\d+$"
+    },
+    "beats_per_bar": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "confidence": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "changes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "bar": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "beats_per_bar": {
+        "type": "integer",
+        "minimum": 1
+       }
+      },
+      "required": [
+       "bar",
+       "beats_per_bar",
+       "t"
+      ]
+     }
+    }
+   },
+   "required": [
+    "beats_per_bar",
+    "changes",
+    "confidence",
+    "time_signature"
+   ]
+  },
+  "qa": {
+   "type": "object",
+   "properties": {
+    "beat_agreement_f": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "downbeat_agreement_f": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "flags": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "beat_agreement_f",
+    "downbeat_agreement_f",
+    "flags"
+   ]
+  },
+  "estimates": {
+   "type": "object",
+   "additionalProperties": {
+    "type": [
+     "number",
+     "null"
+    ],
+    "x-unit": "BPM"
+   }
+  },
+  "agreement": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "bpm",
+  "candidates",
+  "confidence",
+  "feel",
+  "is_variable",
+  "meter",
+  "qa"
+ ]
+}

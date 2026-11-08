@@ -1,0 +1,177 @@
+{
+  "models": [
+    {
+      "id": "sep.bs-roformer-sw-6stem",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/BS-Roformer-SW.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/BS-Roformer-SW.ckpt",
+          "revision": "model-configs",
+          "sha256": "24e7d35ee9c64415673d3fd33e06a67cac2c103c5df6267ba1576459c775916e",
+          "size": 699412152
+        },
+        {
+          "path": "separator/BS-Roformer-SW.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/BS-Roformer-SW.yaml",
+          "revision": "model-configs",
+          "sha256": "b558996f1e25eb48798bd6502505a5de94c4f966d6edfb1a0420f06cc40b501a",
+          "size": 4653
+        }
+      ],
+      "licence": "CC-BY-NC-SA-4.0 per the survey (unblend model card for bs_roformer_sw); personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: BS Roformer SW by jarredou; arch MDXC"
+    },
+    {
+      "id": "sep.mel-roformer-vocals-kimberley",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/vocals_mel_band_roformer.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/vocals_mel_band_roformer.ckpt",
+          "revision": "model-configs",
+          "sha256": "87201f4d31afb5bc79993230fc49446918425574db48c01c405e44f365c7559e",
+          "size": 913106900
+        },
+        {
+          "path": "separator/vocals_mel_band_roformer.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/vocals_mel_band_roformer.yaml",
+          "revision": "model-configs",
+          "sha256": "b958b29c8f7195f0d86bee6759a33980db675c4ecaf2fcaa80fa125828e6cd38",
+          "size": 944
+        }
+      ],
+      "licence": "not verified in W0 (upstream card not read); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: MelBand Roformer | Vocals by Kimberley Jensen; arch MDXC"
+    },
+    {
+      "id": "sep.mel-roformer-karaoke-aufr33-viperx",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+          "revision": "model-configs",
+          "sha256": "1de20d459332fe8869aeb01327a31df0032262706e1365114e852dc271779813",
+          "size": 913096801
+        },
+        {
+          "path": "separator/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml",
+          "revision": "model-configs",
+          "sha256": "b35077d94861f068097cce1a5e54633c055e7dcc2613eade4e4dc7c7c9c3f48b",
+          "size": 1726
+        }
+      ],
+      "licence": "not verified in W0 (aufr33 + viperx via UVR model zoo); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: Mel-Roformer-Karaoke-Aufr33-Viperx; arch MDXC"
+    },
+    {
+      "id": "sep.mdx23c-drumsep",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/MDX23C-DrumSep-aufr33-jarredou.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/MDX23C-DrumSep-aufr33-jarredou.ckpt",
+          "revision": "model-configs",
+          "sha256": "d2a4aa53eb584d21eead358a4e66d1882ad182911be018f052b5da73be9096d0",
+          "size": 437652699
+        },
+        {
+          "path": "separator/config_drumsep_mdx23c.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/config_drumsep_mdx23c.yaml",
+          "revision": "model-configs",
+          "sha256": "17d1649a227f841165bdb4c11a42082898192a1ea3ceab7e7e0b9293d6589dd6",
+          "size": 2417
+        }
+      ],
+      "licence": "unclear (survey: aufr33 + jarredou); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq",
+        "drums"
+      ],
+      "note": "audio-separator friendly name: MDX23C Model: MDX23C DrumSep by aufr33-jarredou; arch MDXC"
+    },
+    {
+      "id": "ggml.whisper-large-v3-turbo-q8_0",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-large-v3-turbo-q8_0.bin",
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q8_0.bin",
+          "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+          "sha256": "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",
+          "size": 874188075
+        }
+      ],
+      "licence": "MIT (OpenAI Whisper weights, converted by whisper.cpp)",
+      "used_by": [
+        "lyrics"
+      ]
+    },
+    {
+      "id": "ggml.whisper-large-v3",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-large-v3.bin",
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3.bin",
+          "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+          "sha256": "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
+          "size": 3095033483
+        }
+      ],
+      "licence": "MIT (OpenAI Whisper weights, converted by whisper.cpp)",
+      "used_by": [
+        "lyrics"
+      ]
+    },
+    {
+      "id": "ggml.silero-vad-v5.1.2",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-silero-v5.1.2.bin",
+          "url": "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v5.1.2.bin",
+          "revision": "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
+          "sha256": "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf",
+          "size": 885098
+        }
+      ],
+      "licence": "MIT (Silero VAD v5.1.2, ggml conversion)",
+      "used_by": [
+        "lyrics"
+      ]
+    }
+  ]
+}

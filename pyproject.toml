@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mvh"
+version = "0.1.0"
+description = "mv-harness: analyse one song into timestamped metadata for AI music-video agents"
+readme = "README.md"
+requires-python = "==3.12.*"
+license = { text = "Proprietary" }
+dependencies = [
+    # --- numerics / audio DSP ---
+    "numpy>=2.5,<2.6",
+    "scipy>=1.18,<1.19",
+    "librosa>=1.0,<1.1",
+    "pyloudnorm",
+    "soundfile>=0.14",          # our own WAVs only (never user audio: ffmpeg decodes)
+    "soxr>=1.1",
+    "scikit-learn",              # palette k-means, clustering
+    "pillow",
+    # --- torch (CPU wheels from PyPI on Windows) ---
+    "torch==2.15.0",
+    "torchaudio==2.11.1",
+    # --- onnxruntime: CPU build only, never -directml ---
+    "onnxruntime==1.31.1",
+    # --- rhythm / structure ---
+    "beat-this==1.1.0",
+    "all-in-one-infer==3.1.0",   # vendor/wheels (PyPI 3.1.0 fallback, see docs/spike/main.md)
+    "madmom-infer==0.2.0",       # vendor/wheels
+    "demucs-infer==4.4.0",       # vendor/wheels
+    # --- separation / pitch / notes ---
+    "demucs-onnx==0.3.4",
+    "basic-pitch==0.4.0",
+    "swift-f0==0.3.0",
+    "rmvpe-onnx==0.2.3",
+    "piano_transcription_inference==0.0.6",
+    "torchlibrosa",
+    "audioread",                 # imported by piano_transcription_inference (we never use it to decode)
+    "pretty-midi",
+    "mido",
+    # --- instruments / mood (ONNX runtimes + feature extraction) ---
+    "transformers",              # CLAP feature extractor and tokenizer only
+    "tokenizers",
+    # --- harmony ---
+    "lv-chordia==1.1.0",
+    # --- lyrics / voices ---
+    "faster-whisper==1.2.1",
+    "ctranslate2==4.8.5",
+    "stable-ts==2.19.1",
+    "uroman",
+    "num2words",
+    "rapidfuzz",
+    "speechbrain",               # ECAPA-TDNN speaker embeddings
+    "g2p-en",                    # Could: in-house g2p visemes
+    # --- infra ---
+    "httpx",
+    "jsonschema",
+    "huggingface-hub",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic"]
+
+[project.scripts]
+mvh = "mvh.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-timeout",
+    "mir_eval",
+    "ruff",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mvh"]
+
+[tool.uv]
+# basic-pitch pins tensorflow<2.15.1 (no cp312 wheel): remove it. The onnx path is used instead.
+# resampy>=0.4.3 is the numpy-2 compatible build.
+# NOTE: do NOT override onnxruntime away; v1 uses the CPU onnxruntime==1.31.1 build only.
+environments = ["sys_platform == 'win32'"]
+override-dependencies = [
+    'tensorflow; sys_platform == "never"',
+    "resampy>=0.4.3",
+    "onnxruntime==1.31.1",
+]
+
+[tool.uv.sources]
+all-in-one-infer = { path = "vendor/wheels/all_in_one_infer-3.1.0-py3-none-any.whl" }
+madmom-infer = { path = "vendor/wheels/madmom_infer-0.2.0-py3-none-any.whl" }
+demucs-infer = { path = "vendor/wheels/demucs_infer-4.4.0-py3-none-any.whl" }
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+timeout = 600
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+select = ["E", "F", "I", "PLW1514"]   # PLW1514 (preview rule): open() without explicit encoding (PLAN 3.4)
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**" = ["E501", "E401", "E701", "E702", "E731", "E741", "E402", "I001", "F841", "F401"]   # spike/smoke tooling: style only, not encoding

@@ -1,0 +1,14 @@
+[project]
+name = "mvh-sep-cpu"
+version = "0.0.0"
+description = "mv-harness separator worker env, CPU variant (PyPI torch)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "audio-separator[cpu]==0.48.0",
+  "numpy",
+  "soundfile",
+  "audioread",  # audio-separator imports it; librosa 1.0 no longer pulls it in
+]
+
+[tool.uv]
+package = false

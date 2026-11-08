@@ -1,0 +1,116 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/events.schema.json",
+ "title": "mvh/envelope/events",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "type": "string",
+   "description": "events schema id, e.g. mvh/events/beats",
+   "pattern": "^mvh/events/"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "name": {
+   "type": "string",
+   "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+  },
+  "kind": {
+   "type": "string",
+   "enum": [
+    "event",
+    "segment"
+   ]
+  },
+  "fields": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "unit": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "type": {
+      "type": "string"
+     },
+     "description": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "type",
+     "unit"
+    ]
+   },
+   "description": "field -> unit/type"
+  },
+  "provenance": {
+   "$ref": "https://mv-harness.local/schema/envelope/provenance.schema.json"
+  },
+  "items": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "t": {
+      "type": "number",
+      "x-unit": "s"
+     },
+     "d": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "duration in seconds",
+      "minimum": 0
+     },
+     "id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "t"
+    ]
+   },
+   "description": "sorted by t (ties: file order)"
+  }
+ },
+ "required": [
+  "fields",
+  "items",
+  "kind",
+  "name",
+  "provenance",
+  "schema",
+  "schema_version"
+ ],
+ "description": "event-file envelope",
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "segment"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "items": {
+      "items": {
+       "required": [
+        "t",
+        "d"
+       ]
+      }
+     }
+    }
+   }
+  }
+ ]
+}

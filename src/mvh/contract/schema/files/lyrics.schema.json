@@ -1,0 +1,276 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/lyrics.schema.json",
+ "title": "mvh/files/lyrics",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/files/lyrics"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "provenance": {
+   "$ref": "https://mv-harness.local/schema/envelope/provenance.schema.json"
+  },
+  "source": {
+   "type": "object",
+   "properties": {
+    "kind": {
+     "type": "string",
+     "enum": [
+      "user",
+      "embedded",
+      "lrclib",
+      "transcribed",
+      "none"
+     ]
+    },
+    "lrclib_id": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "duration_diff_s": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "s"
+    },
+    "has_word_sync": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "duration_diff_s",
+    "has_word_sync",
+    "kind",
+    "lrclib_id"
+   ]
+  },
+  "instrumental": {
+   "type": "boolean"
+  },
+  "language": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "grade": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "A (best) .. D",
+   "enum": [
+    "A",
+    "B",
+    "C",
+    "D",
+    null
+   ]
+  },
+  "lyrics_match_score": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "coverage": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "lines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Lyric line, in sung order id",
+      "pattern": "^L\\d{3,}$"
+     },
+     "t": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "d": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "duration in seconds",
+      "minimum": 0
+     },
+     "text": {
+      "type": "string",
+      "description": "lyric text (stays local; never logged)"
+     },
+     "section_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Section id",
+      "pattern": "^S\\d{2,}$"
+     },
+     "text_group": {
+      "type": "string",
+      "description": "Lyric lines with identical normalised text id",
+      "pattern": "^T\\d{2,}$"
+     },
+     "repeat_group": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Lyric repeat group (near-identical lines / hooks) id",
+      "pattern": "^LG\\d{2,}$"
+     },
+     "conf": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "grade": {
+      "type": "string",
+      "description": "A (best) .. D",
+      "enum": [
+       "A",
+       "B",
+       "C",
+       "D"
+      ]
+     },
+     "first_word": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Lyric word (line_id.k, k 1-based) id",
+      "pattern": "^L\\d{3,}\\.\\d{2,}$"
+     },
+     "n_words": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "backing": {
+      "type": "boolean",
+      "description": "parenthetical / backing line"
+     },
+     "speaker_hint": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "speaker label from the source"
+     },
+     "timing_source": {
+      "type": "string",
+      "enum": [
+       "user",
+       "lrclib_word",
+       "lrclib_line",
+       "ctc",
+       "whisper",
+       "stable_ts",
+       "interpolated"
+      ]
+     }
+    },
+    "required": [
+     "backing",
+     "conf",
+     "d",
+     "first_word",
+     "grade",
+     "id",
+     "n_words",
+     "repeat_group",
+     "section_id",
+     "speaker_hint",
+     "t",
+     "text",
+     "text_group",
+     "timing_source"
+    ]
+   }
+  },
+  "words": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Lyric word (line_id.k, k 1-based) id",
+      "pattern": "^L\\d{3,}\\.\\d{2,}$"
+     },
+     "line_id": {
+      "type": "string",
+      "description": "Lyric line, in sung order id",
+      "pattern": "^L\\d{3,}$"
+     },
+     "t": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "d": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "duration in seconds",
+      "minimum": 0
+     },
+     "text": {
+      "type": "string"
+     },
+     "conf": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "flags": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "conf",
+     "d",
+     "id",
+     "line_id",
+     "t",
+     "text"
+    ]
+   }
+  }
+ },
+ "required": [
+  "coverage",
+  "grade",
+  "instrumental",
+  "language",
+  "lines",
+  "lyrics_match_score",
+  "provenance",
+  "schema",
+  "schema_version",
+  "source",
+  "words"
+ ]
+}

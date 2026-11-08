@@ -1,0 +1,75 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/mood.schema.json",
+ "title": "mvh/files/mood",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "global": {
+   "type": "object",
+   "properties": {
+    "valence": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "arousal": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "valence_conf": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "arousal_conf": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "tags": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "tag": {
+        "type": "string"
+       },
+       "p": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "p",
+       "tag"
+      ]
+     }
+    }
+   },
+   "required": [
+    "arousal",
+    "arousal_conf",
+    "tags",
+    "valence",
+    "valence_conf"
+   ]
+  },
+  "models": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "required": [
+  "global"
+ ]
+}

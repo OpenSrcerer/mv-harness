@@ -1,0 +1,57 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/tempo_segments.schema.json",
+ "title": "mvh/events/tempo_segments",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "piecewise tempo grid",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/tempo_segments"
+    },
+    "name": {
+     "const": "tempo_segments"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "bpm": {
+        "type": "number",
+        "x-unit": "BPM"
+       },
+       "stable": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "bpm",
+       "d",
+       "stable",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mvh viewer - @@TITLE@@</title>
+<style>/*@@CSS@@*/</style>
+<!--MVH-EDIT-->
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand">mvh</div>
+    <div class="song"><div id="song-title" class="song-title">loading</div><div id="song-sub" class="song-sub"></div></div>
+    <span id="mode-badge" class="badge"></span>
+    <div class="grp transport">
+      <button id="btn-play" class="btn primary" title="Space">Play</button>
+      <span id="now-time" class="mono big">0:00.000</span>
+    </div>
+    <div class="grp">
+      <label class="mini">audio <select id="src-sel"><option value="mix">mix (lossless)</option><option value="preview">preview (opus)</option></select></label>
+      <label class="mini">speed <select id="rate-sel"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option></select></label>
+      <label class="mini">vol <input id="vol" type="range" min="0" max="1" step="0.01" value="0.9"></label>
+    </div>
+    <div class="grp metro" title="Click track generated from the beat grid, for listening checks">
+      <label class="mini"><input id="chk-metro" type="checkbox"> click track</label>
+      <label class="mini"><input id="chk-down" type="checkbox" checked> downbeats</label>
+      <label class="mini"><input id="chk-beats" type="checkbox" checked> beats</label>
+      <label class="mini"><input id="chk-hits" type="checkbox"> drum hits</label>
+      <label class="mini"><input id="chk-clicks" type="checkbox"> clicks only</label>
+      <label class="mini">level <input id="metro-vol" type="range" min="0" max="1" step="0.01" value="0.6"></label>
+      <label class="mini">offset <input id="metro-off" type="range" min="-150" max="150" step="1" value="0"><span id="metro-off-v" class="mono small">0 ms</span></label>
+    </div>
+    <div class="grp">
+      <button id="z-out" class="btn sm" title="Zoom out (-)">&minus;</button>
+      <button id="z-in" class="btn sm" title="Zoom in (+)">+</button>
+      <button id="z-fit" class="btn sm" title="Fit the whole song (0)">fit</button>
+      <label class="mini">follow <select id="follow-sel"><option value="page">page</option><option value="centre">centre</option><option value="off">off</option></select></label>
+      <button id="btn-loop" class="btn sm" title="Loop the current section (L)">loop</button>
+    </div>
+    <button id="btn-panel" class="btn sm" title="Show or hide the side panel">panel</button>
+  </header>
+  <div id="main">
+    <div id="lanes-wrap">
+      <div class="head-row ruler-row"><div class="gutter">time</div><canvas id="cv-ruler"></canvas></div>
+      <div class="head-row ov-row"><div class="gutter">overview</div><canvas id="cv-overview"></canvas></div>
+      <div id="lanes"></div>
+      <div id="playhead"></div>
+      <div id="cursor"></div>
+    </div>
+    <aside id="side">
+      <nav class="tabs">
+        <button class="tab on" data-tab="meaning">Meaning</button>
+        <button class="tab" data-tab="values">Values</button>
+        <button class="tab" id="tab-edit" data-tab="edit" hidden>Edit</button>
+        <button class="tab" data-tab="help">Help</button>
+      </nav>
+      <section class="pane" data-pane="meaning" id="pane-meaning"></section>
+      <section class="pane" data-pane="values" id="pane-values" hidden></section>
+      <section class="pane" data-pane="edit" id="pane-edit" hidden></section>
+      <section class="pane" data-pane="help" id="pane-help" hidden></section>
+    </aside>
+  </div>
+  <footer id="now">
+    <div id="progress" title="Click to seek"><div id="progress-fill"></div></div>
+    <div class="now-grid">
+      <div class="cell"><span class="cap">section</span><span id="now-section" class="mono">-</span><span id="now-feel" class="dim feel"></span></div>
+      <div class="cell"><span class="cap">rhythm</span><span id="now-rhythm" class="mono">-</span></div>
+      <div class="cell wide"><span class="cap">lyric</span><span id="now-line" class="lyric"></span></div>
+      <div class="cell"><span class="cap">voice</span><span id="now-vocal" class="mono">-</span></div>
+      <div class="cell"><span class="cap">loudness</span><span id="now-loud" class="mono">-</span></div>
+      <div class="cell"><span class="cap">frame</span><span id="now-frame" class="mono small">-</span><span id="now-cue" class="dim small"></span></div>
+    </div>
+  </footer>
+</div>
+<div id="fatal" hidden></div>
+<div id="tip"></div>
+<div id="toasts"></div>
+<script id="mvh-src" type="text/plain">@@MVHJS@@</script>
+<script id="mvh-data" type="application/json">@@DATA@@</script>
+<script>
+/*@@JS@@*/
+</script>
+</body>
+</html>

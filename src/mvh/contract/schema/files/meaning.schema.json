@@ -1,0 +1,626 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/meaning.schema.json",
+ "title": "mvh/files/meaning",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/files/meaning"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "user",
+    "draft",
+    "pending"
+   ]
+  },
+  "logline": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "summary": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "themes": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string"
+     },
+     "source": {
+      "type": "string",
+      "description": "who/what supports the claim; precedence user > lyric > audio > external > speculative",
+      "enum": [
+       "user",
+       "lyric",
+       "audio",
+       "external",
+       "speculative"
+      ]
+     },
+     "cites": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string",
+         "description": "a cited ID (L001, S03, Q0012, ...)"
+        },
+        "t0": {
+         "type": "number",
+         "x-unit": "s"
+        },
+        "t1": {
+         "type": "number",
+         "x-unit": "s"
+        },
+        "quote": {
+         "type": "string",
+         "description": "at most 10 words"
+        }
+       },
+       "required": [],
+       "description": "citation: an ID and/or a time range"
+      }
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "user",
+       "draft"
+      ]
+     }
+    },
+    "required": [
+     "cites",
+     "source",
+     "text"
+    ]
+   }
+  },
+  "perspective": {
+   "type": "object",
+   "properties": {
+    "narrator": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "addressee": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "addressee",
+    "narrator"
+   ]
+  },
+  "characters": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Character (from intent.md or meaning) id",
+      "pattern": "^C[1-9]\\d*$"
+     },
+     "name": {
+      "type": "string"
+     },
+     "description": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "voice_ids": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "Voice cluster (one singing or rapping voice) id",
+       "pattern": "^V[1-9]\\d*$"
+      }
+     },
+     "lead_backing": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "lead",
+       "backing",
+       "both",
+       null
+      ]
+     },
+     "line_ids": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "Lyric line, in sung order id",
+       "pattern": "^L\\d{3,}$"
+      }
+     },
+     "section_ids": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "Section id",
+       "pattern": "^S\\d{2,}$"
+      }
+     },
+     "provenance": {
+      "type": "object",
+      "properties": {
+       "source": {
+        "type": "string",
+        "description": "who/what supports the claim; precedence user > lyric > audio > external > speculative",
+        "enum": [
+         "user",
+         "lyric",
+         "audio",
+         "external",
+         "speculative"
+        ]
+       },
+       "status": {
+        "type": "string",
+        "enum": [
+         "user",
+         "draft"
+        ]
+       },
+       "cites": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string",
+           "description": "a cited ID (L001, S03, Q0012, ...)"
+          },
+          "t0": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "t1": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "quote": {
+           "type": "string",
+           "description": "at most 10 words"
+          }
+         },
+         "required": [],
+         "description": "citation: an ID and/or a time range"
+        }
+       }
+      },
+      "required": [
+       "cites",
+       "source",
+       "status"
+      ]
+     }
+    },
+    "required": [
+     "description",
+     "id",
+     "lead_backing",
+     "line_ids",
+     "name",
+     "provenance",
+     "section_ids",
+     "voice_ids"
+    ]
+   }
+  },
+  "setting": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "motifs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Motif id",
+      "pattern": "^M[1-9]\\d*$"
+     },
+     "name": {
+      "type": "string"
+     },
+     "occurrences": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "t": {
+         "type": "number",
+         "x-unit": "s",
+         "description": "time in seconds from the first sample of audio/mix.flac"
+        },
+        "d": {
+         "type": "number",
+         "x-unit": "s",
+         "description": "duration in seconds",
+         "minimum": 0
+        },
+        "line_id": {
+         "type": "string",
+         "description": "Lyric line, in sung order id",
+         "pattern": "^L\\d{3,}$"
+        }
+       },
+       "required": [
+        "t"
+       ]
+      }
+     },
+     "provenance": {
+      "type": "object",
+      "properties": {
+       "source": {
+        "type": "string",
+        "description": "who/what supports the claim; precedence user > lyric > audio > external > speculative",
+        "enum": [
+         "user",
+         "lyric",
+         "audio",
+         "external",
+         "speculative"
+        ]
+       },
+       "status": {
+        "type": "string",
+        "enum": [
+         "user",
+         "draft"
+        ]
+       },
+       "cites": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string",
+           "description": "a cited ID (L001, S03, Q0012, ...)"
+          },
+          "t0": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "t1": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "quote": {
+           "type": "string",
+           "description": "at most 10 words"
+          }
+         },
+         "required": [],
+         "description": "citation: an ID and/or a time range"
+        }
+       }
+      },
+      "required": [
+       "cites",
+       "source",
+       "status"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "occurrences",
+     "provenance"
+    ]
+   }
+  },
+  "symbolism": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string"
+     },
+     "source": {
+      "type": "string",
+      "description": "who/what supports the claim; precedence user > lyric > audio > external > speculative",
+      "enum": [
+       "user",
+       "lyric",
+       "audio",
+       "external",
+       "speculative"
+      ]
+     },
+     "cites": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string",
+         "description": "a cited ID (L001, S03, Q0012, ...)"
+        },
+        "t0": {
+         "type": "number",
+         "x-unit": "s"
+        },
+        "t1": {
+         "type": "number",
+         "x-unit": "s"
+        },
+        "quote": {
+         "type": "string",
+         "description": "at most 10 words"
+        }
+       },
+       "required": [],
+       "description": "citation: an ID and/or a time range"
+      }
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "user",
+       "draft"
+      ]
+     }
+    },
+    "required": [
+     "cites",
+     "source",
+     "text"
+    ]
+   }
+  },
+  "sections": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "section_id": {
+      "type": "string",
+      "description": "Section id",
+      "pattern": "^S\\d{2,}$"
+     },
+     "t0": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "t1": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "occurrence_label": {
+      "type": "string"
+     },
+     "feel": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "meaning": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "emotion": {
+      "type": "object",
+      "properties": {
+       "lyric": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "audio": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "agree": {
+        "type": [
+         "boolean",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "agree",
+       "audio",
+       "lyric"
+      ]
+     },
+     "palette_hint": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "colour as #rrggbb",
+       "pattern": "^#[0-9a-fA-F]{6}$"
+      }
+     },
+     "movement_hint": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "camera_hint": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "characters_present": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "Character (from intent.md or meaning) id",
+       "pattern": "^C[1-9]\\d*$"
+      }
+     },
+     "do_not": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "provenance": {
+      "type": "object",
+      "properties": {
+       "source": {
+        "type": "string",
+        "description": "who/what supports the claim; precedence user > lyric > audio > external > speculative",
+        "enum": [
+         "user",
+         "lyric",
+         "audio",
+         "external",
+         "speculative"
+        ]
+       },
+       "status": {
+        "type": "string",
+        "enum": [
+         "user",
+         "draft"
+        ]
+       },
+       "cites": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string",
+           "description": "a cited ID (L001, S03, Q0012, ...)"
+          },
+          "t0": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "t1": {
+           "type": "number",
+           "x-unit": "s"
+          },
+          "quote": {
+           "type": "string",
+           "description": "at most 10 words"
+          }
+         },
+         "required": [],
+         "description": "citation: an ID and/or a time range"
+        }
+       }
+      },
+      "required": [
+       "cites",
+       "source",
+       "status"
+      ]
+     }
+    },
+    "required": [
+     "camera_hint",
+     "characters_present",
+     "do_not",
+     "emotion",
+     "feel",
+     "meaning",
+     "movement_hint",
+     "occurrence_label",
+     "palette_hint",
+     "provenance",
+     "section_id",
+     "t0",
+     "t1"
+    ]
+   }
+  },
+  "palette": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "description": "colour as #rrggbb",
+    "pattern": "^#[0-9a-fA-F]{6}$"
+   }
+  },
+  "tone": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "do_not": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "description": "the user's words, verbatim"
+   }
+  },
+  "open_questions": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "provenance": {
+   "$ref": "https://mv-harness.local/schema/envelope/provenance.schema.json"
+  }
+ },
+ "required": [
+  "characters",
+  "do_not",
+  "logline",
+  "motifs",
+  "open_questions",
+  "palette",
+  "perspective",
+  "schema",
+  "schema_version",
+  "sections",
+  "setting",
+  "status",
+  "summary",
+  "symbolism",
+  "themes",
+  "tone"
+ ]
+}

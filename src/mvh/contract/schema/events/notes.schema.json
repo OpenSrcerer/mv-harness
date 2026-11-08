@@ -1,0 +1,76 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/notes.schema.json",
+ "title": "mvh/events/notes",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "note events of one pitched stem (src = bass, piano, guitar, other)",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/notes"
+    },
+    "name": {
+     "type": "string",
+     "pattern": "^notes\\.(bass|piano|guitar|other|vocals)$"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "midi": {
+        "type": "integer",
+        "description": "MIDI note number",
+        "minimum": 0,
+        "maximum": 127
+       },
+       "name": {
+        "type": "string",
+        "description": "note name, e.g. A3 (C4 = MIDI 60)"
+       },
+       "vel": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "velocity 0..1"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "conf",
+       "d",
+       "midi",
+       "name",
+       "t",
+       "vel"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

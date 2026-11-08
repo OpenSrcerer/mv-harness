@@ -1,0 +1,87 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/source.schema.json",
+ "title": "mvh/files/source",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "file_name": {
+   "type": "string"
+  },
+  "codec": {
+   "type": "string"
+  },
+  "sample_rate": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "channels": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "n_samples": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "duration_s": {
+   "type": "number",
+   "x-unit": "s"
+  },
+  "pcm_sha256": {
+   "type": "string",
+   "description": "sha256 (hex)",
+   "pattern": "^[0-9a-f]{64}$"
+  },
+  "lossless": {
+   "type": "boolean"
+  },
+  "peak_abs": {
+   "type": "number",
+   "x-unit": "linear",
+   "description": "max |x| of the canonical decode"
+  },
+  "decode_warnings": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "tags": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "string"
+   },
+   "description": "ffprobe tags, keys lower-cased"
+  },
+  "has_cover": {
+   "type": "boolean"
+  },
+  "palette": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "description": "colour as #rrggbb",
+    "pattern": "^#[0-9a-fA-F]{6}$"
+   },
+   "maxItems": 12
+  },
+  "soundtrack": {
+   "type": "string",
+   "description": "audio/mix.flac, or audio/mix.wav when peak_abs > 1"
+  }
+ },
+ "required": [
+  "channels",
+  "codec",
+  "decode_warnings",
+  "duration_s",
+  "file_name",
+  "has_cover",
+  "lossless",
+  "n_samples",
+  "palette",
+  "pcm_sha256",
+  "peak_abs",
+  "sample_rate",
+  "soundtrack",
+  "tags"
+ ]
+}

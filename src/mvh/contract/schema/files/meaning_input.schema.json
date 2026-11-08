@@ -1,0 +1,93 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/meaning_input.schema.json",
+ "title": "mvh/files/meaning_input",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "song": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "artist": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "duration_s": {
+     "type": "number",
+     "x-unit": "s"
+    }
+   },
+   "required": [
+    "artist",
+    "duration_s",
+    "title"
+   ]
+  },
+  "sections": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Section id",
+      "pattern": "^S\\d{2,}$"
+     },
+     "t": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "d": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "duration in seconds",
+      "minimum": 0
+     },
+     "label": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "d",
+     "id",
+     "label",
+     "t"
+    ]
+   }
+  },
+  "facts": {
+   "type": "object",
+   "properties": {},
+   "required": [],
+   "description": "facts the draft may cite"
+  },
+  "lines_file": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "lyrics/lines.tsv, or null with --no-lyrics-to-agents"
+  }
+ },
+ "required": [
+  "facts",
+  "lines_file",
+  "schema_version",
+  "sections",
+  "song"
+ ]
+}

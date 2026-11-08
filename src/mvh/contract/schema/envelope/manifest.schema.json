@@ -1,0 +1,347 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/manifest.schema.json",
+ "title": "mvh/envelope/manifest",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/manifest"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "mvh_version": {
+   "type": "string"
+  },
+  "contract_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "slug": {
+   "type": "string",
+   "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+  },
+  "source": {
+   "type": "object",
+   "properties": {
+    "file_name": {
+     "type": "string"
+    },
+    "pcm_sha256": {
+     "type": "string",
+     "description": "sha256 (hex)",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "duration_s": {
+     "type": "number",
+     "x-unit": "s",
+     "minimum": 0
+    },
+    "sample_rate": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "channels": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "n_samples": {
+     "type": "integer",
+     "minimum": 0
+    }
+   },
+   "required": [
+    "channels",
+    "duration_s",
+    "file_name",
+    "n_samples",
+    "pcm_sha256",
+    "sample_rate"
+   ]
+  },
+  "timebase": {
+   "type": "object",
+   "properties": {
+    "unit": {
+     "const": "s"
+    },
+    "origin": {
+     "type": "string"
+    },
+    "soundtrack": {
+     "type": "string",
+     "description": "audio/mix.flac (or audio/mix.wav when |x| > 1)"
+    },
+    "curve_rate_hz": {
+     "const": 100
+    },
+    "frame_rule": {
+     "const": "centred"
+    }
+   },
+   "required": [
+    "curve_rate_hz",
+    "frame_rule",
+    "origin",
+    "soundtrack",
+    "unit"
+   ]
+  },
+  "status": {
+   "type": "object",
+   "properties": {
+    "stages": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string",
+      "enum": [
+       "done",
+       "degraded",
+       "skipped",
+       "failed",
+       "pending",
+       "stale"
+      ]
+     }
+    },
+    "meaning": {
+     "type": "string",
+     "enum": [
+      "user",
+      "draft",
+      "pending"
+     ]
+    },
+    "lyrics_grade": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "A (best) .. D",
+     "enum": [
+      "A",
+      "B",
+      "C",
+      "D",
+      null
+     ]
+    },
+    "stems": {
+     "type": "boolean"
+    },
+    "visemes": {
+     "type": "boolean"
+    },
+    "flags": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "low-confidence and QA flags"
+    }
+   },
+   "required": [
+    "flags",
+    "lyrics_grade",
+    "meaning",
+    "stages",
+    "stems",
+    "visemes"
+   ]
+  },
+  "summary": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "artist": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "duration_s": {
+     "type": "number",
+     "x-unit": "s"
+    },
+    "bpm": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "BPM"
+    },
+    "feel": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "enum": [
+      "normal",
+      "half_time",
+      "double_time",
+      null
+     ]
+    },
+    "meter": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "e.g. 4/4"
+    },
+    "key": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "integrated_lufs": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "LUFS"
+    },
+    "lra_lu": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "LU"
+    },
+    "true_peak_dbtp": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "dBTP"
+    },
+    "vocal_range": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "properties": {
+      "low": {
+       "type": "string",
+       "description": "note name"
+      },
+      "high": {
+       "type": "string",
+       "description": "note name"
+      }
+     },
+     "required": [
+      "high",
+      "low"
+     ]
+    },
+    "instrumentation": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "maxItems": 16
+    },
+    "palette": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "description": "colour as #rrggbb",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+     },
+     "maxItems": 12
+    },
+    "stages": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "object",
+      "properties": {},
+      "required": []
+     },
+     "description": "per-stage scalars (StageResult.summary)"
+    }
+   },
+   "required": [
+    "artist",
+    "bpm",
+    "duration_s",
+    "feel",
+    "instrumentation",
+    "integrated_lufs",
+    "key",
+    "lra_lu",
+    "meter",
+    "palette",
+    "title",
+    "true_peak_dbtp",
+    "vocal_range"
+   ]
+  },
+  "files": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "curve",
+       "matrix",
+       "events",
+       "table",
+       "audio",
+       "midi",
+       "text",
+       "json"
+      ]
+     },
+     "stage": {
+      "type": "string"
+     },
+     "events": {
+      "type": "string",
+      "description": "events name when the path is not events/<name>.json"
+     }
+    },
+    "required": [
+     "kind",
+     "path",
+     "stage"
+    ]
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "required": [
+  "contract_version",
+  "files",
+  "mvh_version",
+  "schema",
+  "schema_version",
+  "slug",
+  "source",
+  "status",
+  "summary",
+  "timebase",
+  "warnings"
+ ],
+ "description": "manifest.json: index only, no data arrays, <= 3k tokens"
+}

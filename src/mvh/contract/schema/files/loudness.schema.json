@@ -1,0 +1,86 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/loudness.schema.json",
+ "title": "mvh/files/loudness",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "integrated_lufs": {
+   "type": "number",
+   "x-unit": "LUFS"
+  },
+  "lra_lu": {
+   "type": "number",
+   "x-unit": "LU"
+  },
+  "lra_low_lufs": {
+   "type": "number",
+   "x-unit": "LUFS"
+  },
+  "lra_high_lufs": {
+   "type": "number",
+   "x-unit": "LUFS"
+  },
+  "true_peak_dbtp": {
+   "type": "number",
+   "x-unit": "dBTP"
+  },
+  "sample_peak_db": {
+   "type": "number",
+   "x-unit": "dBFS"
+  },
+  "plr_db": {
+   "type": "number",
+   "x-unit": "dB"
+  },
+  "ebur128": {
+   "type": "object",
+   "properties": {
+    "integrated_lufs": {
+     "type": "number",
+     "x-unit": "LUFS"
+    },
+    "lra_lu": {
+     "type": "number",
+     "x-unit": "LU"
+    },
+    "true_peak_dbtp": {
+     "type": "number",
+     "x-unit": "dBTP"
+    },
+    "diff_lu": {
+     "type": "number",
+     "x-unit": "LU"
+    }
+   },
+   "required": []
+  },
+  "clipped_samples": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "curve_offsets_s": {
+   "type": "object",
+   "properties": {
+    "momentary": {
+     "type": "number",
+     "x-unit": "s"
+    },
+    "short_term": {
+     "type": "number",
+     "x-unit": "s"
+    }
+   },
+   "required": []
+  }
+ },
+ "required": [
+  "integrated_lufs",
+  "lra_high_lufs",
+  "lra_low_lufs",
+  "lra_lu",
+  "plr_db",
+  "sample_peak_db",
+  "true_peak_dbtp"
+ ]
+}

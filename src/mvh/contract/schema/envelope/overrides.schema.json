@@ -1,0 +1,196 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/overrides.schema.json",
+ "title": "mvh/envelope/overrides",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/overrides"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "rhythm": {
+   "type": "object",
+   "properties": {
+    "beat_offset_s": {
+     "type": "number",
+     "x-unit": "s",
+     "description": "shift of the whole beat grid"
+    },
+    "bpm": {
+     "type": "number",
+     "x-unit": "BPM",
+     "description": "forced global tempo",
+     "minimum": 1
+    },
+    "downbeat_phase": {
+     "type": "integer",
+     "description": "beats to rotate the bar numbering by"
+    }
+   },
+   "required": []
+  },
+  "structure": {
+   "type": "object",
+   "properties": {
+    "boundaries": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s"
+       },
+       "action": {
+        "type": "string",
+        "enum": [
+         "add",
+         "remove",
+         "move"
+        ]
+       },
+       "to_t": {
+        "type": "number",
+        "x-unit": "s"
+       }
+      },
+      "required": [
+       "action",
+       "t"
+      ]
+     },
+     "description": "edits anchored by time"
+    },
+    "labels": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "any time inside the section"
+       },
+       "label": {
+        "type": "string",
+        "pattern": "^[a-z][a-z-]*$"
+       }
+      },
+      "required": [
+       "label",
+       "t"
+      ]
+     }
+    }
+   },
+   "required": []
+  },
+  "lyrics": {
+   "type": "object",
+   "properties": {
+    "lines": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "object",
+      "properties": {
+       "dt": {
+        "type": "number",
+        "x-unit": "s"
+       }
+      },
+      "required": [
+       "dt"
+      ]
+     },
+     "propertyNames": {
+      "pattern": "^L\\d{3,}$"
+     },
+     "description": "line id -> nudge"
+    },
+    "words": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "dt": {
+        "type": "number",
+        "x-unit": "s"
+       }
+      },
+      "required": []
+     },
+     "propertyNames": {
+      "pattern": "^L\\d{3,}\\.\\d{2,}$"
+     },
+     "description": "word id -> timing"
+    }
+   },
+   "required": []
+  },
+  "voices": {
+   "type": "object",
+   "properties": {
+    "lines": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string",
+      "description": "Voice cluster (one singing or rapping voice) id",
+      "pattern": "^V[1-9]\\d*$"
+     },
+     "propertyNames": {
+      "pattern": "^L\\d{3,}$"
+     },
+     "description": "line id -> voice id"
+    }
+   },
+   "required": []
+  },
+  "cues": {
+   "type": "object",
+   "properties": {
+    "pinned": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "note": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "t"
+      ]
+     }
+    }
+   },
+   "required": []
+  }
+ },
+ "required": [],
+ "description": "overrides.json: user corrections (viewer edit mode or by hand); keys map to StageSpec.override_keys"
+}

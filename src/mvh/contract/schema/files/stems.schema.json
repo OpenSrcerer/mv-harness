@@ -1,0 +1,79 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/stems.schema.json",
+ "title": "mvh/files/stems",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "stems": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "present": {
+      "type": "boolean"
+     },
+     "active_ratio": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "median_rms_db": {
+      "type": "number",
+      "x-unit": "dBFS"
+     },
+     "peak_db": {
+      "type": "number",
+      "x-unit": "dBFS"
+     },
+     "share_of_mix_db": {
+      "type": "number",
+      "x-unit": "dB"
+     }
+    },
+    "required": [
+     "active_ratio",
+     "median_rms_db",
+     "peak_db",
+     "present",
+     "share_of_mix_db"
+    ]
+   },
+   "propertyNames": {
+    "pattern": "^[a-z_]+$"
+   }
+  },
+  "thresholds": {
+   "type": "object",
+   "properties": {
+    "active_db": {
+     "type": "number",
+     "x-unit": "dBFS"
+    },
+    "within_db": {
+     "type": "number",
+     "x-unit": "dB"
+    },
+    "attack_ms": {
+     "type": "number",
+     "x-unit": "ms"
+    },
+    "release_ms": {
+     "type": "number",
+     "x-unit": "ms"
+    }
+   },
+   "required": [
+    "active_db",
+    "attack_ms",
+    "release_ms",
+    "within_db"
+   ]
+  }
+ },
+ "required": [
+  "stems",
+  "thresholds"
+ ]
+}

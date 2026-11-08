@@ -1,0 +1,3 @@
+tensorflow; sys_platform == "never"
+onnxruntime; sys_platform == "never"
+resampy>=0.4.3

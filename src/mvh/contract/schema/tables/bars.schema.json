@@ -1,0 +1,109 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/tables/bars.schema.json",
+ "title": "mvh/tables/bars",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "bar": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "t": {
+   "type": "number",
+   "x-unit": "s",
+   "description": "time in seconds from the first sample of audio/mix.flac"
+  },
+  "d": {
+   "type": "number",
+   "x-unit": "s",
+   "description": "duration in seconds",
+   "minimum": 0
+  },
+  "beats_in_bar": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "n_beats": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "pickup": {
+   "type": "boolean"
+  },
+  "in_pulse": {
+   "type": "boolean"
+  },
+  "section_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Section id",
+   "pattern": "^S\\d{2,}$"
+  },
+  "phrase_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Phrase (4/8/16 bars) id",
+   "pattern": "^P\\d{2,}$"
+  },
+  "groove_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Groove (per-bar pattern cluster) id",
+   "pattern": "^G\\d{2,}$"
+  },
+  "swing": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "ratio"
+  },
+  "syncopation": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  }
+ },
+ "required": [
+  "bar",
+  "beats_in_bar",
+  "d",
+  "groove_id",
+  "in_pulse",
+  "n_beats",
+  "phrase_id",
+  "pickup",
+  "section_id",
+  "swing",
+  "syncopation",
+  "t"
+ ],
+ "x-columns": [
+  "bar",
+  "t",
+  "d",
+  "beats_in_bar",
+  "n_beats",
+  "pickup",
+  "in_pulse",
+  "section_id",
+  "phrase_id",
+  "groove_id",
+  "swing",
+  "syncopation"
+ ],
+ "x-sep": ",",
+ "x-format": "csv",
+ "description": "one row per bar (from events/bars.json, joined with sections, phrases and grooves). Row schema after coercion (schemas.coerce_row): empty cell = null, booleans 0/1, UTF-8 without BOM, LF, header row first."
+}

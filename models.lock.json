@@ -1,0 +1,949 @@
+{
+  "schema": 1,
+  "generated_by": "scripts/fetch_models.py",
+  "models_dir": "%LOCALAPPDATA%\\mvh\\models",
+  "models": [
+    {
+      "id": "allin1_harmonix",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "allin1/harmonix-fold0-0vra4ys2.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold0-0vra4ys2.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "0db596dfb0995f41d62f6267d76a9d54c046f1649bd35e1dbeca0c5f9a7b8acd",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold1-3ozjhtsj.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold1-3ozjhtsj.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "607b4864eaabccd4f6951410d5ea6676666ad1cfa6ce2e18bc99f3824b77c3b7",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold2-gmgo0nsy.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold2-gmgo0nsy.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "67c28ec7ca612d365e5fcb152f6530eb53e34c4303940afb30fd17a295c958a4",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold3-i92b7m8p.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold3-i92b7m8p.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "446d05672b2669cdb7d9b8bbbc228a4f3592484335a7995cca89a744e3950ddc",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold4-1bql5qo0.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold4-1bql5qo0.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "96327222ab9b33c005388b788ba602f529aa03cc4dde1c859c011f1004490493",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold5-x4z5zeef.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold5-x4z5zeef.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "c87f162a1090290bcbb863688746784919cf912c56744fb3d81a1a7dba3b114e",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold6-x7t226rq.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold6-x7t226rq.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "13e7e639bf30fcd3fa049ad863088773a4e57b06d7c68581385b3ef625c60688",
+          "size": 1400571
+        },
+        {
+          "path": "allin1/harmonix-fold7-qwwskhg6.pth",
+          "url": "https://huggingface.co/taejunkim/allinone/resolve/379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19/harmonix-fold7-qwwskhg6.pth",
+          "revision": "379e5fd010b3fdd0ee8381ff8cbcfa51d70b5c19",
+          "sha256": "b888b7fba95efa3d5a37ca013fe7efe2741621ea9ca335e6b2723e4fd0fade57",
+          "size": 1400571
+        }
+      ],
+      "licence": "MIT (taejunkim/allinone)",
+      "used_by": [
+        "allin1",
+        "structure"
+      ],
+      "notes": "8 harmonix folds (harmonix-all ensemble). allin1_infer loads via hf_hub_download(cache_dir=...).",
+      "source": "huggingface.co/taejunkim/allinone"
+    },
+    {
+      "id": "basic_pitch_nmp_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "venv:Lib/site-packages/basic_pitch/saved_models/icassp_2022/nmp.onnx",
+          "url": "https://pypi.org/project/basic-pitch/0.4.0/",
+          "revision": "basic-pitch==0.4.0",
+          "sha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+          "size": 230444
+        }
+      ],
+      "licence": "Apache-2.0",
+      "used_by": [
+        "notes"
+      ],
+      "bundled": true
+    },
+    {
+      "id": "beat_this",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "beat_this/final0.ckpt",
+          "url": "https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331",
+          "size": 81058141
+        },
+        {
+          "path": "beat_this/small0.ckpt",
+          "url": "https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/small0.ckpt",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "6074be2c4d490c5f6101fcc374a1ec72ae93456e23bb6019783b849f5dc7d47b",
+          "size": 8451101
+        }
+      ],
+      "licence": "MIT (code); checkpoints published by CPJKU with the repo",
+      "used_by": [
+        "rhythm",
+        "allin1"
+      ],
+      "notes": "Pass the local path to beat_this.inference.load_model/Audio2Frames; library default would torch.hub download."
+    },
+    {
+      "id": "ced_base_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "ced-base/model.onnx",
+          "url": "https://huggingface.co/mispeech/ced-base/resolve/db3e14a8db4c21b56b165261c39649741a900e7f/model.onnx",
+          "revision": "db3e14a8db4c21b56b165261c39649741a900e7f",
+          "sha256": "1cb33c4300b6c52ae099a5af72058982e673ec79862855961b8b8c10eeaba74c",
+          "size": 86870208
+        },
+        {
+          "path": "ced-base/config.json",
+          "url": "https://huggingface.co/mispeech/ced-base/resolve/db3e14a8db4c21b56b165261c39649741a900e7f/config.json",
+          "revision": "db3e14a8db4c21b56b165261c39649741a900e7f",
+          "sha256": "ac55e3cecfd75f3cd2e1b1a22ad3f74b4b197655efd7e3a14dd5228293b32dfb",
+          "size": 25059
+        },
+        {
+          "path": "ced-base/preprocessor_config.json",
+          "url": "https://huggingface.co/mispeech/ced-base/resolve/db3e14a8db4c21b56b165261c39649741a900e7f/preprocessor_config.json",
+          "revision": "db3e14a8db4c21b56b165261c39649741a900e7f",
+          "sha256": "668fbf4f00f9e3915de04fc07a621434ef1746b933662840623a9701291ca55a",
+          "size": 384
+        }
+      ],
+      "licence": "Apache-2.0",
+      "used_by": [
+        "instruments"
+      ],
+      "source": "huggingface.co/mispeech/ced-base"
+    },
+    {
+      "id": "clap_larger_music_speech_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "clap-larger-music-speech/onnx/audio_model_quantized.onnx",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/onnx/audio_model_quantized.onnx",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "021dd4fb962b4ed20cc3a6730b09e0ccf9f9c49931047032118a3b64828513a6",
+          "size": 78155433
+        },
+        {
+          "path": "clap-larger-music-speech/onnx/text_model_quantized.onnx",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/onnx/text_model_quantized.onnx",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "8f9f29c5f6adee917553d4b3a70729c731c0d18b88efca0ae67c1a1fc278f3b6",
+          "size": 126603262
+        },
+        {
+          "path": "clap-larger-music-speech/config.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/config.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "82a388031546d4dd20069ed73a39990baf033fa5f3b057386bc05ed09ece3322",
+          "size": 596
+        },
+        {
+          "path": "clap-larger-music-speech/preprocessor_config.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/preprocessor_config.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "9739f58296aa6f9ac18008fd0150fb2649bc554985fbde86d0a4041c882ac753",
+          "size": 541
+        },
+        {
+          "path": "clap-larger-music-speech/tokenizer.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/tokenizer.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "dc239041d98de27ffc3975473a1a23e3db4c937b23c138c38bbc66588bd247e5",
+          "size": 2108774
+        },
+        {
+          "path": "clap-larger-music-speech/tokenizer_config.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/tokenizer_config.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "2c964a338683aec3695ea37687271e75b40905233f5d2a5bbb9be8cb40c4d0a0",
+          "size": 1392
+        },
+        {
+          "path": "clap-larger-music-speech/vocab.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/vocab.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "ed19656ea1707df69134c4af35c8ceda2cc9860bf2c3495026153a133670ab5e",
+          "size": 798293
+        },
+        {
+          "path": "clap-larger-music-speech/merges.txt",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/merges.txt",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
+          "size": 456318
+        },
+        {
+          "path": "clap-larger-music-speech/special_tokens_map.json",
+          "url": "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/e9fd5ac1dbf3280936a7fc3ec8a020453ff184db/special_tokens_map.json",
+          "revision": "e9fd5ac1dbf3280936a7fc3ec8a020453ff184db",
+          "sha256": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835",
+          "size": 964
+        }
+      ],
+      "licence": "Apache-2.0 (LAION CLAP)",
+      "used_by": [
+        "instruments"
+      ],
+      "notes": "DEVIATION: Xenova has no 'larger_clap_music' ONNX export; music_and_speech is the Xenova ONNX of the LAION larger CLAP (survey choice).",
+      "source": "huggingface.co/Xenova/larger_clap_music_and_speech"
+    },
+    {
+      "id": "demucs_onnx_htdemucs",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "demucs-onnx/htdemucs-onnx/htdemucs_fp16weights.onnx",
+          "url": "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/d54ed9eb60e258ea82131c6ee14578628816456a/htdemucs_fp16weights.onnx",
+          "revision": "d54ed9eb60e258ea82131c6ee14578628816456a",
+          "sha256": "d05c269d0178d2a72ad484b10b11dd370193fc923201c3b27a99f848745db70a",
+          "size": 165612636
+        }
+      ],
+      "licence": "MIT (package); weight licence unclear (Demucs weights)",
+      "used_by": [
+        "separate_fast"
+      ],
+      "source": "huggingface.co/StemSplitio/htdemucs-onnx"
+    },
+    {
+      "id": "demucs_onnx_htdemucs_6s",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "demucs-onnx/htdemucs-6s-onnx/htdemucs_6s_fp16weights.onnx",
+          "url": "https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx",
+          "revision": "49df9b6989cf2150840ea65b0bef77a2e471b678",
+          "sha256": "7ce55792e2231c93fbf92de95f5fd5b3a5e6c89f7db690dfd693e8f1dce56869",
+          "size": 136428532
+        }
+      ],
+      "licence": "MIT (package); weights probably CC-BY-NC (htdemucs_6s)",
+      "used_by": [
+        "separate_fast"
+      ],
+      "source": "huggingface.co/StemSplitio/htdemucs-6s-onnx"
+    },
+    {
+      "id": "essentia_discogs_effnet",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "essentia/discogs-effnet-bsdynamic-1.onnx",
+          "url": "https://essentia.upf.edu/models/music-style-classification/discogs-effnet/discogs-effnet-bsdynamic-1.onnx",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "a280825b334797cf677939db8cd5762c0392aedd0ca6415dbc1cd083f045e43c",
+          "size": 18027718
+        },
+        {
+          "path": "essentia/discogs-effnet-bsdynamic-1.json",
+          "url": "https://essentia.upf.edu/models/music-style-classification/discogs-effnet/discogs-effnet-bsdynamic-1.json",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "1e140159496f7f932e4267b478e246bd60fbd526a7a67d3e12684a2978916420",
+          "size": 14995
+        },
+        {
+          "path": "essentia/mtg_jamendo_moodtheme-discogs-effnet-1.onnx",
+          "url": "https://essentia.upf.edu/models/classification-heads/mtg_jamendo_moodtheme/mtg_jamendo_moodtheme-discogs-effnet-1.onnx",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "7d6270acaa5f4bba4b115a0d6849aca05ed6bd153dcb6d9da4f6ab9f99ef10ff",
+          "size": 2739322
+        },
+        {
+          "path": "essentia/mtg_jamendo_moodtheme-discogs-effnet-1.json",
+          "url": "https://essentia.upf.edu/models/classification-heads/mtg_jamendo_moodtheme/mtg_jamendo_moodtheme-discogs-effnet-1.json",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "d62cd90263e4d613fa7fcce7a831e339450394794af63685f96e065c1a896ab0",
+          "size": 3646
+        }
+      ],
+      "licence": "CC-BY-NC-ND-4.0",
+      "used_by": [
+        "mood",
+        "instruments"
+      ]
+    },
+    {
+      "id": "essentia_msd_musicnn",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "essentia/msd-musicnn-1.onnx",
+          "url": "https://essentia.upf.edu/models/autotagging/msd/msd-musicnn-1.onnx",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "49668ffec47e52e94b96f45930bb46a28a1368d4bdfb5c05378fa834aca616e1",
+          "size": 3168334
+        },
+        {
+          "path": "essentia/msd-musicnn-1.json",
+          "url": "https://essentia.upf.edu/models/autotagging/msd/msd-musicnn-1.json",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "24842b068b5c09dce033a0bcb41d450e4e469352b799e831ac7728c93bbfb6be",
+          "size": 3298
+        },
+        {
+          "path": "essentia/emomusic-msd-musicnn-2.onnx",
+          "url": "https://essentia.upf.edu/models/classification-heads/emomusic/emomusic-msd-musicnn-2.onnx",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "f9e6ac891f07c30d8b8d53b93a760f9bd0c7c45686241b5a4386ce34cda66407",
+          "size": 82012
+        },
+        {
+          "path": "essentia/emomusic-msd-musicnn-2.json",
+          "url": "https://essentia.upf.edu/models/classification-heads/emomusic/emomusic-msd-musicnn-2.json",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "fe393417b709080582201f15624460882702d596b534344d00f7a256db87c5a8",
+          "size": 2715
+        },
+        {
+          "path": "essentia/deam-msd-musicnn-2.onnx",
+          "url": "https://essentia.upf.edu/models/classification-heads/deam/deam-msd-musicnn-2.onnx",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "2cb8f33f188d73fcb651f7c065b049959166c7852f454a59c13e66fe2c092bde",
+          "size": 82032
+        },
+        {
+          "path": "essentia/deam-msd-musicnn-2.json",
+          "url": "https://essentia.upf.edu/models/classification-heads/deam/deam-msd-musicnn-2.json",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "079df8d538d093ba35c34b7fbee01ff2773c4469be5281520f55d585295a3c58",
+          "size": 2698
+        }
+      ],
+      "licence": "CC-BY-NC-ND-4.0",
+      "used_by": [
+        "mood"
+      ]
+    },
+    {
+      "id": "faster_whisper_large_v3",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "faster-whisper/large-v3/config.json",
+          "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/config.json",
+          "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+          "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9",
+          "size": 2394
+        },
+        {
+          "path": "faster-whisper/large-v3/model.bin",
+          "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/model.bin",
+          "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+          "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1",
+          "size": 3087284237
+        },
+        {
+          "path": "faster-whisper/large-v3/preprocessor_config.json",
+          "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/preprocessor_config.json",
+          "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+          "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+          "size": 340
+        },
+        {
+          "path": "faster-whisper/large-v3/tokenizer.json",
+          "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/tokenizer.json",
+          "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+          "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca",
+          "size": 2480617
+        },
+        {
+          "path": "faster-whisper/large-v3/vocabulary.json",
+          "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/vocabulary.json",
+          "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+          "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1",
+          "size": 1068114
+        }
+      ],
+      "licence": "MIT",
+      "used_by": [
+        "lyrics"
+      ],
+      "notes": "WhisperModel(<dest dir>, device='cpu', compute_type='int8'); also used by stable-ts load_faster_whisper.",
+      "source": "huggingface.co/Systran/faster-whisper-large-v3"
+    },
+    {
+      "id": "lv_chordia_ismir2019_chordnet",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "venv:share/lv-chordia/cache_data/joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s0.best.sdict",
+          "url": "https://pypi.org/project/lv-chordia/1.1.0/",
+          "revision": "lv-chordia==1.1.0",
+          "sha256": "921b42d5d1cf9ce1c0c0e45a74d409b8066e0acec46058ef74e24ee0fb540761",
+          "size": 5746183
+        },
+        {
+          "path": "venv:share/lv-chordia/cache_data/joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s1.best.sdict",
+          "url": "https://pypi.org/project/lv-chordia/1.1.0/",
+          "revision": "lv-chordia==1.1.0",
+          "sha256": "bcb75859e0efa256696cf5da396b320093317b9b1d9560c304f46c25fe1f8b17",
+          "size": 5746175
+        },
+        {
+          "path": "venv:share/lv-chordia/cache_data/joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s2.best.sdict",
+          "url": "https://pypi.org/project/lv-chordia/1.1.0/",
+          "revision": "lv-chordia==1.1.0",
+          "sha256": "acddf85c3fff29954c4877021177d72e2cba9f729ce80c1010f054c477bf3f61",
+          "size": 5746179
+        },
+        {
+          "path": "venv:share/lv-chordia/cache_data/joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s3.best.sdict",
+          "url": "https://pypi.org/project/lv-chordia/1.1.0/",
+          "revision": "lv-chordia==1.1.0",
+          "sha256": "65d81a3ab73435aaaade586981b4cabdf57b8953d76052703e6968c32ef8421c",
+          "size": 5746175
+        },
+        {
+          "path": "venv:share/lv-chordia/cache_data/joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s4.best.sdict",
+          "url": "https://pypi.org/project/lv-chordia/1.1.0/",
+          "revision": "lv-chordia==1.1.0",
+          "sha256": "5ff6b0ec85640e17a09a9b3de68c93fdd45adc24488e8fa9be5715c28d561122",
+          "size": 5746227
+        }
+      ],
+      "licence": "MIT (code); weights from the ISMIR2019 LV chord repo",
+      "used_by": [
+        "harmony"
+      ],
+      "bundled": true
+    },
+    {
+      "id": "madmom_downbeats_blstm",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_1.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_1.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "b02c4b8aa963069449422fd5cc55bd4077105fe268b0d83036b7d68b5520f38d",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_2.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_2.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "6fa9d138ed84bed14ab5ef6f81f3a7e1a125ff8c571a255f6ce91ccf93390eee",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_3.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_3.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "adf6a3e3bf345a9172e8252a511dae28622afe26ee653354c0d4c9e37de8f89a",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_4.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_4.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "a4f9a09b1588ca74b0157251364650d3fe81e383019b5986941415e08b37fcde",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_5.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_5.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "e40aea9b8221babaf14a9211a48dccc3ebcecdf8bcd6d62d60f0949445de9bb6",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_6.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_6.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "89b6854c5d6b2381687731aedc9bce6c84894021d1c2eeb60d161cefe997d68c",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_7.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_7.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "371a319a66d32bee6ab8d4a15f6ae9e4ee22ff97b4276736bab93d9a994c06c1",
+          "size": 409619
+        },
+        {
+          "path": "xdg/madmom_infer/models/downbeats/2016/downbeats_blstm_8.pkl",
+          "url": "https://raw.githubusercontent.com/CPJKU/madmom_models/7e3dc1b0cad499792767074d03c38b194b9b0a79/downbeats/2016/downbeats_blstm_8.pkl",
+          "revision": "CPJKU/madmom_models@7e3dc1b0",
+          "sha256": "a0d20e1922872a3e5b74df451d8b5701de6ca88d9f5739f313fb2991d7a84c77",
+          "size": 409619
+        }
+      ],
+      "licence": "CC-BY-NC-SA-4.0 (madmom models)",
+      "used_by": [
+        "rhythm"
+      ],
+      "notes": "madmom_infer.models.download(cache_root=<dest>) verifies the same sha256 values (embedded in the library). Found via XDG_CACHE_HOME=<models dir>/xdg (set by mvh-env.ps1)."
+    },
+    {
+      "id": "mms_fa",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "mms_fa/model.pt",
+          "url": "https://dl.fbaipublicfiles.com/mms/torchaudio/ctc_alignment_mling_uroman/model.pt",
+          "revision": "unversioned (sha256-pinned)",
+          "sha256": "20ef12963ab4924bef49ac4fc7f58ad5da2ee43b2c11bc8c853c9b90ecdbc680",
+          "size": 1262047414
+        }
+      ],
+      "licence": "CC-BY-NC-4.0 (MMS weights)",
+      "used_by": [
+        "lyrics"
+      ],
+      "notes": "torchaudio.pipelines.MMS_FA.get_model(with_star=True, dl_kwargs={'model_dir': <dest>}) finds model.pt there."
+    },
+    {
+      "id": "nltk_g2p_data",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "nltk/taggers/averaged_perceptron_tagger.zip",
+          "url": "https://raw.githubusercontent.com/nltk/nltk_data/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/packages/taggers/averaged_perceptron_tagger.zip",
+          "revision": "nltk/nltk_data@550b6625",
+          "sha256": "e1f13cf2532daadfd6f3bc481a49859f0b8ea6432ccdcd83e6a49a5f19008de9",
+          "size": 2526731
+        },
+        {
+          "path": "nltk/taggers/averaged_perceptron_tagger_eng.zip",
+          "url": "https://raw.githubusercontent.com/nltk/nltk_data/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/packages/taggers/averaged_perceptron_tagger_eng.zip",
+          "revision": "nltk/nltk_data@550b6625",
+          "sha256": "6025f530624335c67d6547d44757b357b4e79bae030a0383e9887a92c1718f0b",
+          "size": 1539115
+        },
+        {
+          "path": "nltk/corpora/cmudict.zip",
+          "url": "https://raw.githubusercontent.com/nltk/nltk_data/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/packages/corpora/cmudict.zip",
+          "revision": "nltk/nltk_data@550b6625",
+          "sha256": "d07cca47fd72ad32ea9d8ad1219f85301eeaf4568f8b6b73747506a71fb5afd6",
+          "size": 896069
+        }
+      ],
+      "licence": "Apache-2.0 / BSD (nltk_data, cmudict)",
+      "used_by": [
+        "lipsync"
+      ],
+      "notes": "g2p-en downloads these at import; files live in NLTK_DATA (=%LOCALAPPDATA%\\mvh\\nltk) with the unzipped folders beside them."
+    },
+    {
+      "id": "piano_transcription_crnn",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "piano_transcription/note_F1=0.9677_pedal_F1=0.9186.pth",
+          "url": "https://zenodo.org/records/4034264/files/CRNN_note_F1=0.9677_pedal_F1=0.9186.pth",
+          "revision": "zenodo:4034264",
+          "sha256": "c3fa9730725bf4a762f1c14bc80cd5986eacda01b026f5a4a2525cd607876141",
+          "size": 171966578
+        }
+      ],
+      "licence": "Apache-2.0 (code); checkpoint on Zenodo 4034264 (CC-BY-4.0)",
+      "used_by": [
+        "notes"
+      ],
+      "notes": "Pass checkpoint_path explicitly to PianoTranscription (default would wget into ~)."
+    },
+    {
+      "id": "rhubarb_lip_sync",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "downloads/Rhubarb-Lip-Sync-1.14.0-Windows.zip",
+          "url": "https://github.com/DanielSWolf/rhubarb-lip-sync/releases/download/v1.14.0/Rhubarb-Lip-Sync-1.14.0-Windows.zip",
+          "revision": "v1.14.0",
+          "sha256": "62fa416a8d5e382a3828ee4bef358ce520d0b4cabdeaea75a7ac266d098d1fe3",
+          "size": 87374842
+        }
+      ],
+      "licence": "MIT",
+      "used_by": [
+        "lipsync"
+      ],
+      "notes": "Official release, no published digest: sha256 is trust-on-first-use, recorded here. Unpacked to %LOCALAPPDATA%\\mvh\\bin\\rhubarb."
+    },
+    {
+      "id": "rmvpe_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "rmvpe/rmvpe.onnx",
+          "url": "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/e6d0c1a17da07c33557852f9dfa2bd44cc75737d/rmvpe.onnx",
+          "revision": "e6d0c1a17da07c33557852f9dfa2bd44cc75737d",
+          "sha256": "5370e71ac80af8b4b7c793d27efd51fd8bf962de3a7ede0766dac0befa3660fd",
+          "size": 361688443
+        }
+      ],
+      "licence": "MIT (RVC)",
+      "used_by": [
+        "vocals"
+      ],
+      "notes": "Library-expected sha256 5370e71a... is cross-checked in the smoke test.",
+      "source": "huggingface.co/lj1995/VoiceConversionWebUI"
+    },
+    {
+      "id": "skey_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "skey/skey.onnx",
+          "url": "https://huggingface.co/musetric/skey-onnx/resolve/9d90d2a9ff6679df1d64000f4fa750643f247643/skey.onnx",
+          "revision": "9d90d2a9ff6679df1d64000f4fa750643f247643",
+          "sha256": "5113c1378c1007c8559fcb767593366ba9794397b060535eb80a113db50530fc",
+          "size": 338482
+        },
+        {
+          "path": "skey/config.json",
+          "url": "https://huggingface.co/musetric/skey-onnx/resolve/9d90d2a9ff6679df1d64000f4fa750643f247643/config.json",
+          "revision": "9d90d2a9ff6679df1d64000f4fa750643f247643",
+          "sha256": "20be1e139e1b05dea4bae2e2dde717d593c10c30bb38b300aeedc6693be88a52",
+          "size": 712
+        }
+      ],
+      "licence": "Code MIT; weights NON-COMMERCIAL research only (Deezer README) despite HF card 'MIT'",
+      "used_by": [
+        "harmony"
+      ],
+      "notes": "Pinned HF revision of the community ONNX export of Deezer S-KEY (22.05 kHz mono peak-normalised input). NOT the PyPI 'skey' package.",
+      "source": "huggingface.co/musetric/skey-onnx"
+    },
+    {
+      "id": "speechbrain_ecapa_voxceleb",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "speaker/ecapa-voxceleb/embedding_model.ckpt",
+          "url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/embedding_model.ckpt",
+          "revision": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+          "sha256": "0575cb64845e6b9a10db9bcb74d5ac32b326b8dc90352671d345e2ee3d0126a2",
+          "size": 83316686
+        },
+        {
+          "path": "speaker/ecapa-voxceleb/classifier.ckpt",
+          "url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/classifier.ckpt",
+          "revision": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+          "sha256": "fd9e3634fe68bd0a427c95e354c0c677374f62b3f434e45b78599950d860d535",
+          "size": 5534328
+        },
+        {
+          "path": "speaker/ecapa-voxceleb/mean_var_norm_emb.ckpt",
+          "url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/mean_var_norm_emb.ckpt",
+          "revision": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+          "sha256": "cd70225b05b37be64fc5a95e24395d804231d43f74b2e1e5a513db7b69b34c33",
+          "size": 1921
+        },
+        {
+          "path": "speaker/ecapa-voxceleb/label_encoder.txt",
+          "url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/label_encoder.txt",
+          "revision": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+          "sha256": "e13c3a167bb4112685670ee896d20e2b565af16b3a4ceeaa8689fa4d22adb8b9",
+          "size": 128619
+        },
+        {
+          "path": "speaker/ecapa-voxceleb/hyperparams.yaml",
+          "url": "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/hyperparams.yaml",
+          "revision": "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286",
+          "sha256": "6f78854fa04ba59e761437b76a2575d3aba5e5016de3e9b69f0c9a5077fb1a41",
+          "size": 1919
+        }
+      ],
+      "licence": "Apache-2.0",
+      "used_by": [
+        "voices"
+      ],
+      "source": "huggingface.co/speechbrain/spkrec-ecapa-voxceleb"
+    },
+    {
+      "id": "swift_f0_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "venv:Lib/site-packages/swift_f0/model.onnx",
+          "url": "https://pypi.org/project/swift-f0/0.3.0/",
+          "revision": "swift-f0==0.3.0",
+          "sha256": "6385e8c2ebc3872e82c9ff5946228de44cd3be77a750ea53698b7dbfe94b0a22",
+          "size": 135090
+        }
+      ],
+      "licence": "MIT",
+      "used_by": [
+        "vocals"
+      ],
+      "bundled": true
+    },
+    {
+      "id": "wespeaker_resnet34_lm_onnx",
+      "envs": [
+        "main"
+      ],
+      "files": [
+        {
+          "path": "speaker/wespeaker-resnet34-lm/voxceleb_resnet34_LM.onnx",
+          "url": "https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/f0c48c298fd835726c27956a5d617bad7115627e/voxceleb_resnet34_LM.onnx",
+          "revision": "f0c48c298fd835726c27956a5d617bad7115627e",
+          "sha256": "7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068",
+          "size": 26530309
+        },
+        {
+          "path": "speaker/wespeaker-resnet34-lm/config.yaml",
+          "url": "https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/f0c48c298fd835726c27956a5d617bad7115627e/config.yaml",
+          "revision": "f0c48c298fd835726c27956a5d617bad7115627e",
+          "sha256": "3cf7d3243464cd939083e29d2be65c2abcdd954c1a64559bad73b74ffdb0db3e",
+          "size": 1673
+        }
+      ],
+      "licence": "CC-BY-4.0",
+      "used_by": [
+        "voices"
+      ],
+      "source": "huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM"
+    },
+    {
+      "id": "sep.bs-roformer-sw-6stem",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/BS-Roformer-SW.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/BS-Roformer-SW.ckpt",
+          "revision": "model-configs",
+          "sha256": "24e7d35ee9c64415673d3fd33e06a67cac2c103c5df6267ba1576459c775916e",
+          "size": 699412152
+        },
+        {
+          "path": "separator/BS-Roformer-SW.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/BS-Roformer-SW.yaml",
+          "revision": "model-configs",
+          "sha256": "b558996f1e25eb48798bd6502505a5de94c4f966d6edfb1a0420f06cc40b501a",
+          "size": 4653
+        }
+      ],
+      "licence": "CC-BY-NC-SA-4.0 per the survey (unblend model card for bs_roformer_sw); personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: BS Roformer SW by jarredou; arch MDXC"
+    },
+    {
+      "id": "sep.mel-roformer-vocals-kimberley",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/vocals_mel_band_roformer.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/vocals_mel_band_roformer.ckpt",
+          "revision": "model-configs",
+          "sha256": "87201f4d31afb5bc79993230fc49446918425574db48c01c405e44f365c7559e",
+          "size": 913106900
+        },
+        {
+          "path": "separator/vocals_mel_band_roformer.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/vocals_mel_band_roformer.yaml",
+          "revision": "model-configs",
+          "sha256": "b958b29c8f7195f0d86bee6759a33980db675c4ecaf2fcaa80fa125828e6cd38",
+          "size": 944
+        }
+      ],
+      "licence": "not verified in W0 (upstream card not read); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: MelBand Roformer | Vocals by Kimberley Jensen; arch MDXC"
+    },
+    {
+      "id": "sep.mel-roformer-karaoke-aufr33-viperx",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+          "revision": "model-configs",
+          "sha256": "1de20d459332fe8869aeb01327a31df0032262706e1365114e852dc271779813",
+          "size": 913096801
+        },
+        {
+          "path": "separator/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956_config.yaml",
+          "revision": "model-configs",
+          "sha256": "b35077d94861f068097cce1a5e54633c055e7dcc2613eade4e4dc7c7c9c3f48b",
+          "size": 1726
+        }
+      ],
+      "licence": "not verified in W0 (aufr33 + viperx via UVR model zoo); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq"
+      ],
+      "note": "audio-separator friendly name: Roformer Model: Mel-Roformer-Karaoke-Aufr33-Viperx; arch MDXC"
+    },
+    {
+      "id": "sep.mdx23c-drumsep",
+      "envs": [
+        "sep-rocm",
+        "sep-cpu"
+      ],
+      "files": [
+        {
+          "path": "separator/MDX23C-DrumSep-aufr33-jarredou.ckpt",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/MDX23C-DrumSep-aufr33-jarredou.ckpt",
+          "revision": "model-configs",
+          "sha256": "d2a4aa53eb584d21eead358a4e66d1882ad182911be018f052b5da73be9096d0",
+          "size": 437652699
+        },
+        {
+          "path": "separator/config_drumsep_mdx23c.yaml",
+          "url": "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs/config_drumsep_mdx23c.yaml",
+          "revision": "model-configs",
+          "sha256": "17d1649a227f841165bdb4c11a42082898192a1ea3ceab7e7e0b9293d6589dd6",
+          "size": 2417
+        }
+      ],
+      "licence": "unclear (survey: aufr33 + jarredou); treat as personal non-commercial use",
+      "used_by": [
+        "separate_hq",
+        "drums"
+      ],
+      "note": "audio-separator friendly name: MDX23C Model: MDX23C DrumSep by aufr33-jarredou; arch MDXC"
+    },
+    {
+      "id": "ggml.whisper-large-v3-turbo-q8_0",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-large-v3-turbo-q8_0.bin",
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q8_0.bin",
+          "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+          "sha256": "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",
+          "size": 874188075
+        }
+      ],
+      "licence": "MIT (OpenAI Whisper weights, converted by whisper.cpp)",
+      "used_by": [
+        "lyrics"
+      ]
+    },
+    {
+      "id": "ggml.whisper-large-v3",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-large-v3.bin",
+          "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3.bin",
+          "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+          "sha256": "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
+          "size": 3095033483
+        }
+      ],
+      "licence": "MIT (OpenAI Whisper weights, converted by whisper.cpp)",
+      "used_by": [
+        "lyrics"
+      ]
+    },
+    {
+      "id": "ggml.silero-vad-v5.1.2",
+      "envs": [
+        "main",
+        "ffmpeg-whisper"
+      ],
+      "files": [
+        {
+          "path": "ggml/ggml-silero-v5.1.2.bin",
+          "url": "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v5.1.2.bin",
+          "revision": "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
+          "sha256": "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf",
+          "size": 885098
+        }
+      ],
+      "licence": "MIT (Silero VAD v5.1.2, ggml conversion)",
+      "used_by": [
+        "lyrics"
+      ]
+    }
+  ]
+}

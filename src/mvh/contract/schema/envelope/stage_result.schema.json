@@ -1,0 +1,100 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/stage_result.schema.json",
+ "title": "mvh/envelope/stage_result",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/stage_result"
+  },
+  "stage": {
+   "type": "string"
+  },
+  "stage_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "ok",
+    "degraded",
+    "skipped",
+    "failed"
+   ]
+  },
+  "outputs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "sha256": {
+      "type": "string",
+      "description": "sha256 (hex)",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "bytes": {
+      "type": "integer",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "bytes",
+     "kind",
+     "path",
+     "sha256"
+    ]
+   }
+  },
+  "summary": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "fallbacks": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "confidence": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "provenance": {
+   "type": "object",
+   "properties": {},
+   "required": []
+  }
+ },
+ "required": [
+  "fallbacks",
+  "outputs",
+  "schema",
+  "stage",
+  "stage_version",
+  "status",
+  "summary",
+  "warnings"
+ ],
+ "description": "result.json written by a stage run (and by the sep worker)"
+}

@@ -1,0 +1,248 @@
+# ruff: noqa: E501  (long catalogue tables / docstrings)
+"""vocals stage (contract v1, owner M3b).
+
+What it does (PLAN §5 vocals, §4.4; docs/SPIKE.md):
+1. RMVPE (ONNX) on lead_vocals is the f0 ARBITER: a 100 Hz frame is voiced when RMVPE conf >= 0.3; SwiftF0 is the second
+   opinion that scales ``vocal.conf`` (agree / octave / other) and is never used for presence.
+2. Presence gate: voiced frames must also lie where the lead stem is active, loud enough (within 35 dB of its p99 and
+   above -55 dBFS) and where the instruments stage hears a VOICE (``inst.voice`` >= 0.35): a vocals stem alone is not
+   vocal presence (on MEGAFAUNA it carries synth leads).
+3. Short voiced islands (< 50 ms) are dropped and short octave islands folded back.
+4. Curves: ``vocal.f0_hz`` / ``vocal.midi`` (NaN unvoiced), ``vocal.voiced``, ``vocal.conf``, ``vocal.pitch01``
+   ((midi - p2)/(p98 - p2), held through gaps with a 150 ms ease, never NaN).
+5. Vocal notes (``events/notes.vocals.json``, ``notes/vocals.mid`` with the beat-grid tempo map), phrases
+   (``events/vocal_phrases.json``) and the range (``meta/vocal_range.json``): p2/p98, p10/p90 tessitura, median, the
+   lowest and highest SUSTAINED notes with times, register (male/female from CED on the lead stem + median pitch; low
+   confidence). ``present`` needs >= 8 voiced seconds of singing; when the lead vocal is mainly rap or speech
+   (instruments' vocal_style) the sung-range statistics are computed only over sung frames and are null when those are
+   fewer than 8 s (docs/SPIKE.md: f0 range statistics are not run on rap); the spoken pitch is reported separately.
+Lyrics coverage is not available here (lyrics is not a dependency of vocals in the DAG; CR-M3b-1).
+Human correction: ``--param vocals.present=true|false`` forces presence (range statistics then need only 1 s of frames) and
+``--param vocals.style="singing"|"speech"|"rap"`` replaces the tagger's dominant lead style (the statistics basis).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from mvh.runner.spec import StageResult, StageSpec, catalog_outputs
+
+STAGE = StageSpec(
+    "vocals",
+    ('separate_hq', 'stem_activity', 'instruments', 'rhythm'),
+    "main",
+    "1.0.0",
+    override_keys=(),
+    outputs=catalog_outputs("vocals"),
+    params={'min_voiced_s': 8.0, 'pitch01_ease_s': 0.15, 'rmvpe_gate': 0.3, 'swift_gate': 0.9, 'voice_gate': 0.35,
+            'level_floor_db': -55.0, 'level_below_peak_db': 35.0, 'phrase_gap_s': 0.45, 'min_spoken_s': 15.0,
+            'present': None, 'style': None},
+    models=("rmvpe_onnx", "swift_f0_onnx", "ced_base_onnx"),
+    module="M3b",
+    description='SwiftF0 + RMVPE on lead_vocals: f0, pitch01, voiced, range, phrases, vocal notes.',
+)
+
+
+def _style_mask(ctx, n: int) -> tuple[np.ndarray | None, dict[str, float]]:
+    """Per-frame style label (0 singing, 1 speech, 2 rap, -1 none) from events/vocal_style.json, and seconds per style."""
+    try:
+        items = ctx.events("vocal_style").items
+    except Exception:  # noqa: BLE001
+        return None, {}
+    lab = np.full(n, -1, np.int8)
+    secs = {"singing": 0.0, "speech": 0.0, "rap": 0.0}
+    code = {"singing": 0, "speech": 1, "rap": 2}
+    for it in items:
+        a, b = int(round(float(it["t"]) * 100)), int(round((float(it["t"]) + float(it["d"])) * 100))
+        lab[max(0, a): min(n, b)] = code.get(it["style"], -1)
+        secs[it["style"]] = secs.get(it["style"], 0.0) + float(it["d"])
+    return lab, secs
+
+
+def run(ctx) -> StageResult:
+    from mvh.stages.notes import post
+    from mvh.stages.notes.midi import smf_bytes, tempo_map_from_ctx
+
+    from . import pitch as P
+
+    prm = ctx.params
+    warnings: list[str] = []
+    notes_prov: list[str] = []
+    fallbacks: list[str] = []
+    mix = ctx.audio("mix")
+    n_samples, sr = int(mix.samples.shape[1]), int(mix.sr)
+    del mix
+    n = -(-n_samples * 100 // sr)
+    duration = n_samples / sr
+
+    y = ctx.audio("lead_vocals", sr=16000, mono=True).samples[0].astype(np.float32)
+    # ---------------------------------------------------------------- trackers
+    from rmvpe_onnx import RMVPE
+
+    rm = RMVPE(model_path=str(next(iter(ctx.model("rmvpe_onnx").files.values()))), device="cpu")
+    t_r, f_r, c_r, _act = rm.predict(y, 16000)
+    del _act
+    rm_midi = P.to_grid(np.asarray(t_r), P.hz_to_midi(np.asarray(f_r)), n)
+    rm_conf = P.to_grid(np.asarray(t_r), np.asarray(c_r), n, fill=0.0)
+    sw_midi = sw_conf = None
+    try:
+        from swift_f0 import SwiftF0
+
+        r = SwiftF0(threads=ctx.threads).detect(y, 16000, fmin=46.875, fmax=2093.75)
+        ts = np.asarray(r.timestamps) + 0.008  # frame centre
+        sw_midi = P.to_grid(ts, P.hz_to_midi(np.where(np.asarray(r.pitch_hz) > 0, r.pitch_hz, np.nan)), n)
+        sw_conf = P.to_grid(ts, np.asarray(r.confidence), n, fill=0.0)
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"SwiftF0 second opinion unavailable ({type(e).__name__}); RMVPE only")
+        fallbacks.append("vocals:rmvpe_only")
+    arb = P.arbitrate(rm_midi, rm_conf, sw_midi, sw_conf, float(prm.get("rmvpe_gate", 0.3)), float(prm.get("swift_gate", 0.9)))
+    notes_prov.append(f"RMVPE arbiter (conf >= {prm.get('rmvpe_gate', 0.3)}); SwiftF0 agreed within 1 st on {arb.agree:.3f} "
+                      f"and an octave apart on {arb.octave:.3f} of {arb.both} frames where both were voiced")
+
+    # ---------------------------------------------------------------- presence gate
+    level = P.level_db_100hz(y, 16000, n)
+    loud = level > max(float(prm.get("level_floor_db", -55.0)), float(np.percentile(level, 99)) - float(prm.get("level_below_peak_db", 35.0)))
+    try:
+        active = np.asarray(ctx.curve("stem.lead_vocals.active").values)[:n] > 0.5
+        if active.size < n:
+            active = np.concatenate([active, np.zeros(n - active.size, bool)])
+    except Exception:  # noqa: BLE001
+        active = np.ones(n, bool)
+        warnings.append("stem.lead_vocals.active unavailable: activity gate skipped")
+    try:
+        iv = np.asarray(ctx.curve("inst.voice").values, np.float64)
+        voice = np.interp(np.arange(n) / 100.0, np.arange(iv.size), iv) >= float(prm.get("voice_gate", 0.35))
+    except Exception:  # noqa: BLE001
+        voice = np.ones(n, bool)
+        warnings.append("inst.voice unavailable: the tagger voice gate is skipped (stem energy alone is weak evidence)")
+        fallbacks.append("vocals:no_voice_gate")
+    gate = active & loud & voice
+    raw_voiced = float(np.isfinite(arb.midi).sum()) / 100
+    midi = np.where(gate, arb.midi, np.nan)
+    midi = P.fix_octave_islands(midi)
+    midi = P.drop_short(midi, 5)
+    voiced = np.isfinite(midi)
+    voiced_s = float(voiced.sum()) / 100
+    gated_out = raw_voiced - voiced_s
+    notes_prov.append(f"RMVPE voiced {raw_voiced:.1f} s; after the activity/level/voice gate {voiced_s:.1f} s")
+    if raw_voiced > 10 and gated_out > 0.5 * raw_voiced:
+        warnings.append(f"{gated_out:.0f} s of pitched lead-stem content were not a voice (synth lead or bleed in the vocal stem)")
+    f0 = np.where(voiced, P.midi_to_hz(midi), np.nan)
+    conf = np.clip(arb.conf, 0, 1)
+
+    # ---------------------------------------------------------------- style + statistics
+    lab, style_secs = _style_mask(ctx, n)
+    sung = voiced & (lab == 0) if lab is not None else voiced
+    spoken = voiced & (lab > 0) if lab is not None else np.zeros(n, bool)
+    spoken_s = float(spoken.sum()) / 100
+    dominant = None
+    if style_secs:
+        dominant = max(style_secs, key=lambda k: style_secs[k]) if sum(style_secs.values()) > 0 else None
+    # human-correction hooks: --param vocals.style="singing"|"speech"|"rap" (the lead's dominant style, used for the
+    # statistics basis) and --param vocals.present=true|false (forces presence; range statistics still need >= 1 s)
+    user_style = prm.get("style")
+    if user_style in ("singing", "speech", "rap"):
+        notes_prov.append(f"dominant style set by the user: {user_style} (tagger said {dominant})")
+        dominant = user_style
+        if lab is not None and user_style == "singing":
+            lab = np.where(lab >= 0, 0, lab).astype(np.int8)
+            sung = voiced & (lab == 0)
+            spoken = np.zeros(n, bool)
+            spoken_s = 0.0
+    min_voiced = float(prm.get("min_voiced_s", 8.0))
+    rap_like = dominant in ("rap", "speech")
+    # singing-dominant songs: every voiced frame (CED often tags low sung verses as speech); rap/speech-dominant songs:
+    # only the sung frames (hooks), because f0 range statistics are not run on rap (docs/SPIKE.md)
+    stats_mask = sung if rap_like else voiced
+    present = bool(voiced_s >= min_voiced and (stats_mask.sum() / 100 >= min_voiced
+                                                or (rap_like and spoken_s >= float(prm.get("min_spoken_s", 15.0)))))
+    user_present = prm.get("present")
+    if isinstance(user_present, bool):
+        notes_prov.append(f"presence set by the user: {user_present} (detector said {present})")
+        present = user_present
+    min_stats = int(min_voiced * 100) if not isinstance(user_present, bool) else 100
+    mv = midi[voiced]
+    norm_lo = float(np.percentile(mv, 2)) if mv.size else float("nan")
+    norm_hi = float(np.percentile(mv, 98)) if mv.size else float("nan")
+    p01 = P.pitch01(midi, norm_lo, norm_hi, float(prm.get("pitch01_ease_s", 0.15)))
+
+    vnotes = P.segment_notes(midi, level, conf)
+    nitems = []
+    if vnotes:
+        lv = post.velocities(np.array([float(np.max(level[x["i0"]: x["i1"]])) for x in vnotes]),
+                             np.array([x["conf"] for x in vnotes]))
+        for x, v in zip(vnotes, lv):
+            nitems.append({"t": round(x["t"], 4), "d": round(x["d"], 4), "midi": int(x["midi"]),
+                           "name": post.note_name(int(x["midi"])), "vel": round(float(v), 4), "conf": round(x["conf"], 4)})
+
+    sel = stats_mask
+    ms = midi[sel]
+    vr: dict = {"present": present, "voiced_s": round(voiced_s, 2), "lowest": None, "highest": None, "p2": None,
+                "p98": None, "p10": None, "p90": None, "median_midi": None, "span_semitones": None, "register": None,
+                "conf": 0.0}
+    female = None
+    if present and ms.size >= min_stats:
+        q = np.percentile(ms, [2, 10, 50, 90, 98])
+        sus_notes = [x for x in vnotes if np.mean(sel[x["i0"]: x["i1"]]) >= 0.5]
+        lo, hi = P.sustained_extremes(sus_notes, f0)
+        female = _female_share(ctx, y, sel, n)
+        vr.update({"p2": round(float(q[0]), 3), "p10": round(float(q[1]), 3), "median_midi": round(float(q[2]), 3),
+                   "p90": round(float(q[3]), 3), "p98": round(float(q[4]), 3), "span_semitones": round(float(q[4] - q[0]), 3),
+                   "lowest": lo, "highest": hi, "register": P.register_of(float(q[2]), female)})
+        # confidence: tracker agreement x amount of sung material x clarity of the gender cue
+        amount = min(1.0, (ms.size / 100) / 30.0)
+        agree = arb.agree if arb.both > 200 else 0.8
+        vr["conf"] = round(float(np.clip(0.25 + 0.5 * agree * amount + 0.15 * abs(female - 0.5) * 2, 0, 0.9)), 3)
+    elif present:
+        notes_prov.append("lead vocal mainly rap/speech: sung-range statistics skipped (docs/SPIKE.md)")
+    vr["basis"] = None if vr["p2"] is None else ("sung frames (rap/speech-dominant lead)" if rap_like else "voiced frames")
+    if spoken_s > 0:
+        sp = midi[spoken]
+        vr["spoken_pitch"] = {"seconds": round(spoken_s, 2), "p10": round(float(np.percentile(sp, 10)), 3),
+                              "median_midi": round(float(np.median(sp)), 3), "p90": round(float(np.percentile(sp, 90)), 3)}
+    if dominant:
+        vr["style"] = dominant
+
+    # ---------------------------------------------------------------- phrases
+    ph_items = []
+    for k, (a, b) in enumerate(P.phrases(midi, float(prm.get("phrase_gap_s", 0.45)))):
+        seg = midi[a:b]
+        seg = seg[np.isfinite(seg)]
+        notes_in = [x["median"] for x in vnotes if x["i0"] >= a and x["i1"] <= b]
+        lo_m = float(np.min(notes_in)) if notes_in else float(np.percentile(seg, 5))
+        hi_m = float(np.max(notes_in)) if notes_in else float(np.percentile(seg, 95))
+        ph_items.append({"id": f"VP{k + 1:03d}", "t": round(a / 100, 3), "d": round((b - a) / 100, 3),
+                         "median_midi": round(float(np.median(seg)), 3), "min_midi": round(lo_m, 3),
+                         "max_midi": round(hi_m, 3), "mean_db": round(float(np.mean(level[a:b])), 2)})
+
+    # ---------------------------------------------------------------- write
+    ctx.writer.curves("vocal", {
+        "vocal.f0_hz": f0.astype(np.float32), "vocal.midi": midi.astype(np.float32), "vocal.pitch01": p01,
+        "vocal.voiced": voiced.astype(np.float32), "vocal.conf": conf.astype(np.float32),
+    }, meta={"vocal.pitch01": {"norm": {"lo": norm_lo, "hi": norm_hi}}} if np.isfinite(norm_lo) else None)
+    ctx.writer.events("notes.vocals", nitems)
+    ctx.writer.events("vocal_phrases", ph_items)
+    tmap = tempo_map_from_ctx(ctx, duration)
+    ctx.writer.midi("notes/vocals.mid", smf_bytes({"vocals": nitems}, tmap))
+    ctx.writer.json("meta/vocal_range.json", vr)
+    summary = {"present": present, "voiced_s": round(voiced_s, 1), "range": (f"{vr['lowest']['name']}-{vr['highest']['name']}"
+                                                                           if vr.get("lowest") and vr.get("highest") else None),
+               "register": vr["register"], "style": dominant, "n_notes": len(nitems), "n_phrases": len(ph_items)}
+    if female is not None:
+        notes_prov.append(f"CED female share on sung frames {female:.2f}")
+    return StageResult(status="degraded" if fallbacks else "ok", summary=summary, warnings=warnings, fallbacks=fallbacks,
+                       provenance={"notes": notes_prov}, confidence=vr["conf"] if present else 0.0)
+
+
+def _female_share(ctx, y16: np.ndarray, sel: np.ndarray, n: int) -> float:
+    """Share of female vs male voice tags (CED on the lead stem) over windows that contain sung frames."""
+    from mvh.stages.instruments.ced import CedTagger, n_frames_1hz
+
+    tagger = CedTagger(dict(ctx.model("ced_base_onnx").files), threads=ctx.threads)
+    nf = n_frames_1hz(y16.size, 16000)
+    P = tagger.frames(y16, nf)
+    fem = P[:, tagger.idx(["Female singing", "Female speech"])].max(axis=1)
+    mal = P[:, tagger.idx(["Male singing", "Male speech"])].max(axis=1)
+    w = np.array([sel[max(0, i * 100 - 200): i * 100 + 200].mean() if i * 100 < n else 0.0 for i in range(nf)])
+    f, m = float((fem * w).sum()), float((mal * w).sum())
+    return f / (f + m) if f + m > 1e-9 else 0.5

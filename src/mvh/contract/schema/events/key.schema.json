@@ -1,0 +1,80 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/key.schema.json",
+ "title": "mvh/events/key",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "key regions (one item when the key never changes)",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/key"
+    },
+    "name": {
+     "const": "key"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "key": {
+        "type": "string",
+        "description": "e.g. 'A minor'"
+       },
+       "tonic_pc": {
+        "type": "integer",
+        "description": "pitch class, C = 0",
+        "minimum": 0,
+        "maximum": 11
+       },
+       "mode": {
+        "type": "string",
+        "enum": [
+         "major",
+         "minor"
+        ]
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "agree": {
+        "type": "boolean",
+        "description": "methods agree"
+       }
+      },
+      "required": [
+       "agree",
+       "conf",
+       "d",
+       "key",
+       "mode",
+       "t",
+       "tonic_pc"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

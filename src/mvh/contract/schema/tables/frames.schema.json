@@ -1,0 +1,28 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/tables/frames.schema.json",
+ "title": "mvh/tables/frames",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "frame": {
+   "type": "integer"
+  },
+  "t": {
+   "type": "number",
+   "x-unit": "s",
+   "description": "time in seconds from the first sample of audio/mix.flac"
+  }
+ },
+ "required": [
+  "frame",
+  "t"
+ ],
+ "x-columns": [
+  "frame",
+  "t"
+ ],
+ "x-sep": ",",
+ "x-format": "csv",
+ "description": "mvh frames: one row per video frame (frame, t = time_of(frame), then one column per requested channel). Row schema after coercion (schemas.coerce_row): empty cell = null, booleans 0/1, UTF-8 without BOM, LF, header row first."
+}

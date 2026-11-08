@@ -1,0 +1,139 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/provenance.schema.json",
+ "title": "mvh/envelope/provenance",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "stage": {
+   "type": "string"
+  },
+  "stage_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "contract_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "key": {
+   "type": "string",
+   "description": "sha256 (hex)",
+   "pattern": "^[0-9a-f]{64}$"
+  },
+  "params": {
+   "type": "object",
+   "properties": {},
+   "required": [],
+   "description": "resolved params (thread counts included)"
+  },
+  "models": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "licence": {
+      "type": "string"
+     },
+     "revision": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "licence"
+    ]
+   }
+  },
+  "tools": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "version"
+    ]
+   }
+  },
+  "device": {
+   "type": "string",
+   "description": "cpu | rocm | vulkan"
+  },
+  "upstream": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "string",
+    "description": "sha256 (hex)",
+    "pattern": "^[0-9a-f]{64}$"
+   },
+   "description": "upstream stage -> cache key"
+  },
+  "overrides_applied": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string"
+     },
+     "value": {}
+    },
+    "required": [
+     "key",
+     "value"
+    ]
+   }
+  },
+  "fallbacks": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "notes": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "confidence": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  }
+ },
+ "required": [
+  "contract_version",
+  "device",
+  "fallbacks",
+  "key",
+  "models",
+  "overrides_applied",
+  "params",
+  "stage",
+  "stage_version",
+  "tools",
+  "upstream"
+ ],
+ "description": "deterministic provenance (no timestamps or hosts: those go to run.json)"
+}

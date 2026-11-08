@@ -1,0 +1,87 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/bars.schema.json",
+ "title": "mvh/events/bars",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "bars (downbeat to downbeat); section/phrase/groove links are in tables/bars.csv",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/bars"
+    },
+    "name": {
+     "const": "bars"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "bar": {
+        "type": "integer",
+        "description": "1-based; 0 = pickup",
+        "minimum": 0
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "beats_in_bar": {
+        "type": "integer",
+        "description": "nominal (meter numerator)",
+        "minimum": 1
+       },
+       "n_beats": {
+        "type": "integer",
+        "description": "beats actually in this bar",
+        "minimum": 1
+       },
+       "first_beat": {
+        "type": "integer",
+        "description": "beat_index of the bar's first beat",
+        "minimum": 0
+       },
+       "pickup": {
+        "type": "boolean"
+       },
+       "in_pulse": {
+        "type": "boolean"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "bar",
+       "beats_in_bar",
+       "conf",
+       "d",
+       "first_beat",
+       "in_pulse",
+       "n_beats",
+       "pickup",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

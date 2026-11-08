@@ -1,0 +1,24 @@
+mvh-env: repo=C:\Users\OpenSrcerer\Desktop\playground\mv-harness threads=3 offline=True ffmpeg=C:\Users\OpenSrcerer\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe
+[gate] target=M3b unit=[tests/unit/contract, tests/unit/notes, tests/unit/vocals, tests/unit/instruments] review=[tests/review/M3b, tests/review/m3b]
+[gate] fixture      PASS (0.0s) tests/contract/synth/.done.json present
+............F........................................................... [ 80%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+__________________________ test_stub_files_are_stubs __________________________
+
+    def test_stub_files_are_stubs():
+        import inspect
+    
+        import mvh.stages.rhythm as r
+>       assert "run_stub" in inspect.getsource(r.run)
+E       assert 'run_stub' in 'def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline\n    p = ctx.params\n    fallbacks: list[str] = []\n...nfidence=round(conf, 3),\n                       provenance={"models": models_prov, "tools": tools, "notes": notes})\n'
+E        +  where 'def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline\n    p = ctx.params\n    fallbacks: list[str] = []\n...nfidence=round(conf, 3),\n                       provenance={"models": models_prov, "tools": tools, "notes": notes})\n' = <function getsource at 0x0000023C7414ACA0>(<function run at 0x0000023C7CF55760>)
+E        +    where <function getsource at 0x0000023C7414ACA0> = <module 'inspect' from 'C:\\Users\\OpenSrcerer\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\inspect.py'>.getsource
+E        +    and   <function run at 0x0000023C7CF55760> = <module 'mvh.stages.rhythm' from 'C:\\Users\\OpenSrcerer\\Desktop\\playground\\mv-harness\\src\\mvh\\stages\\rhythm\\__init__.py'>.run
+
+tests\unit\contract\test_catalog_dag.py:200: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/unit/contract/test_catalog_dag.py::test_stub_files_are_stubs - a...
+1 failed, 89 passed in 2.16s
+...........                                                              [100%]
+11 passed in 34.09s

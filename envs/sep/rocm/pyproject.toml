@@ -1,0 +1,34 @@
+[project]
+name = "mvh-sep-rocm"
+version = "0.0.0"
+description = "mv-harness separator worker env, ROCm variant (AMD torch for gfx120X, Windows preview wheels)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "audio-separator==0.48.0",
+  "onnxruntime==1.31.1",
+  "torch==2.11.0+rocm7.13.0",
+  "rocm[libraries]==7.13.0",
+  "rocm-sdk-core==7.13.0",
+  "rocm-sdk-libraries-gfx120x-all==7.13.0",
+  "numpy",
+  "soundfile",
+  "audioread",  # audio-separator imports it; librosa 1.0 no longer pulls it in
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'win32' and platform_machine == 'AMD64'"]
+# AMD's Windows torch wheel declares an unconditional triton==..+rocm pin, but triton is Linux-only: drop it.
+override-dependencies = ["triton; sys_platform == 'never'"]
+
+# Only torch and the ROCm SDK packages come from the AMD index (explicit = true keeps everything else on PyPI).
+[tool.uv.sources]
+torch = { index = "amd" }
+rocm = { index = "amd" }
+rocm-sdk-core = { index = "amd" }
+rocm-sdk-libraries-gfx120x-all = { index = "amd" }
+
+[[tool.uv.index]]
+name = "amd"
+url = "https://repo.amd.com/rocm/whl/gfx120X-all/"
+explicit = true

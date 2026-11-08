@@ -1,0 +1,3 @@
+# fixer-m3b report
+Fixes: R-ML-M3b-1 clap.py Clap.text encodes each prompt alone (batch 1, no padding). R-ML-M3b-2 notes: floor is now seconds of activity (notes.piano_min_active_s=1.0); CED only picks CRNN vs basic-pitch; warning when an active stem is skipped; I-M3b-8 updated; unit test param renamed.
+Tests: tests/review/M3b/r-ml 3 passed; tests/unit/notes 11 passed. Gate not completed: tests/unit/contract::test_stub_files_are_stubs fails (rhythm no longer a stub, not my module); the gate's tests/unit/vocals step ran >90 min with the machine contended by other agents' heavy slots, so I stopped waiting. Instruments unit, ruff, validate, e2e, determinism not confirmed.

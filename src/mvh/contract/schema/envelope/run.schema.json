@@ -1,0 +1,260 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/run.schema.json",
+ "title": "mvh/envelope/run",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/run"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "mvh_version": {
+   "type": "string"
+  },
+  "contract_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "started": {
+   "type": "string",
+   "description": "ISO 8601"
+  },
+  "finished": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "profile": {
+   "type": "string",
+   "enum": [
+    "max",
+    "draft"
+   ]
+  },
+  "host": {
+   "type": "object",
+   "properties": {
+    "os": {
+     "type": "string"
+    },
+    "cpu": {
+     "type": "string"
+    },
+    "threads": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "ram_gb": {
+     "type": "number"
+    }
+   },
+   "required": [
+    "cpu",
+    "os",
+    "threads"
+   ]
+  },
+  "device": {
+   "type": "object",
+   "properties": {
+    "class": {
+     "type": "string"
+    },
+    "gpu": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "class",
+    "gpu"
+   ]
+  },
+  "versions": {
+   "type": "object",
+   "properties": {
+    "python": {
+     "type": "string"
+    },
+    "ffmpeg": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "buildconf": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "required": [
+      "buildconf",
+      "version"
+     ]
+    },
+    "packages": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "ffmpeg",
+    "packages",
+    "python"
+   ]
+  },
+  "stages": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "done",
+       "degraded",
+       "skipped",
+       "failed",
+       "pending",
+       "stale"
+      ]
+     },
+     "cache": {
+      "type": "string",
+      "enum": [
+       "hit",
+       "miss",
+       "forced"
+      ]
+     },
+     "key": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "sha256 (hex)",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "seconds": {
+      "type": [
+       "number",
+       "null"
+      ],
+      "x-unit": "s"
+     },
+     "threads": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "device": {
+      "type": "string"
+     },
+     "env": {
+      "type": "string",
+      "enum": [
+       "main",
+       "sep"
+      ]
+     },
+     "variant": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "fallbacks": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "cache",
+     "device",
+     "env",
+     "fallbacks",
+     "key",
+     "seconds",
+     "status",
+     "threads",
+     "variant",
+     "warnings"
+    ]
+   }
+  },
+  "licences": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "model_id": {
+      "type": "string"
+     },
+     "licence": {
+      "type": "string"
+     },
+     "used_by": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "licence",
+     "model_id",
+     "used_by"
+    ]
+   }
+  },
+  "fallbacks_used": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "required": [
+  "contract_version",
+  "device",
+  "fallbacks_used",
+  "finished",
+  "host",
+  "licences",
+  "mvh_version",
+  "profile",
+  "schema",
+  "schema_version",
+  "stages",
+  "started",
+  "versions",
+  "warnings"
+ ],
+ "description": "run.json: everything volatile (never compared for determinism)"
+}

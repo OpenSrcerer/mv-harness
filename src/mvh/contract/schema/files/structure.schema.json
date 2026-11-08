@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/structure.schema.json",
+ "title": "mvh/files/structure",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "repeat_groups": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "label": {
+      "type": "string"
+     },
+     "section_ids": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "description": "Section id",
+       "pattern": "^S\\d{2,}$"
+      }
+     },
+     "similarity": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     }
+    },
+    "required": [
+     "label",
+     "section_ids",
+     "similarity"
+    ]
+   },
+   "propertyNames": {
+    "pattern": "^[A-Z]{1,2}$"
+   }
+  },
+  "phrase_bars": {
+   "type": "integer",
+   "description": "dominant phrase length in bars (4, 8 or 16)",
+   "minimum": 1
+  },
+  "n_sections": {
+   "type": "integer",
+   "minimum": 0
+  }
+ },
+ "required": [
+  "n_sections",
+  "phrase_bars",
+  "repeat_groups"
+ ]
+}

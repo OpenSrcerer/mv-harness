@@ -1,0 +1,85 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/beats.schema.json",
+ "title": "mvh/events/beats",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "the beat grid: every beat, virtual beats (in_pulse false) continue through no-pulse regions",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/beats"
+    },
+    "name": {
+     "const": "beats"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "beat_index": {
+        "type": "integer",
+        "description": "0-based; equals the item's position",
+        "minimum": 0
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "bar": {
+        "type": "integer",
+        "description": "1-based bar; 0 = pickup bar",
+        "minimum": 0
+       },
+       "beat_in_bar": {
+        "type": "integer",
+        "description": "1..beats_in_bar",
+        "minimum": 1
+       },
+       "beats_in_bar": {
+        "type": "integer",
+        "description": "nominal beats in this beat's bar",
+        "minimum": 1
+       },
+       "in_pulse": {
+        "type": "boolean",
+        "description": "false for virtual-grid beats in no-pulse regions"
+       },
+       "strength": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "tracker activation at the beat"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "bar",
+       "beat_in_bar",
+       "beat_index",
+       "beats_in_bar",
+       "conf",
+       "in_pulse",
+       "strength",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

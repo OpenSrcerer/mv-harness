@@ -1,0 +1,108 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/tables/beats.schema.json",
+ "title": "mvh/tables/beats",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "beat_index": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "t": {
+   "type": "number",
+   "x-unit": "s",
+   "description": "time in seconds from the first sample of audio/mix.flac"
+  },
+  "bar": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "beat_in_bar": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "beats_in_bar": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "in_pulse": {
+   "type": "boolean"
+  },
+  "strength": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "section_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Section id",
+   "pattern": "^S\\d{2,}$"
+  },
+  "phrase_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Phrase (4/8/16 bars) id",
+   "pattern": "^P\\d{2,}$"
+  },
+  "eight_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "Eight-count (E000 = synthesised lead-in) id",
+   "pattern": "^E\\d{3,}$"
+  },
+  "count": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "minimum": 1,
+   "maximum": 8
+  },
+  "accent": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  }
+ },
+ "required": [
+  "accent",
+  "bar",
+  "beat_in_bar",
+  "beat_index",
+  "beats_in_bar",
+  "count",
+  "eight_id",
+  "in_pulse",
+  "phrase_id",
+  "section_id",
+  "strength",
+  "t"
+ ],
+ "x-columns": [
+  "beat_index",
+  "t",
+  "bar",
+  "beat_in_bar",
+  "beats_in_bar",
+  "in_pulse",
+  "strength",
+  "section_id",
+  "phrase_id",
+  "eight_id",
+  "count",
+  "accent"
+ ],
+ "x-sep": ",",
+ "x-format": "csv",
+ "description": "one row per beat (from events/beats.json, joined with sections, phrases and counts). Row schema after coercion (schemas.coerce_row): empty cell = null, booleans 0/1, UTF-8 without BOM, LF, header row first."
+}

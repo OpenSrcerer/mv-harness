@@ -1,0 +1,109 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/grooves.schema.json",
+ "title": "mvh/files/grooves",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "grooves": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Groove (per-bar pattern cluster) id",
+      "pattern": "^G\\d{2,}$"
+     },
+     "n_bars": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "bars": {
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "minimum": 0
+      }
+     },
+     "swing": {
+      "type": "number",
+      "x-unit": "ratio"
+     },
+     "syncopation": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "prototype": {
+      "type": "object",
+      "properties": {
+       "kick": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "x-unit": "0..1",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 16,
+        "maxItems": 16
+       },
+       "snare": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "x-unit": "0..1",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 16,
+        "maxItems": 16
+       },
+       "hat": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "x-unit": "0..1",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 16,
+        "maxItems": 16
+       },
+       "perc": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "x-unit": "0..1",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 16,
+        "maxItems": 16
+       }
+      },
+      "required": [
+       "hat",
+       "kick",
+       "perc",
+       "snare"
+      ]
+     }
+    },
+    "required": [
+     "bars",
+     "id",
+     "n_bars",
+     "prototype",
+     "swing",
+     "syncopation"
+    ]
+   }
+  }
+ },
+ "required": [
+  "grooves"
+ ]
+}

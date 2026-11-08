@@ -1,0 +1,113 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/sections.schema.json",
+ "title": "mvh/events/sections",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "CANONICAL sections; boundaries on downbeats; segments shorter than 2 bars are merged",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/sections"
+    },
+    "name": {
+     "const": "sections"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Section id",
+        "pattern": "^S\\d{2,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "label": {
+        "type": "string",
+        "description": "intro, verse, pre-chorus, chorus, bridge, inst, solo, break, outro, silence (open vocabulary)",
+        "pattern": "^[a-z][a-z-]*$"
+       },
+       "occurrence": {
+        "type": "integer",
+        "description": "1-based count of this label so far",
+        "minimum": 1
+       },
+       "occurrence_label": {
+        "type": "string",
+        "description": "label#occurrence, e.g. chorus#2",
+        "pattern": "^[a-z][a-z-]*#\\d+$"
+       },
+       "repeat_group": {
+        "type": "string",
+        "description": "Section repeat group (A, B, ..., Z, AA, AB, ...) id",
+        "pattern": "^[A-Z]{1,2}$"
+       },
+       "start_bar": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "n_bars": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "label_probs": {
+        "type": "object",
+        "additionalProperties": {
+         "type": "number",
+         "x-unit": "0..1",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "description": "label -> probability"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "boundary_conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "boundary_conf",
+       "conf",
+       "d",
+       "id",
+       "label",
+       "label_probs",
+       "n_bars",
+       "occurrence",
+       "occurrence_label",
+       "repeat_group",
+       "start_bar",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

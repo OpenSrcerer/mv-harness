@@ -1,0 +1,74 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/vocal_phrases.schema.json",
+ "title": "mvh/events/vocal_phrases",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "voiced phrases of the lead vocal",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/vocal_phrases"
+    },
+    "name": {
+     "const": "vocal_phrases"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Vocal phrase id",
+        "pattern": "^VP\\d{3,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "median_midi": {
+        "type": "number",
+        "x-unit": "MIDI"
+       },
+       "min_midi": {
+        "type": "number",
+        "x-unit": "MIDI"
+       },
+       "max_midi": {
+        "type": "number",
+        "x-unit": "MIDI"
+       },
+       "mean_db": {
+        "type": "number",
+        "x-unit": "dBFS"
+       }
+      },
+      "required": [
+       "d",
+       "id",
+       "max_midi",
+       "mean_db",
+       "median_midi",
+       "min_midi",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

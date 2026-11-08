@@ -1,0 +1,78 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/moments.schema.json",
+ "title": "mvh/events/moments",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "top moments (the brief shows the top 15)",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/moments"
+    },
+    "name": {
+     "const": "moments"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "rank": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": [
+         "number",
+         "null"
+        ],
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "cue_id": {
+        "type": "string",
+        "description": "Cue id",
+        "pattern": "^Q\\d{4,}$"
+       },
+       "kind": {
+        "type": "string"
+       },
+       "strength": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "description": {
+        "type": "string",
+        "description": "no lyric text beyond 10 words"
+       }
+      },
+      "required": [
+       "cue_id",
+       "d",
+       "description",
+       "kind",
+       "rank",
+       "strength",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

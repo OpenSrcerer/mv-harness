@@ -1,0 +1,29 @@
+{
+ "description": "SYNTHETIC MusicBrainz WS/2 answers (invented ids and titles) for a version-tagged title: the full title finds nothing, the title without the parenthesised tag finds two recordings inside the duration window (one 2.4 s off, one 0.09 s off on the right release); the plain paged search returns a 100-item page of far-off versions; the recording lookup carries artist and work relations.",
+ "responses": [
+  {"method": "GET", "url_endswith": "/ws/2/recording", "contains": {"query": "Redux Version"}, "status": 200,
+   "body": {"count": 0, "offset": 0, "recordings": []}},
+  {"method": "GET", "url_endswith": "/ws/2/recording", "contains": {"query": "dur:["}, "lacks": {"query": "Redux"}, "status": 200,
+   "body": {"count": 2, "offset": 0, "recordings": [
+     {"id": "00000000-0000-4000-8000-000000000001", "score": 100, "title": "Glass River", "length": 202400,
+      "artist-credit": [{"name": "The Fixtures", "artist": {"id": "00000000-0000-4000-8000-0000000000a1", "name": "The Fixtures"}}],
+      "releases": [{"id": "00000000-0000-4000-8000-0000000000r1", "title": "River", "date": "1991"}]},
+     {"id": "00000000-0000-4000-8000-000000000002", "score": 100, "title": "Glass River", "length": 199910,
+      "artist-credit": [{"name": "The Fixtures", "artist": {"id": "00000000-0000-4000-8000-0000000000a1", "name": "The Fixtures"}}],
+      "releases": [{"id": "00000000-0000-4000-8000-0000000000r2", "title": "River (Legacy Edition)", "date": "2009"}]}
+   ]}},
+  {"method": "GET", "url_endswith": "/ws/2/recording/00000000-0000-4000-8000-000000000002", "status": 200,
+   "body": {"id": "00000000-0000-4000-8000-000000000002", "title": "Glass River", "length": 199910, "isrcs": ["XXA000000001"],
+            "artist-credit": [{"name": "The Fixtures", "artist": {"id": "00000000-0000-4000-8000-0000000000a1", "name": "The Fixtures"}}],
+            "releases": [{"id": "00000000-0000-4000-8000-0000000000r2", "title": "River (Legacy Edition)"}],
+            "relations": [
+              {"type": "vocal", "attributes": ["lead vocals"], "artist": {"id": "x1", "name": "Ada Example"}},
+              {"type": "producer", "attributes": [], "artist": {"id": "x2", "name": "Bo Example"}},
+              {"type": "performance", "work": {"id": "00000000-0000-4000-8000-0000000000w1", "title": "Glass River"}}
+            ]}},
+  {"method": "GET", "url_endswith": "/ws/2/work/00000000-0000-4000-8000-0000000000w1", "status": 200,
+   "body": {"id": "00000000-0000-4000-8000-0000000000w1", "relations": [
+     {"type": "composer", "artist": {"id": "x3", "name": "Cy Example"}},
+     {"type": "lyricist", "artist": {"id": "x1", "name": "Ada Example"}}]}}
+ ]
+}

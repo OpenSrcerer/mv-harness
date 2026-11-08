@@ -1,0 +1,152 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/cues.schema.json",
+ "title": "mvh/events/cues",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "THE list agents cut from; ONE cue per time (D37: co-timed cues merge, kinds[]/sources[] list them); tier-4 beats are references to events/beats.json: strength/lead_in_s null",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/cues"
+    },
+    "name": {
+     "const": "cues"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Cue id",
+        "pattern": "^Q\\d{4,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "section",
+         "drop",
+         "build_start",
+         "breakdown",
+         "phrase",
+         "impact",
+         "stop",
+         "silence",
+         "hit_point",
+         "downbeat",
+         "beat",
+         "pinned"
+        ]
+       },
+       "tier": {
+        "type": "integer",
+        "description": "1 section/drop/build start, 2 phrase/impact/stop, 3 hit point/downbeat, 4 beat",
+        "minimum": 1,
+        "maximum": 4
+       },
+       "strength": {
+        "type": [
+         "number",
+         "null"
+        ],
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "lead_in_s": {
+        "type": [
+         "number",
+         "null"
+        ],
+        "x-unit": "s",
+        "description": "recommended anticipation window",
+        "minimum": 0
+       },
+       "next_major_in_s": {
+        "type": [
+         "number",
+         "null"
+        ],
+        "x-unit": "s",
+        "description": "time to the next tier-1 cue",
+        "minimum": 0
+       },
+       "source": {
+        "type": "object",
+        "properties": {
+         "file": {
+          "type": "string",
+          "description": "path relative to the song folder"
+         },
+         "id": {
+          "type": "string",
+          "description": "item id, or a reference key 'beat:<beat_index>' / 'bar:<bar>'"
+         }
+        },
+        "required": [
+         "file",
+         "id"
+        ],
+        "description": "link to the item a derived item comes from"
+       },
+       "kinds": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        },
+        "description": "every kind merged into this cue, highest priority first (kinds[0] == kind)",
+        "minItems": 1
+       },
+       "sources": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "file": {
+           "type": "string",
+           "description": "path relative to the song folder"
+          },
+          "id": {
+           "type": "string",
+           "description": "item id, or a reference key 'beat:<beat_index>' / 'bar:<bar>'"
+          }
+         },
+         "required": [
+          "file",
+          "id"
+         ],
+         "description": "link to the item a derived item comes from"
+        },
+        "description": "the source of every merged kind (sources[0] == source)",
+        "minItems": 1
+       }
+      },
+      "required": [
+       "id",
+       "kind",
+       "lead_in_s",
+       "next_major_in_s",
+       "source",
+       "strength",
+       "t",
+       "tier"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

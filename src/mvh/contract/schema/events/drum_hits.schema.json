@@ -1,0 +1,80 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/drum_hits.schema.json",
+ "title": "mvh/events/drum_hits",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "classified drum hits",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/drum_hits"
+    },
+    "name": {
+     "const": "drum_hits"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "drum": {
+        "type": "string",
+        "enum": [
+         "kick",
+         "snare",
+         "hat",
+         "tom",
+         "cymbal",
+         "perc"
+        ]
+       },
+       "vel": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "level_db": {
+        "type": "number",
+        "x-unit": "dBFS"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "source": {
+        "type": "string",
+        "enum": [
+         "drumsep",
+         "classifier"
+        ]
+       }
+      },
+      "required": [
+       "conf",
+       "drum",
+       "level_db",
+       "source",
+       "t",
+       "vel"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

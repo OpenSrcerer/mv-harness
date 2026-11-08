@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/orphans.schema.json",
+ "title": "mvh/files/orphans",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "orphans": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "old_section_id": {
+      "type": "string",
+      "description": "Section id",
+      "pattern": "^S\\d{2,}$"
+     },
+     "t_range": {
+      "type": "array",
+      "items": {
+       "type": "number",
+       "x-unit": "s",
+       "description": "time in seconds from the first sample of audio/mix.flac"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "occurrence_label": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "claim": {
+      "type": "object",
+      "properties": {},
+      "required": []
+     },
+     "reason": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "claim",
+     "occurrence_label",
+     "old_section_id",
+     "reason",
+     "t_range"
+    ]
+   }
+  }
+ },
+ "required": [
+  "orphans"
+ ]
+}

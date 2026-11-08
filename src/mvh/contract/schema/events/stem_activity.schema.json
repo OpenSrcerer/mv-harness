@@ -1,0 +1,74 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/stem_activity.schema.json",
+ "title": "mvh/events/stem_activity",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "active segments per stem",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/stem_activity"
+    },
+    "name": {
+     "const": "stem_activity"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "stem": {
+        "type": "string",
+        "enum": [
+         "vocals",
+         "lead_vocals",
+         "backing_vocals",
+         "drums",
+         "bass",
+         "guitar",
+         "piano",
+         "other",
+         "instrumental",
+         "drums_kick",
+         "drums_snare",
+         "drums_toms",
+         "drums_hihat",
+         "drums_ride",
+         "drums_crash"
+        ]
+       },
+       "mean_db": {
+        "type": "number",
+        "x-unit": "dBFS"
+       }
+      },
+      "required": [
+       "d",
+       "mean_db",
+       "stem",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

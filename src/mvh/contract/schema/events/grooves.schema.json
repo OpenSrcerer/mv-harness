@@ -1,0 +1,133 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/grooves.schema.json",
+ "title": "mvh/events/grooves",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "per-bar 16-step groove matrix",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/grooves"
+    },
+    "name": {
+     "const": "grooves"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "bar": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "groove_id": {
+        "type": "string",
+        "description": "Groove (per-bar pattern cluster) id",
+        "pattern": "^G\\d{2,}$"
+       },
+       "swing": {
+        "type": "number",
+        "x-unit": "ratio",
+        "description": "long/short 8th ratio; 1 = straight",
+        "minimum": 0
+       },
+       "syncopation": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "pattern": {
+        "type": "object",
+        "properties": {
+         "kick": {
+          "type": "array",
+          "items": {
+           "type": "number",
+           "x-unit": "0..1",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "description": "16 steps of kick",
+          "minItems": 16,
+          "maxItems": 16
+         },
+         "snare": {
+          "type": "array",
+          "items": {
+           "type": "number",
+           "x-unit": "0..1",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "description": "16 steps of snare",
+          "minItems": 16,
+          "maxItems": 16
+         },
+         "hat": {
+          "type": "array",
+          "items": {
+           "type": "number",
+           "x-unit": "0..1",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "description": "16 steps of hat",
+          "minItems": 16,
+          "maxItems": 16
+         },
+         "perc": {
+          "type": "array",
+          "items": {
+           "type": "number",
+           "x-unit": "0..1",
+           "minimum": 0,
+           "maximum": 1
+          },
+          "description": "16 steps of perc",
+          "minItems": 16,
+          "maxItems": 16
+         }
+        },
+        "required": [
+         "hat",
+         "kick",
+         "perc",
+         "snare"
+        ]
+       }
+      },
+      "required": [
+       "bar",
+       "d",
+       "groove_id",
+       "pattern",
+       "swing",
+       "syncopation",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

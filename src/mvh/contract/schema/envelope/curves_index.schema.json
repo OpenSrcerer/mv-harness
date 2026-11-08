@@ -1,0 +1,208 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/curves_index.schema.json",
+ "title": "mvh/envelope/curves_index",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "schema": {
+   "const": "mvh/curves_index"
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "files": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "dtype": {
+      "type": "string",
+      "enum": [
+       "f32le",
+       "u8"
+      ]
+     },
+     "layout": {
+      "type": "string",
+      "enum": [
+       "column-major",
+       "row-major"
+      ]
+     },
+     "rate_hz": {
+      "type": "number",
+      "x-unit": "Hz"
+     },
+     "n_frames": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "n_channels": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "quant": {
+      "type": "object",
+      "properties": {
+       "scale": {
+        "type": "number"
+       },
+       "offset": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "offset",
+       "scale"
+      ],
+      "description": "value = offset + scale * u8"
+     },
+     "band_edges_hz": {
+      "type": "array",
+      "items": {
+       "type": "number",
+       "x-unit": "Hz"
+      },
+      "description": "129 edges for spectrum128"
+     }
+    },
+    "required": [
+     "dtype",
+     "layout",
+     "n_channels",
+     "n_frames",
+     "path",
+     "rate_hz"
+    ]
+   }
+  },
+  "channels": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[A-Za-z0-9_]+)+$|^spectrum128$"
+     },
+     "file": {
+      "type": "string"
+     },
+     "offset_bytes": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "n": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "rate_hz": {
+      "type": "number",
+      "x-unit": "Hz"
+     },
+     "unit": {
+      "type": "string"
+     },
+     "range": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "resample": {
+      "type": "string",
+      "enum": [
+       "linear",
+       "mean",
+       "max",
+       "hold"
+      ]
+     },
+     "norm": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "method": {
+        "type": "string"
+       },
+       "of": {
+        "type": "string"
+       },
+       "lo": {
+        "type": "number"
+       },
+       "hi": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "method"
+      ]
+     },
+     "special": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "properties": {
+       "nan": {
+        "type": "string",
+        "enum": [
+         "unvoiced"
+        ]
+       },
+       "floor": {
+        "type": "number"
+       }
+      },
+      "required": []
+     },
+     "twin": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "stage": {
+      "type": "string"
+     },
+     "description": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "description",
+     "file",
+     "id",
+     "n",
+     "norm",
+     "offset_bytes",
+     "range",
+     "rate_hz",
+     "resample",
+     "special",
+     "stage",
+     "twin",
+     "unit"
+    ]
+   }
+  }
+ },
+ "required": [
+  "channels",
+  "files",
+  "schema",
+  "schema_version"
+ ],
+ "description": "curves/index.json: the curve channel registry for this song"
+}

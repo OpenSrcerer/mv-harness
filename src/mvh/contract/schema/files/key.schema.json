@@ -1,0 +1,65 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/key.schema.json",
+ "title": "mvh/files/key",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "global": {
+   "type": "object",
+   "properties": {
+    "key": {
+     "type": "string"
+    },
+    "tonic_pc": {
+     "type": "integer",
+     "description": "pitch class, C = 0",
+     "minimum": 0,
+     "maximum": 11
+    },
+    "mode": {
+     "type": "string",
+     "enum": [
+      "major",
+      "minor"
+     ]
+    },
+    "conf": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    }
+   },
+   "required": [
+    "conf",
+    "key",
+    "mode",
+    "tonic_pc"
+   ]
+  },
+  "agreement": {
+   "type": "string",
+   "description": "agree | relative | parallel | fifth | disagree"
+  },
+  "flags": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "methods": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {},
+    "required": []
+   }
+  }
+ },
+ "required": [
+  "agreement",
+  "flags",
+  "global"
+ ]
+}

@@ -1,0 +1,78 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/dynamics.schema.json",
+ "title": "mvh/events/dynamics",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "loud and quiet parts, boundaries snapped to downbeats",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/dynamics"
+    },
+    "name": {
+     "const": "dynamics"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "level": {
+        "type": "string",
+        "enum": [
+         "silence",
+         "quiet",
+         "soft",
+         "medium",
+         "loud",
+         "peak"
+        ]
+       },
+       "rel_lu": {
+        "type": "number",
+        "x-unit": "LU",
+        "description": "mean short-term loudness relative to integrated"
+       },
+       "mean_lufs": {
+        "type": "number",
+        "x-unit": "LUFS"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "conf",
+       "d",
+       "level",
+       "mean_lufs",
+       "rel_lu",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

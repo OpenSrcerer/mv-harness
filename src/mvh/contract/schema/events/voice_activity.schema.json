@@ -1,0 +1,54 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/voice_activity.schema.json",
+ "title": "mvh/events/voice_activity",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "when each voice sings",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/voice_activity"
+    },
+    "name": {
+     "const": "voice_activity"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "voice_id": {
+        "type": "string",
+        "description": "Voice cluster (one singing or rapping voice) id",
+        "pattern": "^V[1-9]\\d*$"
+       }
+      },
+      "required": [
+       "d",
+       "t",
+       "voice_id"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,140 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/intermediate/allin1.schema.json",
+ "title": "mvh/intermediate/allin1",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "bpm": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "BPM"
+  },
+  "beats": {
+   "type": "array",
+   "items": {
+    "type": "number",
+    "x-unit": "s",
+    "description": "time in seconds from the first sample of audio/mix.flac"
+   }
+  },
+  "downbeats": {
+   "type": "array",
+   "items": {
+    "type": "number",
+    "x-unit": "s",
+    "description": "time in seconds from the first sample of audio/mix.flac"
+   }
+  },
+  "beat_positions": {
+   "type": "array",
+   "items": {
+    "type": "integer",
+    "minimum": 1
+   }
+  },
+  "segments": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "start": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "end": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "label": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "end",
+     "label",
+     "start"
+    ]
+   }
+  },
+  "labels": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "description": "activation label order"
+   }
+  },
+  "activations": {
+   "type": "object",
+   "properties": {
+    "file": {
+     "type": "string"
+    },
+    "rate_hz": {
+     "type": "number",
+     "x-unit": "Hz"
+    },
+    "columns": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "frames": {
+     "type": "integer",
+     "minimum": 0
+    }
+   },
+   "required": [
+    "columns",
+    "file",
+    "frames",
+    "rate_hz"
+   ],
+   "description": "row-major float32 [frames x columns]: beat, downbeat, boundary, then label probabilities"
+  },
+  "embeddings": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "properties": {
+    "file": {
+     "type": "string"
+    },
+    "rate_hz": {
+     "type": "number",
+     "x-unit": "Hz"
+    },
+    "dim": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "frames": {
+     "type": "integer",
+     "minimum": 0
+    }
+   },
+   "required": [
+    "dim",
+    "file",
+    "frames",
+    "rate_hz"
+   ]
+  }
+ },
+ "required": [
+  "activations",
+  "beat_positions",
+  "beats",
+  "bpm",
+  "downbeats",
+  "embeddings",
+  "labels",
+  "segments"
+ ]
+}

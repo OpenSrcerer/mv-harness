@@ -1,0 +1,84 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/separation.schema.json",
+ "title": "mvh/files/separation",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "variant": {
+   "type": "string",
+   "enum": [
+    "rocm",
+    "cpu",
+    "htdemucs",
+    "fast"
+   ]
+  },
+  "degraded": {
+   "type": "boolean"
+  },
+  "lead_backing_split": {
+   "type": "boolean"
+  },
+  "stems": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "model": {
+      "type": "string"
+     },
+     "file": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "file",
+     "model"
+    ]
+   }
+  },
+  "models": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "licence": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "licence"
+    ]
+   }
+  },
+  "invariants": {
+   "type": "object",
+   "properties": {
+    "sum_error_db": {
+     "type": "number",
+     "x-unit": "dB"
+    },
+    "gain_db": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "number",
+      "x-unit": "dB"
+     }
+    }
+   },
+   "required": []
+  }
+ },
+ "required": [
+  "degraded",
+  "lead_backing_split",
+  "models",
+  "stems",
+  "variant"
+ ]
+}

@@ -1,0 +1,48 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/onsets.high.schema.json",
+ "title": "mvh/events/onsets.high",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "high-band flux onsets (centred threshold)",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/onsets.high"
+    },
+    "name": {
+     "const": "onsets.high"
+    },
+    "kind": {
+     "const": "event"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "strength": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       }
+      },
+      "required": [
+       "strength",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

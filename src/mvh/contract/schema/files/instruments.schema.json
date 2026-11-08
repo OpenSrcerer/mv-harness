@@ -1,0 +1,115 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/instruments.schema.json",
+ "title": "mvh/files/instruments",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "summary": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "instrument": {
+      "type": "string"
+     },
+     "coverage": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "mean_conf": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     }
+    },
+    "required": [
+     "coverage",
+     "instrument",
+     "mean_conf"
+    ]
+   }
+  },
+  "vocabulary": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "vocal_style": {
+   "type": "object",
+   "properties": {
+    "dominant": {
+     "type": "string",
+     "enum": [
+      "singing",
+      "speech",
+      "rap",
+      "none"
+     ]
+    },
+    "shares": {
+     "type": "object",
+     "properties": {
+      "singing": {
+       "type": "number",
+       "x-unit": "0..1",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "speech": {
+       "type": "number",
+       "x-unit": "0..1",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "rap": {
+       "type": "number",
+       "x-unit": "0..1",
+       "minimum": 0,
+       "maximum": 1
+      }
+     },
+     "required": [
+      "rap",
+      "singing",
+      "speech"
+     ]
+    }
+   },
+   "required": [
+    "dominant",
+    "shares"
+   ]
+  },
+  "top_tags": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "label": {
+      "type": "string"
+     },
+     "p": {
+      "type": "number",
+      "x-unit": "0..1",
+      "minimum": 0,
+      "maximum": 1
+     }
+    },
+    "required": [
+     "label",
+     "p"
+    ]
+   }
+  }
+ },
+ "required": [
+  "summary",
+  "vocabulary",
+  "vocal_style"
+ ]
+}

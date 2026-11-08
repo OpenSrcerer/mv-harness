@@ -1,0 +1,90 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/voice_spans.schema.json",
+ "title": "mvh/events/voice_spans",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "proposed voice per line or word span (a line may have several spans)",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/voice_spans"
+    },
+    "name": {
+     "const": "voice_spans"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "line_id": {
+        "type": "string",
+        "description": "Lyric line, in sung order id",
+        "pattern": "^L\\d{3,}$"
+       },
+       "first_word": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "description": "Lyric word (line_id.k, k 1-based) id",
+        "pattern": "^L\\d{3,}\\.\\d{2,}$"
+       },
+       "last_word": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "description": "Lyric word (line_id.k, k 1-based) id",
+        "pattern": "^L\\d{3,}\\.\\d{2,}$"
+       },
+       "voice_id": {
+        "type": "string",
+        "description": "Voice cluster (one singing or rapping voice) id",
+        "pattern": "^V[1-9]\\d*$"
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "review": {
+        "type": "boolean",
+        "description": "low confidence: flagged for review"
+       }
+      },
+      "required": [
+       "conf",
+       "d",
+       "first_word",
+       "last_word",
+       "line_id",
+       "review",
+       "t",
+       "voice_id"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

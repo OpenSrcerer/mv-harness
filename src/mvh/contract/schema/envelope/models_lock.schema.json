@@ -1,0 +1,123 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/envelope/models_lock.schema.json",
+ "title": "mvh/envelope/models_lock",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "models": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+     },
+     "envs": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "main",
+        "sep",
+        "sep-rocm",
+        "sep-cpu",
+        "ffmpeg-whisper"
+       ]
+      },
+      "minItems": 1
+     },
+     "files": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "path": {
+         "type": "string"
+        },
+        "url": {
+         "type": "string",
+         "pattern": "^https://"
+        },
+        "revision": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "sha256": {
+         "type": "string",
+         "description": "sha256 (hex)",
+         "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+         "type": "integer",
+         "minimum": 0
+        }
+       },
+       "required": [
+        "path",
+        "revision",
+        "sha256",
+        "size",
+        "url"
+       ]
+      },
+      "minItems": 1
+     },
+     "licence": {
+      "type": "string"
+     },
+     "used_by": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "bundled": {
+      "type": "boolean",
+      "description": "the file ships inside a wheel (verified, never downloaded)"
+     },
+     "note": {
+      "type": "string"
+     },
+     "notes": {
+      "type": "string"
+     },
+     "source": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "envs",
+     "files",
+     "id",
+     "licence",
+     "used_by"
+    ]
+   }
+  },
+  "schema_version": {
+   "type": "string",
+   "description": "semver",
+   "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$"
+  },
+  "schema": {
+   "type": "integer",
+   "description": "lock format version (W0 writes 1)",
+   "minimum": 1
+  },
+  "generated_by": {
+   "type": "string"
+  },
+  "models_dir": {
+   "type": "string",
+   "description": "models root, e.g. %LOCALAPPDATA%\\mvh\\models"
+  }
+ },
+ "required": [
+  "models"
+ ],
+ "description": "models.lock.json (repo root): the only list of downloadable model files"
+}

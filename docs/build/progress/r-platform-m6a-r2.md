@@ -1,0 +1,11 @@
+# r-platform-m6a-r2 progress
+- started round 2 2026-11-08; reading fixed code
+- verified 7 r1 fixes: all real (browser served+file:// on synth/newton/megafauna; server probe out/_wip/r-platform-m6a-r2/probe.py)
+- NEW major: Undo skips a state (edit.js undo pops twice) - verified in Claude_Browser
+- NEW major: non-UTF-8 meaning/intent.md -> GET api/intent dropped -> edit-mode page fatal (verified in Claude_Browser)
+- minors: m6 still open (intent t1=1e999 -> 200, section dropped); rapid edits while saving -> misleading 409 toast
+- servers running: ports 60752 (synth), 60753 (newton) bg tasks b1ok0vasz, b141gq6jz -> STOP before report
+- next: write failing tests tests/review/M6a/r-platform/test_r2_*.py + cdp scenario undo
+- tests written: tests/review/M6a/r-platform/test_r2_platform.py (4 failing as intended), cdp_viewer.mjs +undo scenario; r1 tests 10 pass
+- minors appended (Round 2) to docs/review/M6a-r-platform.md; report docs/build/reports/r-platform-m6a-r2.md
+- servers stopped. DONE.

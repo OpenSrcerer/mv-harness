@@ -1,0 +1,76 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/notes_index.schema.json",
+ "title": "mvh/files/notes_index",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "sources": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "events": {
+      "type": "string"
+     },
+     "midi": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "count": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "lowest": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "minimum": 0,
+      "maximum": 127
+     },
+     "highest": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "minimum": 0,
+      "maximum": 127
+     },
+     "pc_histogram": {
+      "type": "array",
+      "items": {
+       "type": "number",
+       "minimum": 0
+      },
+      "minItems": 12,
+      "maxItems": 12
+     },
+     "density_per_s": {
+      "type": "number",
+      "x-unit": "notes/s"
+     }
+    },
+    "required": [
+     "count",
+     "density_per_s",
+     "events",
+     "highest",
+     "lowest",
+     "midi",
+     "pc_histogram"
+    ]
+   }
+  },
+  "tempo_map": {
+   "type": "string",
+   "description": "how notes.mid's tempo map was built"
+  }
+ },
+ "required": [
+  "sources",
+  "tempo_map"
+ ]
+}

@@ -1,0 +1,11 @@
+onnxruntime-directml==1.24.4
+demucs-onnx==0.3.4
+basic-pitch==0.4.0
+swift-f0==0.3.0
+rmvpe-onnx==0.2.3
+soundfile==0.14.0
+soxr==1.1.0
+numpy==2.5.4
+scipy==1.18.1
+pretty-midi==0.2.11.post0
+huggingface-hub

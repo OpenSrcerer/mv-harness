@@ -1,0 +1,130 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/identity.schema.json",
+ "title": "mvh/files/identity",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "title": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "artist": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "album": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "duration_s": {
+   "type": "number",
+   "x-unit": "s"
+  },
+  "source": {
+   "type": "string",
+   "enum": [
+    "tags",
+    "acoustid",
+    "musicbrainz",
+    "user"
+   ]
+  },
+  "conf": {
+   "type": "number",
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  },
+  "credits": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "role": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "role"
+    ]
+   }
+  },
+  "album_artist": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "year": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "isrc": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "track_no": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "genre": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "mb_recording_id": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "mb_artist_ids": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "acoustid_id": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "acoustid_score": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "x-unit": "0..1",
+   "minimum": 0,
+   "maximum": 1
+  }
+ },
+ "required": [
+  "album",
+  "artist",
+  "conf",
+  "credits",
+  "duration_s",
+  "source",
+  "title"
+ ]
+}

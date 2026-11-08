@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.f32 binary
+*.u8 binary
+*.flac binary
+*.wav binary
+*.opus binary
+*.mid binary
+*.onnx binary

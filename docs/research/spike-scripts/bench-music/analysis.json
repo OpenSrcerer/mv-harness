@@ -1,0 +1,5109 @@
+{
+ "megafauna": {
+  "timings": {
+   "decode": {
+    "wall_s": 0.39,
+    "proc_cpu_s": 0.3,
+    "sys_cpu": 0.218,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "demucs": {
+    "wall_s": 111.66,
+    "proc_cpu_s": 612.7,
+    "sys_cpu": 0.835,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "beat_this": {
+    "wall_s": 3.69,
+    "proc_cpu_s": 20.5,
+    "sys_cpu": 0.545,
+    "locks": [
+     "heavy-0:bench-music:megafauna",
+     "heavy-1:bench-words"
+    ]
+   },
+   "allin1": {
+    "wall_s": 40.34,
+    "proc_cpu_s": 137.1,
+    "sys_cpu": 0.699,
+    "locks": [
+     "heavy-0:bench-music:megafauna",
+     "heavy-1:bench-words"
+    ]
+   },
+   "librosa": {
+    "wall_s": 2.54,
+    "proc_cpu_s": 3.0,
+    "sys_cpu": 0.208,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "spectral_proto": {
+    "wall_s": 18.52,
+    "proc_cpu_s": 0.0,
+    "sys_cpu": 0.19,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "chords": {
+    "wall_s": 5.76,
+    "proc_cpu_s": 18.0,
+    "sys_cpu": 0.365,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "key": {
+    "wall_s": 7.24,
+    "proc_cpu_s": 9.7,
+    "sys_cpu": 0.194,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "notes": {
+    "wall_s": 4.23,
+    "proc_cpu_s": 24.1,
+    "sys_cpu": 0.476,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "pitch": {
+    "wall_s": 6.4,
+    "proc_cpu_s": 20.6,
+    "sys_cpu": 0.63,
+    "locks": [
+     "heavy-0:bench-music:megafauna",
+     "heavy-1:bench-words"
+    ]
+   },
+   "instruments": {
+    "wall_s": 67.89,
+    "proc_cpu_s": 328.8,
+    "sys_cpu": 0.576,
+    "locks": [
+     "heavy-0:bench-music:megafauna",
+     "heavy-1:bench-words"
+    ]
+   },
+   "mood": {
+    "wall_s": 2.82,
+    "proc_cpu_s": 10.7,
+    "sys_cpu": 0.864,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "madmom_dbn": {
+    "wall_s": 41.26,
+    "proc_cpu_s": 40.1,
+    "sys_cpu": 0.257,
+    "locks": [
+     "heavy-0:bench-music:megafauna"
+    ]
+   },
+   "piano": {
+    "wall_s": 0.25,
+    "proc_cpu_s": 0.3,
+    "sys_cpu": 0.206,
+    "locks": [
+     "heavy-0:bench-music:megafauna",
+     "heavy-1:bench-words"
+    ]
+   }
+  },
+  "tempo": {
+   "beat_this_median_bpm": 200.0,
+   "beat_this_bpm_p10_p90": [
+    103.4,
+    333.3
+   ],
+   "beat_this_n_beats": 382,
+   "beat_this_n_downbeats": 122,
+   "beat_this_beats_per_bar_hist": {
+    "1": 30,
+    "2": 17,
+    "3": 13,
+    "4": 44,
+    "5": 9,
+    "6": 2,
+    "7": 3,
+    "8": 3
+   },
+   "allin1_bpm": 105,
+   "allin1_median_bpm_from_beats": 105.26,
+   "allin1_n_beats": 277,
+   "allin1_n_downbeats": 69,
+   "allin1_beats_per_bar_hist": {
+    "4": 68
+   },
+   "madmom_bpb34_median_bpm": 193.55,
+   "madmom_bpb4_median_bpm": 193.55,
+   "madmom_bpb34_n_beats": 631,
+   "madmom_bpb34_n_downbeats": 158,
+   "librosa_tempo_mean_agg": 103.36,
+   "librosa_tempo_dynamic_median": 103.36,
+   "librosa_beat_track_tempo": 103.36,
+   "librosa_tempogram_candidates": [
+    [
+     215.33,
+     0.7602
+    ],
+    [
+     103.36,
+     0.7417
+    ],
+    [
+     143.55,
+     0.7214
+    ],
+    [
+     83.35,
+     0.7158
+    ],
+    [
+     69.84,
+     0.7122
+    ],
+    [
+     52.73,
+     0.6925
+    ]
+   ]
+  },
+  "beat_agreement": {
+   "beat_this|allin1": {
+    "beat_f_70ms": 0.5736,
+    "beat_f_150ms": 0.607,
+    "beat_f_70ms_best_beat_shift": [
+     0.5766,
+     -1
+    ],
+    "downbeat_f_70ms": 0.4817,
+    "median_ibi_ratio_x_over_y": 0.526
+   },
+   "beat_this|madmom_bpb34": {
+    "beat_f_70ms": 0.6101,
+    "beat_f_150ms": 0.6515,
+    "beat_f_70ms_best_beat_shift": [
+     0.6101,
+     0
+    ],
+    "downbeat_f_70ms": 0.5571,
+    "median_ibi_ratio_x_over_y": 0.968
+   },
+   "beat_this|madmom_bpb4": {
+    "beat_f_70ms": 0.6101,
+    "beat_f_150ms": 0.6515,
+    "beat_f_70ms_best_beat_shift": [
+     0.6101,
+     0
+    ],
+    "downbeat_f_70ms": 0.5571,
+    "median_ibi_ratio_x_over_y": 0.968
+   },
+   "beat_this|librosa_beat_track": {
+    "beat_f_70ms": 0.3052,
+    "beat_f_150ms": 0.3663,
+    "beat_f_70ms_best_beat_shift": [
+     0.311,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.517
+   },
+   "allin1|madmom_bpb34": {
+    "beat_f_70ms": 0.5088,
+    "beat_f_150ms": 0.6013,
+    "beat_f_70ms_best_beat_shift": [
+     0.5088,
+     0
+    ],
+    "downbeat_f_70ms": 0.4493,
+    "median_ibi_ratio_x_over_y": 1.839
+   },
+   "allin1|madmom_bpb4": {
+    "beat_f_70ms": 0.5088,
+    "beat_f_150ms": 0.6013,
+    "beat_f_70ms_best_beat_shift": [
+     0.5088,
+     0
+    ],
+    "downbeat_f_70ms": 0.4493,
+    "median_ibi_ratio_x_over_y": 1.839
+   },
+   "allin1|librosa_beat_track": {
+    "beat_f_70ms": 0.295,
+    "beat_f_150ms": 0.3979,
+    "beat_f_70ms_best_beat_shift": [
+     0.295,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 0.982
+   },
+   "madmom_bpb34|madmom_bpb4": {
+    "beat_f_70ms": 1.0,
+    "beat_f_150ms": 1.0,
+    "beat_f_70ms_best_beat_shift": [
+     1.0,
+     0
+    ],
+    "downbeat_f_70ms": 1.0,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "madmom_bpb34|librosa_beat_track": {
+    "beat_f_70ms": 0.3543,
+    "beat_f_150ms": 0.4931,
+    "beat_f_70ms_best_beat_shift": [
+     0.3543,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 0.534
+   },
+   "madmom_bpb4|librosa_beat_track": {
+    "beat_f_70ms": 0.3543,
+    "beat_f_150ms": 0.4931,
+    "beat_f_70ms_best_beat_shift": [
+     0.3543,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 0.534
+   }
+  },
+  "key": {
+   "skey_global_top3": [
+    [
+     "A minor",
+     0.068
+    ],
+    [
+     "D minor",
+     0.0448
+    ],
+    [
+     "G Major",
+     0.0409
+    ]
+   ],
+   "ks_top3": [
+    [
+     "D minor",
+     0.6709
+    ],
+    [
+     "D major",
+     0.6173
+    ],
+    [
+     "A major",
+     0.6131
+    ]
+   ],
+   "temperley_top3": [
+    [
+     "D minor",
+     0.5789
+    ],
+    [
+     "A minor",
+     0.5144
+    ],
+    [
+     "A major",
+     0.4871
+    ]
+   ],
+   "relations": {
+    "skey_vs_ks": "fifth",
+    "skey_vs_temperley": "fifth",
+    "ks_vs_temperley": "exact"
+   },
+   "skey_window_votes": [
+    [
+     "A minor",
+     7
+    ],
+    [
+     "D minor",
+     4
+    ],
+    [
+     "D Major",
+     1
+    ],
+    [
+     "G minor",
+     1
+    ]
+   ],
+   "skey_window_n": 14,
+   "ks_window_votes": [
+    [
+     "D minor",
+     6
+    ],
+    [
+     "A major",
+     2
+    ],
+    [
+     "C# minor",
+     2
+    ],
+    [
+     "D major",
+     1
+    ]
+   ],
+   "skey_window_agreement_with_global": 0.5,
+   "chord_diatonic_top3": [
+    [
+     "D minor",
+     0.84
+    ],
+    [
+     "F major",
+     0.84
+    ],
+    [
+     "C major",
+     0.772
+    ]
+   ],
+   "chord_hist_top5": [
+    [
+     "Dm",
+     75.2
+    ],
+    [
+     "C",
+     30.3
+    ],
+    [
+     "Am",
+     27.5
+    ],
+    [
+     "D",
+     26.9
+    ],
+    [
+     "A#",
+     11.1
+    ]
+   ],
+   "chord_vocab_n": 9,
+   "chord_n_segments": 44,
+   "chord_no_chord_frac": 0.166
+  },
+  "pitch": {
+   "swiftf0_secs": 0.5,
+   "rmvpe_secs": 3.2,
+   "swiftf0_frames": 13577,
+   "rmvpe_frames": 21725,
+   "swiftf0_voiced_gated_frac": 0.045,
+   "swiftf0_voiced_s": 9.8,
+   "swiftf0_midi_p2_p10_p50_p90_p98": [
+    59.94,
+    61.96,
+    63.95,
+    68.9,
+    68.95
+   ],
+   "swiftf0_range_names_p2_p98": [
+    "C4",
+    "A4"
+   ],
+   "rmvpe_voiced_frac": 0.153,
+   "rmvpe_midi_p2_p10_p50_p90_p98": [
+    50.47,
+    57.48,
+    64.18,
+    69.05,
+    76.87
+   ],
+   "agree_both_voiced_frames": 610,
+   "agree_within_1_semitone": 0.997,
+   "agree_octave_off": 0.002,
+   "format": "swiftf0.npz t/hz/conf/loudness_db float32 (16 ms hop); rmvpe.npz t/hz/conf (10 ms hop, hz 0 = unvoiced); *_notes.json"
+  },
+  "spectral": {
+   "integrated_lufs": -10.81,
+   "lra_lu": 17.89,
+   "sample_peak_dbfs": -0.3,
+   "kick_events_port": 467,
+   "kick_events_offline_ref": 464,
+   "onsets": {
+    "low": 745,
+    "mid": 392,
+    "high": 821
+   },
+   "corr_median": 0.854,
+   "width_median": 0.075,
+   "timings_s": {
+    "load": 0.014,
+    "stft": 0.762,
+    "bands": 0.179,
+    "kick": 0.305,
+    "flux": 0.008,
+    "timbre_stereo": 0.451,
+    "loudness": 1.254,
+    "pyln_I_LRA": 1.43,
+    "librosa_import": 0.004,
+    "key_chords": 10.385,
+    "write": 0.843
+   },
+   "first_kicks": [
+    0.68,
+    9.88,
+    18.28,
+    18.46,
+    18.71,
+    18.84,
+    18.94,
+    19.02,
+    21.51,
+    21.59,
+    23.02,
+    23.85,
+    23.93,
+    24.07,
+    24.17,
+    24.42
+   ]
+  },
+  "dynamics": [
+   {
+    "t0": 0.0,
+    "t1": 25.9,
+    "rel_lu": -4.2,
+    "bass_db": -35.5,
+    "kick_hz": 3.44,
+    "slope": 0.12,
+    "level": "soft",
+    "tags": []
+   },
+   {
+    "t0": 25.9,
+    "t1": 58.6,
+    "rel_lu": -12.9,
+    "bass_db": -52.5,
+    "kick_hz": 4.13,
+    "slope": -0.56,
+    "level": "quiet",
+    "tags": [
+     "breakdown"
+    ]
+   },
+   {
+    "t0": 58.6,
+    "t1": 74.7,
+    "rel_lu": -14.6,
+    "bass_db": -49.7,
+    "kick_hz": 0.12,
+    "slope": -0.44,
+    "level": "quiet",
+    "tags": []
+   },
+   {
+    "t0": 74.7,
+    "t1": 114.1,
+    "rel_lu": -8.9,
+    "bass_db": -44.1,
+    "kick_hz": 6.97,
+    "slope": 0.43,
+    "level": "quiet",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 114.1,
+    "t1": 146.3,
+    "rel_lu": -2.4,
+    "bass_db": -37.2,
+    "kick_hz": 15.78,
+    "slope": 0.18,
+    "level": "medium",
+    "tags": [
+     "build-up",
+     "drop"
+    ]
+   },
+   {
+    "t0": 146.3,
+    "t1": 155.7,
+    "rel_lu": 2.0,
+    "bass_db": -21.6,
+    "kick_hz": 18.58,
+    "slope": 0.06,
+    "level": "loud",
+    "tags": [
+     "drop"
+    ]
+   },
+   {
+    "t0": 155.7,
+    "t1": 181.3,
+    "rel_lu": 3.1,
+    "bass_db": -21.2,
+    "kick_hz": 16.79,
+    "slope": -0.0,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 181.3,
+    "t1": 199.5,
+    "rel_lu": 1.9,
+    "bass_db": -21.5,
+    "kick_hz": 16.44,
+    "slope": -0.06,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 199.5,
+    "t1": 217.2,
+    "rel_lu": 2.3,
+    "bass_db": -23.2,
+    "kick_hz": 20.16,
+    "slope": -0.51,
+    "level": "loud",
+    "tags": []
+   }
+  ],
+  "allin1_segments": [
+   [
+    0.0,
+    19.1,
+    "intro"
+   ],
+   [
+    19.1,
+    36.7,
+    "inst"
+   ],
+   [
+    36.7,
+    53.1,
+    "inst"
+   ],
+   [
+    53.1,
+    80.1,
+    "intro"
+   ],
+   [
+    80.1,
+    96.1,
+    "intro"
+   ],
+   [
+    96.1,
+    123.5,
+    "intro"
+   ],
+   [
+    123.5,
+    169.3,
+    "inst"
+   ],
+   [
+    169.3,
+    185.2,
+    "chorus"
+   ],
+   [
+    185.2,
+    211.8,
+    "inst"
+   ],
+   [
+    211.8,
+    217.2,
+    "inst"
+   ]
+  ],
+  "mood": {
+   "emomusic_va_mean": [
+    3.984074831008911,
+    4.819460391998291
+   ],
+   "deam_va_mean": [
+    5.54728889465332,
+    4.327056407928467
+   ],
+   "top_moodtheme_mean": [
+    [
+     "dark",
+     0.115
+    ],
+    [
+     "space",
+     0.106
+    ],
+    [
+     "energetic",
+     0.072
+    ],
+    [
+     "soundscape",
+     0.066
+    ],
+    [
+     "film",
+     0.061
+    ],
+    [
+     "relaxing",
+     0.061
+    ],
+    [
+     "epic",
+     0.054
+    ],
+    [
+     "meditative",
+     0.053
+    ]
+   ]
+  },
+  "instruments": {
+   "ced_mix_top12_mean": [
+    [
+     "Music",
+     0.827
+    ],
+    [
+     "Electronic music",
+     0.153
+    ],
+    [
+     "Ambient music",
+     0.15
+    ],
+    [
+     "Drum and bass",
+     0.089
+    ],
+    [
+     "Angry music",
+     0.072
+    ],
+    [
+     "Musical instrument",
+     0.05
+    ],
+    [
+     "Techno",
+     0.047
+    ],
+    [
+     "New-age music",
+     0.039
+    ],
+    [
+     "Soundtrack music",
+     0.036
+    ],
+    [
+     "Trance music",
+     0.032
+    ],
+    [
+     "Dubstep",
+     0.025
+    ],
+    [
+     "Scary music",
+     0.025
+    ]
+   ],
+   "ced_htdemucs_drums_top12_mean": [
+    [
+     "Music",
+     0.582
+    ],
+    [
+     "Musical instrument",
+     0.169
+    ],
+    [
+     "Drum",
+     0.167
+    ],
+    [
+     "Drum kit",
+     0.142
+    ],
+    [
+     "Silence",
+     0.13
+    ],
+    [
+     "Electronic music",
+     0.12
+    ],
+    [
+     "Drum machine",
+     0.111
+    ],
+    [
+     "Bass drum",
+     0.098
+    ],
+    [
+     "Percussion",
+     0.063
+    ],
+    [
+     "Techno",
+     0.055
+    ],
+    [
+     "Snare drum",
+     0.048
+    ],
+    [
+     "Drum and bass",
+     0.045
+    ]
+   ],
+   "ced_htdemucs_bass_top12_mean": [
+    [
+     "Music",
+     0.512
+    ],
+    [
+     "Silence",
+     0.167
+    ],
+    [
+     "Electronic music",
+     0.161
+    ],
+    [
+     "Musical instrument",
+     0.076
+    ],
+    [
+     "Synthesizer",
+     0.051
+    ],
+    [
+     "Sound effect",
+     0.041
+    ],
+    [
+     "Guitar",
+     0.036
+    ],
+    [
+     "Bass guitar",
+     0.035
+    ],
+    [
+     "Techno",
+     0.033
+    ],
+    [
+     "Effects unit",
+     0.031
+    ],
+    [
+     "Heart murmur",
+     0.03
+    ],
+    [
+     "Throbbing",
+     0.029
+    ]
+   ],
+   "ced_htdemucs_other_top12_mean": [
+    [
+     "Music",
+     0.736
+    ],
+    [
+     "Ambient music",
+     0.174
+    ],
+    [
+     "Musical instrument",
+     0.139
+    ],
+    [
+     "Electronic music",
+     0.085
+    ],
+    [
+     "Guitar",
+     0.084
+    ],
+    [
+     "Plucked string instrument",
+     0.056
+    ],
+    [
+     "Electric guitar",
+     0.049
+    ],
+    [
+     "New-age music",
+     0.042
+    ],
+    [
+     "Effects unit",
+     0.035
+    ],
+    [
+     "Strum",
+     0.035
+    ],
+    [
+     "Speech",
+     0.029
+    ],
+    [
+     "Synthesizer",
+     0.029
+    ]
+   ],
+   "ced_htdemucs_vocals_top12_mean": [
+    [
+     "Music",
+     0.368
+    ],
+    [
+     "Silence",
+     0.178
+    ],
+    [
+     "Speech",
+     0.081
+    ],
+    [
+     "Musical instrument",
+     0.042
+    ],
+    [
+     "Animal",
+     0.04
+    ],
+    [
+     "Sonar",
+     0.038
+    ],
+    [
+     "Sound effect",
+     0.035
+    ],
+    [
+     "Ambient music",
+     0.032
+    ],
+    [
+     "Sneeze",
+     0.025
+    ],
+    [
+     "Quack",
+     0.025
+    ],
+    [
+     "Domestic animals",
+     0.022
+    ],
+    [
+     "Effects unit",
+     0.021
+    ]
+   ],
+   "ced_htdemucs_6s_guitar_top12_mean": [
+    [
+     "Music",
+     0.57
+    ],
+    [
+     "Musical instrument",
+     0.157
+    ],
+    [
+     "Silence",
+     0.156
+    ],
+    [
+     "Guitar",
+     0.134
+    ],
+    [
+     "Plucked string instrument",
+     0.088
+    ],
+    [
+     "Effects unit",
+     0.07
+    ],
+    [
+     "Electric guitar",
+     0.07
+    ],
+    [
+     "Distortion",
+     0.052
+    ],
+    [
+     "Strum",
+     0.041
+    ],
+    [
+     "Sound effect",
+     0.029
+    ],
+    [
+     "Ambient music",
+     0.026
+    ],
+    [
+     "Electronic music",
+     0.023
+    ]
+   ],
+   "ced_htdemucs_6s_piano_top12_mean": [
+    [
+     "Silence",
+     0.418
+    ],
+    [
+     "Music",
+     0.314
+    ],
+    [
+     "Musical instrument",
+     0.041
+    ],
+    [
+     "Ambient music",
+     0.026
+    ],
+    [
+     "Sound effect",
+     0.023
+    ],
+    [
+     "Speech",
+     0.016
+    ],
+    [
+     "Singing bowl",
+     0.015
+    ],
+    [
+     "Inside",
+     0.015
+    ],
+    [
+     "Television",
+     0.014
+    ],
+    [
+     "Sonar",
+     0.013
+    ],
+    [
+     "Synthesizer",
+     0.012
+    ],
+    [
+     "Piano",
+     0.012
+    ]
+   ],
+   "clap_mix_top8_mean_cos": [
+    [
+     "lead synthesizer",
+     0.332
+    ],
+    [
+     "synth pad",
+     0.303
+    ],
+    [
+     "organ",
+     0.287
+    ],
+    [
+     "electronic drum machine",
+     0.286
+    ],
+    [
+     "electronic dance music",
+     0.251
+    ],
+    [
+     "synth bass",
+     0.249
+    ],
+    [
+     "string orchestra",
+     0.231
+    ],
+    [
+     "brass",
+     0.213
+    ]
+   ],
+   "clap_htdemucs_drums_top8_mean_cos": [
+    [
+     "electronic drum machine",
+     0.362
+    ],
+    [
+     "lead synthesizer",
+     0.265
+    ],
+    [
+     "hi-hats",
+     0.209
+    ],
+    [
+     "grunge rock",
+     0.169
+    ],
+    [
+     "cello",
+     0.166
+    ],
+    [
+     "vocal chops",
+     0.162
+    ],
+    [
+     "silence",
+     0.16
+    ],
+    [
+     "sound effects and risers",
+     0.152
+    ]
+   ],
+   "clap_htdemucs_bass_top8_mean_cos": [
+    [
+     "electronic drum machine",
+     0.265
+    ],
+    [
+     "lead synthesizer",
+     0.259
+    ],
+    [
+     "sound effects and risers",
+     0.253
+    ],
+    [
+     "a woman singing",
+     0.209
+    ],
+    [
+     "vocal chops",
+     0.208
+    ],
+    [
+     "grunge rock",
+     0.207
+    ],
+    [
+     "sub bass drop",
+     0.192
+    ],
+    [
+     "a man speaking",
+     0.187
+    ]
+   ],
+   "clap_htdemucs_other_top8_mean_cos": [
+    [
+     "synth pad",
+     0.366
+    ],
+    [
+     "organ",
+     0.28
+    ],
+    [
+     "distorted electric guitar",
+     0.276
+    ],
+    [
+     "lead synthesizer",
+     0.266
+    ],
+    [
+     "electronic drum machine",
+     0.221
+    ],
+    [
+     "brass",
+     0.216
+    ],
+    [
+     "grunge rock",
+     0.216
+    ],
+    [
+     "cello",
+     0.215
+    ]
+   ],
+   "clap_htdemucs_vocals_top8_mean_cos": [
+    [
+     "silence",
+     0.23
+    ],
+    [
+     "vocal chops",
+     0.201
+    ],
+    [
+     "lead synthesizer",
+     0.197
+    ],
+    [
+     "sound effects and risers",
+     0.182
+    ],
+    [
+     "a choir singing",
+     0.175
+    ],
+    [
+     "a woman singing",
+     0.174
+    ],
+    [
+     "distorted electric guitar",
+     0.174
+    ],
+    [
+     "brass",
+     0.161
+    ]
+   ]
+  },
+  "piano_presence": {
+   "stem_active_frac": 0.088,
+   "stem_rms_dbfs": -73.5,
+   "ced_mix_piano_mean": 0.002,
+   "ced_mix_piano_p95": 0.011,
+   "ced_pianostem_piano_mean": 0.012,
+   "rule": "run when stem_active_frac >= 0.10 or ced_mix_piano_mean >= 0.05 or ced_mix_piano_p95 >= 0.25",
+   "run": false
+  },
+  "demucs": {
+   "htdemucs": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals"
+    ],
+    "secs": 49.8,
+    "sum_vs_mix_relrms": 0.0332,
+    "stem_rms_dbfs": {
+     "drums": -19.9971923828125,
+     "bass": -18.03118896484375,
+     "other": -22.043582916259766,
+     "vocals": -29.61908531188965
+    },
+    "rel_to_mix_realtime_factor": 0.229,
+    "onnx": "demucs-onnx/htdemucs-onnx/htdemucs_fp16weights.onnx"
+   },
+   "htdemucs_6s": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals",
+     "guitar",
+     "piano"
+    ],
+    "secs": 53.8,
+    "sum_vs_mix_relrms": 0.0994,
+    "stem_rms_dbfs": {
+     "drums": -19.90228843688965,
+     "bass": -18.293691635131836,
+     "other": -28.6142578125,
+     "vocals": -28.60982894897461,
+     "guitar": -25.41510581970215,
+     "piano": -36.24416732788086
+    },
+    "rel_to_mix_realtime_factor": 0.247,
+    "onnx": "demucs-onnx/htdemucs-6s-onnx/htdemucs_6s_fp16weights.onnx"
+   }
+  },
+  "decode": {
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 217.24687074829933,
+   "peak_dbfs": -0.30015233159065247,
+   "rms_dbfs": -14.336240667968115,
+   "decoder_warning_count": 0
+  }
+ },
+ "versatile": {
+  "timings": {
+   "decode": {
+    "wall_s": 0.67,
+    "proc_cpu_s": 0.3,
+    "sys_cpu": 0.311,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0_novad",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0_novad",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "demucs": {
+    "wall_s": 129.66,
+    "proc_cpu_s": 607.5,
+    "sys_cpu": 0.685,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0_novad",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0_novad",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "beat_this": {
+    "wall_s": 4.11,
+    "proc_cpu_s": 23.6,
+    "sys_cpu": 0.556,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "allin1": {
+    "wall_s": 35.44,
+    "proc_cpu_s": 122.4,
+    "sys_cpu": 0.39,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "librosa": {
+    "wall_s": 2.67,
+    "proc_cpu_s": 2.5,
+    "sys_cpu": 0.24,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "spectral_proto": {
+    "wall_s": 16.73,
+    "proc_cpu_s": 0.0,
+    "sys_cpu": 0.265,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "chords": {
+    "wall_s": 10.57,
+    "proc_cpu_s": 20.6,
+    "sys_cpu": 0.329,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "key": {
+    "wall_s": 7.63,
+    "proc_cpu_s": 10.4,
+    "sys_cpu": 0.251,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "notes": {
+    "wall_s": 4.57,
+    "proc_cpu_s": 26.6,
+    "sys_cpu": 0.533,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "pitch": {
+    "wall_s": 3.44,
+    "proc_cpu_s": 18.7,
+    "sys_cpu": 0.518,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "instruments": {
+    "wall_s": 66.95,
+    "proc_cpu_s": 334.0,
+    "sys_cpu": 0.484,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "mood": {
+    "wall_s": 1.34,
+    "proc_cpu_s": 8.2,
+    "sys_cpu": 0.612,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "madmom_dbn": {
+    "wall_s": 37.07,
+    "proc_cpu_s": 37.0,
+    "sys_cpu": 0.229,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   },
+   "piano": {
+    "wall_s": 0.17,
+    "proc_cpu_s": 0.2,
+    "sys_cpu": 0.216,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:versatile"
+    ]
+   }
+  },
+  "tempo": {
+   "beat_this_median_bpm": 130.43,
+   "beat_this_bpm_p10_p90": [
+    125.0,
+    136.4
+   ],
+   "beat_this_n_beats": 459,
+   "beat_this_n_downbeats": 124,
+   "beat_this_beats_per_bar_hist": {
+    "1": 5,
+    "2": 7,
+    "3": 10,
+    "4": 99,
+    "5": 1,
+    "8": 1
+   },
+   "allin1_bpm": 130,
+   "allin1_median_bpm_from_beats": 130.43,
+   "allin1_n_beats": 409,
+   "allin1_n_downbeats": 102,
+   "allin1_beats_per_bar_hist": {
+    "4": 101
+   },
+   "madmom_bpb34_median_bpm": 130.43,
+   "madmom_bpb4_median_bpm": 130.43,
+   "madmom_bpb34_n_beats": 474,
+   "madmom_bpb34_n_downbeats": 119,
+   "librosa_tempo_mean_agg": 129.2,
+   "librosa_tempo_dynamic_median": 129.2,
+   "librosa_beat_track_tempo": 129.2,
+   "librosa_tempogram_candidates": [
+    [
+     129.2,
+     0.8075
+    ],
+    [
+     64.6,
+     0.7281
+    ],
+    [
+     86.13,
+     0.6728
+    ],
+    [
+     43.07,
+     0.6392
+    ],
+    [
+     51.68,
+     0.6049
+    ],
+    [
+     172.27,
+     0.4905
+    ]
+   ]
+  },
+  "beat_agreement": {
+   "beat_this|allin1": {
+    "beat_f_70ms": 0.9194,
+    "beat_f_150ms": 0.9194,
+    "beat_f_70ms_best_beat_shift": [
+     0.9194,
+     -2
+    ],
+    "downbeat_f_70ms": 0.8584,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|madmom_bpb34": {
+    "beat_f_70ms": 0.9603,
+    "beat_f_150ms": 0.9732,
+    "beat_f_70ms_best_beat_shift": [
+     0.9625,
+     -1
+    ],
+    "downbeat_f_70ms": 0.2551,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|madmom_bpb4": {
+    "beat_f_70ms": 0.9603,
+    "beat_f_150ms": 0.9732,
+    "beat_f_70ms_best_beat_shift": [
+     0.9625,
+     -1
+    ],
+    "downbeat_f_70ms": 0.2551,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|librosa_beat_track": {
+    "beat_f_70ms": 0.836,
+    "beat_f_150ms": 0.8434,
+    "beat_f_70ms_best_beat_shift": [
+     0.836,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.991
+   },
+   "allin1|madmom_bpb34": {
+    "beat_f_70ms": 0.9128,
+    "beat_f_150ms": 0.9219,
+    "beat_f_70ms_best_beat_shift": [
+     0.9128,
+     -2
+    ],
+    "downbeat_f_70ms": 0.2081,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "allin1|madmom_bpb4": {
+    "beat_f_70ms": 0.9128,
+    "beat_f_150ms": 0.9219,
+    "beat_f_70ms_best_beat_shift": [
+     0.9128,
+     -2
+    ],
+    "downbeat_f_70ms": 0.2081,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "allin1|librosa_beat_track": {
+    "beat_f_70ms": 0.9225,
+    "beat_f_150ms": 0.9251,
+    "beat_f_70ms_best_beat_shift": [
+     0.9225,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.991
+   },
+   "madmom_bpb34|madmom_bpb4": {
+    "beat_f_70ms": 1.0,
+    "beat_f_150ms": 1.0,
+    "beat_f_70ms_best_beat_shift": [
+     1.0,
+     0
+    ],
+    "downbeat_f_70ms": 1.0,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "madmom_bpb34|librosa_beat_track": {
+    "beat_f_70ms": 0.8329,
+    "beat_f_150ms": 0.8475,
+    "beat_f_70ms_best_beat_shift": [
+     0.8354,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.991
+   },
+   "madmom_bpb4|librosa_beat_track": {
+    "beat_f_70ms": 0.8329,
+    "beat_f_150ms": 0.8475,
+    "beat_f_70ms_best_beat_shift": [
+     0.8354,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.991
+   }
+  },
+  "key": {
+   "skey_global_top3": [
+    [
+     "A minor",
+     0.0932
+    ],
+    [
+     "D minor",
+     0.0398
+    ],
+    [
+     "Bb Major",
+     0.0396
+    ]
+   ],
+   "ks_top3": [
+    [
+     "A minor",
+     0.7386
+    ],
+    [
+     "F major",
+     0.64
+    ],
+    [
+     "C major",
+     0.4436
+    ]
+   ],
+   "temperley_top3": [
+    [
+     "F major",
+     0.6858
+    ],
+    [
+     "A minor",
+     0.4944
+    ],
+    [
+     "F minor",
+     0.471
+    ]
+   ],
+   "relations": {
+    "skey_vs_ks": "exact",
+    "skey_vs_temperley": "other",
+    "ks_vs_temperley": "other"
+   },
+   "skey_window_votes": [
+    [
+     "A minor",
+     15
+    ]
+   ],
+   "skey_window_n": 15,
+   "ks_window_votes": [
+    [
+     "A minor",
+     11
+    ],
+    [
+     "F minor",
+     3
+    ],
+    [
+     "F major",
+     1
+    ]
+   ],
+   "skey_window_agreement_with_global": 1.0,
+   "chord_diatonic_top3": [
+    [
+     "D minor",
+     0.847
+    ],
+    [
+     "A minor",
+     0.847
+    ],
+    [
+     "F major",
+     0.847
+    ]
+   ],
+   "chord_hist_top5": [
+    [
+     "F",
+     79.9
+    ],
+    [
+     "C",
+     50.3
+    ],
+    [
+     "A",
+     28.5
+    ],
+    [
+     "Am",
+     27.7
+    ],
+    [
+     "D#",
+     0.0
+    ]
+   ],
+   "chord_vocab_n": 8,
+   "chord_n_segments": 70,
+   "chord_no_chord_frac": 0.182
+  },
+  "pitch": {
+   "swiftf0_secs": 0.4,
+   "rmvpe_secs": 2.7,
+   "swiftf0_frames": 14233,
+   "rmvpe_frames": 22775,
+   "swiftf0_voiced_gated_frac": 0.005,
+   "swiftf0_voiced_s": 1.1,
+   "swiftf0_midi_p2_p10_p50_p90_p98": [
+    56.84,
+    56.98,
+    57.04,
+    65.01,
+    88.99
+   ],
+   "swiftf0_range_names_p2_p98": [
+    "A3",
+    "F6"
+   ],
+   "rmvpe_voiced_frac": 0.03,
+   "rmvpe_midi_p2_p10_p50_p90_p98": [
+    55.73,
+    56.21,
+    57.15,
+    68.94,
+    76.15
+   ],
+   "agree_both_voiced_frames": 69,
+   "agree_within_1_semitone": 0.623,
+   "agree_octave_off": 0.304,
+   "format": "swiftf0.npz t/hz/conf/loudness_db float32 (16 ms hop); rmvpe.npz t/hz/conf (10 ms hop, hz 0 = unvoiced); *_notes.json"
+  },
+  "spectral": {
+   "integrated_lufs": -6.08,
+   "lra_lu": 14.23,
+   "sample_peak_dbfs": 0.0,
+   "kick_events_port": 209,
+   "kick_events_offline_ref": 208,
+   "onsets": {
+    "low": 693,
+    "mid": 434,
+    "high": 740
+   },
+   "corr_median": 0.382,
+   "width_median": 0.315,
+   "timings_s": {
+    "load": 0.014,
+    "stft": 0.764,
+    "bands": 0.191,
+    "kick": 0.314,
+    "flux": 0.007,
+    "timbre_stereo": 0.448,
+    "loudness": 1.301,
+    "pyln_I_LRA": 1.549,
+    "librosa_import": 0.004,
+    "key_chords": 8.554,
+    "write": 0.876
+   },
+   "first_kicks": [
+    5.71,
+    5.8,
+    5.89,
+    6.44,
+    7.15,
+    7.39,
+    8.63,
+    8.74,
+    8.85,
+    9.62,
+    10.54,
+    11.18,
+    11.27,
+    11.37,
+    11.46,
+    12.78
+   ]
+  },
+  "dynamics": [
+   {
+    "t0": 0.0,
+    "t1": 8.0,
+    "rel_lu": -28.8,
+    "bass_db": -48.8,
+    "kick_hz": 1.43,
+    "slope": 2.99,
+    "level": "quiet",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 8.0,
+    "t1": 18.6,
+    "rel_lu": -10.1,
+    "bass_db": -33.6,
+    "kick_hz": 2.53,
+    "slope": 1.77,
+    "level": "quiet",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 18.6,
+    "t1": 37.5,
+    "rel_lu": -6.3,
+    "bass_db": -29.1,
+    "kick_hz": 2.94,
+    "slope": 0.37,
+    "level": "soft",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 37.5,
+    "t1": 47.5,
+    "rel_lu": -0.8,
+    "bass_db": -28.2,
+    "kick_hz": 1.91,
+    "slope": -1.46,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 47.5,
+    "t1": 58.3,
+    "rel_lu": 0.9,
+    "bass_db": -17.5,
+    "kick_hz": 5.3,
+    "slope": 1.97,
+    "level": "loud",
+    "tags": [
+     "drop"
+    ]
+   },
+   {
+    "t0": 58.3,
+    "t1": 73.4,
+    "rel_lu": 1.4,
+    "bass_db": -16.7,
+    "kick_hz": 7.22,
+    "slope": 0.06,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 73.4,
+    "t1": 82.9,
+    "rel_lu": 1.5,
+    "bass_db": -16.8,
+    "kick_hz": 6.5,
+    "slope": -0.5,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 82.9,
+    "t1": 91.5,
+    "rel_lu": 2.1,
+    "bass_db": -16.9,
+    "kick_hz": 6.77,
+    "slope": 0.71,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 91.5,
+    "t1": 108.8,
+    "rel_lu": 2.3,
+    "bass_db": -16.9,
+    "kick_hz": 8.32,
+    "slope": 0.03,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 108.8,
+    "t1": 123.1,
+    "rel_lu": -6.5,
+    "bass_db": -27.3,
+    "kick_hz": 2.99,
+    "slope": -1.08,
+    "level": "soft",
+    "tags": []
+   },
+   {
+    "t0": 123.1,
+    "t1": 138.9,
+    "rel_lu": -5.2,
+    "bass_db": -28.9,
+    "kick_hz": 2.28,
+    "slope": 0.35,
+    "level": "soft",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 138.9,
+    "t1": 149.1,
+    "rel_lu": -1.4,
+    "bass_db": -28.0,
+    "kick_hz": 3.62,
+    "slope": 0.66,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 149.1,
+    "t1": 171.9,
+    "rel_lu": -0.4,
+    "bass_db": -24.3,
+    "kick_hz": 6.34,
+    "slope": 0.13,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 171.9,
+    "t1": 185.3,
+    "rel_lu": 1.5,
+    "bass_db": -16.7,
+    "kick_hz": 10.75,
+    "slope": 0.1,
+    "level": "loud",
+    "tags": [
+     "drop"
+    ]
+   },
+   {
+    "t0": 185.3,
+    "t1": 204.5,
+    "rel_lu": -7.3,
+    "bass_db": -30.2,
+    "kick_hz": 4.45,
+    "slope": -1.11,
+    "level": "soft",
+    "tags": []
+   },
+   {
+    "t0": 204.5,
+    "t1": 227.7,
+    "rel_lu": -22.1,
+    "bass_db": -48.7,
+    "kick_hz": 0.34,
+    "slope": -2.39,
+    "level": "quiet",
+    "tags": [
+     "breakdown"
+    ]
+   }
+  ],
+  "allin1_segments": [
+   [
+    0.0,
+    14.7,
+    "intro"
+   ],
+   [
+    14.7,
+    29.5,
+    "intro"
+   ],
+   [
+    29.5,
+    51.7,
+    "intro"
+   ],
+   [
+    51.7,
+    66.5,
+    "chorus"
+   ],
+   [
+    66.5,
+    84.9,
+    "chorus"
+   ],
+   [
+    84.9,
+    99.2,
+    "chorus"
+   ],
+   [
+    99.2,
+    114.5,
+    "chorus"
+   ],
+   [
+    114.5,
+    129.2,
+    "break"
+   ],
+   [
+    129.2,
+    144.0,
+    "break"
+   ],
+   [
+    144.0,
+    158.8,
+    "inst"
+   ],
+   [
+    158.8,
+    177.2,
+    "chorus"
+   ],
+   [
+    177.2,
+    191.5,
+    "chorus"
+   ],
+   [
+    191.5,
+    206.8,
+    "outro"
+   ],
+   [
+    206.8,
+    224.0,
+    "outro"
+   ],
+   [
+    224.0,
+    227.8,
+    "end"
+   ]
+  ],
+  "mood": {
+   "emomusic_va_mean": [
+    4.602471351623535,
+    5.712392807006836
+   ],
+   "deam_va_mean": [
+    5.5167999267578125,
+    4.738024711608887
+   ],
+   "top_moodtheme_mean": [
+    [
+     "energetic",
+     0.102
+    ],
+    [
+     "dark",
+     0.069
+    ],
+    [
+     "space",
+     0.059
+    ],
+    [
+     "film",
+     0.04
+    ],
+    [
+     "epic",
+     0.037
+    ],
+    [
+     "melodic",
+     0.035
+    ],
+    [
+     "happy",
+     0.033
+    ],
+    [
+     "action",
+     0.029
+    ]
+   ]
+  },
+  "instruments": {
+   "ced_mix_top12_mean": [
+    [
+     "Music",
+     0.805
+    ],
+    [
+     "Electronic music",
+     0.193
+    ],
+    [
+     "Musical instrument",
+     0.098
+    ],
+    [
+     "Dubstep",
+     0.098
+    ],
+    [
+     "Electronic dance music",
+     0.076
+    ],
+    [
+     "Electronica",
+     0.07
+    ],
+    [
+     "Drum",
+     0.054
+    ],
+    [
+     "Hip hop music",
+     0.052
+    ],
+    [
+     "Techno",
+     0.047
+    ],
+    [
+     "Trance music",
+     0.042
+    ],
+    [
+     "Drum kit",
+     0.036
+    ],
+    [
+     "Sampler",
+     0.036
+    ]
+   ],
+   "ced_htdemucs_drums_top12_mean": [
+    [
+     "Music",
+     0.641
+    ],
+    [
+     "Electronic music",
+     0.122
+    ],
+    [
+     "Drum machine",
+     0.088
+    ],
+    [
+     "Musical instrument",
+     0.086
+    ],
+    [
+     "Drum",
+     0.076
+    ],
+    [
+     "Silence",
+     0.067
+    ],
+    [
+     "Drum kit",
+     0.054
+    ],
+    [
+     "Dubstep",
+     0.04
+    ],
+    [
+     "Electronic dance music",
+     0.039
+    ],
+    [
+     "Bass drum",
+     0.032
+    ],
+    [
+     "House music",
+     0.028
+    ],
+    [
+     "Hip hop music",
+     0.026
+    ]
+   ],
+   "ced_htdemucs_bass_top12_mean": [
+    [
+     "Music",
+     0.556
+    ],
+    [
+     "Electronic music",
+     0.143
+    ],
+    [
+     "Synthesizer",
+     0.131
+    ],
+    [
+     "Musical instrument",
+     0.126
+    ],
+    [
+     "Bass guitar",
+     0.092
+    ],
+    [
+     "Effects unit",
+     0.082
+    ],
+    [
+     "Distortion",
+     0.07
+    ],
+    [
+     "Ambient music",
+     0.066
+    ],
+    [
+     "Hum",
+     0.051
+    ],
+    [
+     "Throbbing",
+     0.05
+    ],
+    [
+     "Guitar",
+     0.049
+    ],
+    [
+     "Rumble",
+     0.049
+    ]
+   ],
+   "ced_htdemucs_other_top12_mean": [
+    [
+     "Music",
+     0.749
+    ],
+    [
+     "Musical instrument",
+     0.206
+    ],
+    [
+     "Violin",
+     0.117
+    ],
+    [
+     "Electronic music",
+     0.086
+    ],
+    [
+     "Pizzicato",
+     0.051
+    ],
+    [
+     "Bowed string instrument",
+     0.038
+    ],
+    [
+     "Orchestra",
+     0.032
+    ],
+    [
+     "Steelpan",
+     0.027
+    ],
+    [
+     "Dubstep",
+     0.024
+    ],
+    [
+     "Electronic dance music",
+     0.022
+    ],
+    [
+     "Techno",
+     0.021
+    ],
+    [
+     "Ringtone",
+     0.021
+    ]
+   ],
+   "ced_htdemucs_vocals_top12_mean": [
+    [
+     "Silence",
+     0.365
+    ],
+    [
+     "Music",
+     0.196
+    ],
+    [
+     "Speech",
+     0.077
+    ],
+    [
+     "Musical instrument",
+     0.027
+    ],
+    [
+     "Sound effect",
+     0.027
+    ],
+    [
+     "Inside",
+     0.02
+    ],
+    [
+     "Whistling",
+     0.02
+    ],
+    [
+     "Animal",
+     0.016
+    ],
+    [
+     "Sonar",
+     0.013
+    ],
+    [
+     "Echo",
+     0.013
+    ],
+    [
+     "Television",
+     0.009
+    ],
+    [
+     "Outside",
+     0.008
+    ]
+   ],
+   "ced_htdemucs_6s_guitar_top12_mean": [
+    [
+     "Music",
+     0.487
+    ],
+    [
+     "Silence",
+     0.319
+    ],
+    [
+     "Musical instrument",
+     0.121
+    ],
+    [
+     "Guitar",
+     0.055
+    ],
+    [
+     "Effects unit",
+     0.043
+    ],
+    [
+     "Plucked string instrument",
+     0.033
+    ],
+    [
+     "Violin",
+     0.03
+    ],
+    [
+     "Distortion",
+     0.025
+    ],
+    [
+     "Television",
+     0.023
+    ],
+    [
+     "Echo",
+     0.017
+    ],
+    [
+     "Electric guitar",
+     0.017
+    ],
+    [
+     "Sound effect",
+     0.016
+    ]
+   ],
+   "ced_htdemucs_6s_piano_top12_mean": [
+    [
+     "Silence",
+     0.551
+    ],
+    [
+     "Music",
+     0.217
+    ],
+    [
+     "Musical instrument",
+     0.028
+    ],
+    [
+     "Speech",
+     0.019
+    ],
+    [
+     "Inside",
+     0.018
+    ],
+    [
+     "Singing bowl",
+     0.011
+    ],
+    [
+     "Sound effect",
+     0.011
+    ],
+    [
+     "Vehicle",
+     0.01
+    ],
+    [
+     "Animal",
+     0.008
+    ],
+    [
+     "Outside",
+     0.007
+    ],
+    [
+     "Heart sounds",
+     0.007
+    ],
+    [
+     "Television",
+     0.007
+    ]
+   ],
+   "clap_mix_top8_mean_cos": [
+    [
+     "lead synthesizer",
+     0.403
+    ],
+    [
+     "synth bass",
+     0.399
+    ],
+    [
+     "electronic dance music",
+     0.385
+    ],
+    [
+     "organ",
+     0.377
+    ],
+    [
+     "brass",
+     0.358
+    ],
+    [
+     "silence",
+     0.347
+    ],
+    [
+     "synth pad",
+     0.296
+    ],
+    [
+     "electronic drum machine",
+     0.295
+    ]
+   ],
+   "clap_htdemucs_drums_top8_mean_cos": [
+    [
+     "hi-hats",
+     0.386
+    ],
+    [
+     "electronic drum machine",
+     0.36
+    ],
+    [
+     "lead synthesizer",
+     0.359
+    ],
+    [
+     "silence",
+     0.309
+    ],
+    [
+     "grunge rock",
+     0.296
+    ],
+    [
+     "electronic dance music",
+     0.293
+    ],
+    [
+     "vocal chops",
+     0.265
+    ],
+    [
+     "brass",
+     0.215
+    ]
+   ],
+   "clap_htdemucs_bass_top8_mean_cos": [
+    [
+     "sound effects and risers",
+     0.345
+    ],
+    [
+     "electronic drum machine",
+     0.298
+    ],
+    [
+     "lead synthesizer",
+     0.298
+    ],
+    [
+     "synth bass",
+     0.265
+    ],
+    [
+     "cello",
+     0.244
+    ],
+    [
+     "synth pad",
+     0.223
+    ],
+    [
+     "a woman singing",
+     0.21
+    ],
+    [
+     "sub bass drop",
+     0.209
+    ]
+   ],
+   "clap_htdemucs_other_top8_mean_cos": [
+    [
+     "synth pad",
+     0.381
+    ],
+    [
+     "organ",
+     0.346
+    ],
+    [
+     "electronic dance music",
+     0.297
+    ],
+    [
+     "distorted electric guitar",
+     0.279
+    ],
+    [
+     "brass",
+     0.273
+    ],
+    [
+     "lead synthesizer",
+     0.271
+    ],
+    [
+     "synth bass",
+     0.27
+    ],
+    [
+     "cello",
+     0.265
+    ]
+   ],
+   "clap_htdemucs_vocals_top8_mean_cos": [
+    [
+     "lead synthesizer",
+     0.258
+    ],
+    [
+     "vocal chops",
+     0.25
+    ],
+    [
+     "silence",
+     0.247
+    ],
+    [
+     "sound effects and risers",
+     0.21
+    ],
+    [
+     "grunge rock",
+     0.209
+    ],
+    [
+     "electronic drum machine",
+     0.196
+    ],
+    [
+     "a woman singing",
+     0.191
+    ],
+    [
+     "hi-hats",
+     0.186
+    ]
+   ]
+  },
+  "piano_presence": {
+   "stem_active_frac": 0.0,
+   "stem_rms_dbfs": -78.2,
+   "ced_mix_piano_mean": 0.003,
+   "ced_mix_piano_p95": 0.022,
+   "ced_pianostem_piano_mean": 0.0,
+   "rule": "run when stem_active_frac >= 0.10 or ced_mix_piano_mean >= 0.05 or ced_mix_piano_p95 >= 0.25",
+   "run": false
+  },
+  "demucs": {
+   "htdemucs": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals"
+    ],
+    "secs": 70.8,
+    "sum_vs_mix_relrms": 0.0291,
+    "stem_rms_dbfs": {
+     "drums": -13.17293643951416,
+     "bass": -11.517544746398926,
+     "other": -22.845691680908203,
+     "vocals": -31.198570251464844
+    },
+    "rel_to_mix_realtime_factor": 0.311,
+    "onnx": "demucs-onnx/htdemucs-onnx/htdemucs_fp16weights.onnx"
+   },
+   "htdemucs_6s": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals",
+     "guitar",
+     "piano"
+    ],
+    "secs": 49.2,
+    "sum_vs_mix_relrms": 0.0774,
+    "stem_rms_dbfs": {
+     "drums": -13.122783660888672,
+     "bass": -11.4780855178833,
+     "other": -24.608793258666992,
+     "vocals": -30.258277893066406,
+     "guitar": -37.281612396240234,
+     "piano": -59.178550720214844
+    },
+    "rel_to_mix_realtime_factor": 0.216,
+    "onnx": "demucs-onnx/htdemucs-6s-onnx/htdemucs_6s_fp16weights.onnx"
+   }
+  },
+  "decode": {
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 227.74131519274377,
+   "peak_dbfs": 0.0,
+   "rms_dbfs": -9.422091833633786,
+   "decoder_warning_count": 2
+  }
+ },
+ "jeremy": {
+  "timings": {
+   "decode": {
+    "wall_s": 0.65,
+    "proc_cpu_s": 0.5,
+    "sys_cpu": 0.577,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "demucs": {
+    "wall_s": 170.9,
+    "proc_cpu_s": 952.1,
+    "sys_cpu": 0.852,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "beat_this": {
+    "wall_s": 6.36,
+    "proc_cpu_s": 35.6,
+    "sys_cpu": 0.843,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "allin1": {
+    "wall_s": 65.0,
+    "proc_cpu_s": 214.0,
+    "sys_cpu": 0.705,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "librosa": {
+    "wall_s": 3.51,
+    "proc_cpu_s": 3.5,
+    "sys_cpu": 0.551,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "spectral_proto": {
+    "wall_s": 27.08,
+    "proc_cpu_s": 0.0,
+    "sys_cpu": 0.555,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "chords": {
+    "wall_s": 10.28,
+    "proc_cpu_s": 33.5,
+    "sys_cpu": 0.71,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "key": {
+    "wall_s": 12.98,
+    "proc_cpu_s": 16.5,
+    "sys_cpu": 0.563,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "notes": {
+    "wall_s": 8.67,
+    "proc_cpu_s": 42.5,
+    "sys_cpu": 0.782,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "pitch": {
+    "wall_s": 5.75,
+    "proc_cpu_s": 29.5,
+    "sys_cpu": 0.806,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "instruments": {
+    "wall_s": 111.0,
+    "proc_cpu_s": 537.5,
+    "sys_cpu": 0.781,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "mood": {
+    "wall_s": 2.24,
+    "proc_cpu_s": 12.3,
+    "sys_cpu": 0.826,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "madmom_dbn": {
+    "wall_s": 76.2,
+    "proc_cpu_s": 76.0,
+    "sys_cpu": 0.533,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   },
+   "piano": {
+    "wall_s": 0.37,
+    "proc_cpu_s": 0.4,
+    "sys_cpu": 0.539,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:jeremy"
+    ]
+   }
+  },
+  "tempo": {
+   "beat_this_median_bpm": 107.14,
+   "beat_this_bpm_p10_p90": [
+    103.4,
+    115.4
+   ],
+   "beat_this_n_beats": 565,
+   "beat_this_n_downbeats": 152,
+   "beat_this_beats_per_bar_hist": {
+    "1": 8,
+    "2": 7,
+    "3": 7,
+    "4": 125,
+    "5": 3,
+    "6": 1
+   },
+   "allin1_bpm": 105,
+   "allin1_median_bpm_from_beats": 107.14,
+   "allin1_n_beats": 533,
+   "allin1_n_downbeats": 134,
+   "allin1_beats_per_bar_hist": {
+    "4": 133
+   },
+   "madmom_bpb34_median_bpm": 107.14,
+   "madmom_bpb4_median_bpm": 107.14,
+   "madmom_bpb34_n_beats": 545,
+   "madmom_bpb34_n_downbeats": 136,
+   "librosa_tempo_mean_agg": 107.67,
+   "librosa_tempo_dynamic_median": 107.67,
+   "librosa_beat_track_tempo": 107.67,
+   "librosa_tempogram_candidates": [
+    [
+     215.33,
+     0.7649
+    ],
+    [
+     107.67,
+     0.7491
+    ],
+    [
+     71.78,
+     0.683
+    ],
+    [
+     52.73,
+     0.6773
+    ],
+    [
+     152.0,
+     0.6513
+    ],
+    [
+     89.1,
+     0.6384
+    ]
+   ]
+  },
+  "beat_agreement": {
+   "beat_this|allin1": {
+    "beat_f_70ms": 0.9472,
+    "beat_f_150ms": 0.9472,
+    "beat_f_70ms_best_beat_shift": [
+     0.9472,
+     0
+    ],
+    "downbeat_f_70ms": 0.9301,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|madmom_bpb34": {
+    "beat_f_70ms": 0.9225,
+    "beat_f_150ms": 0.9243,
+    "beat_f_70ms_best_beat_shift": [
+     0.9225,
+     0
+    ],
+    "downbeat_f_70ms": 0.8958,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|madmom_bpb4": {
+    "beat_f_70ms": 0.9225,
+    "beat_f_150ms": 0.9243,
+    "beat_f_70ms_best_beat_shift": [
+     0.9225,
+     0
+    ],
+    "downbeat_f_70ms": 0.8958,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|librosa_beat_track": {
+    "beat_f_70ms": 0.8927,
+    "beat_f_150ms": 0.9159,
+    "beat_f_70ms_best_beat_shift": [
+     0.8927,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 1.005
+   },
+   "allin1|madmom_bpb34": {
+    "beat_f_70ms": 0.9518,
+    "beat_f_150ms": 0.9518,
+    "beat_f_70ms_best_beat_shift": [
+     0.9518,
+     0
+    ],
+    "downbeat_f_70ms": 0.9481,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "allin1|madmom_bpb4": {
+    "beat_f_70ms": 0.9518,
+    "beat_f_150ms": 0.9518,
+    "beat_f_70ms_best_beat_shift": [
+     0.9518,
+     0
+    ],
+    "downbeat_f_70ms": 0.9481,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "allin1|librosa_beat_track": {
+    "beat_f_70ms": 0.884,
+    "beat_f_150ms": 0.9061,
+    "beat_f_70ms_best_beat_shift": [
+     0.884,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 1.005
+   },
+   "madmom_bpb34|madmom_bpb4": {
+    "beat_f_70ms": 1.0,
+    "beat_f_150ms": 1.0,
+    "beat_f_70ms_best_beat_shift": [
+     1.0,
+     0
+    ],
+    "downbeat_f_70ms": 1.0,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "madmom_bpb34|librosa_beat_track": {
+    "beat_f_70ms": 0.9144,
+    "beat_f_150ms": 0.9362,
+    "beat_f_70ms_best_beat_shift": [
+     0.9144,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 1.005
+   },
+   "madmom_bpb4|librosa_beat_track": {
+    "beat_f_70ms": 0.9144,
+    "beat_f_150ms": 0.9362,
+    "beat_f_70ms_best_beat_shift": [
+     0.9144,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 1.005
+   }
+  },
+  "key": {
+   "skey_global_top3": [
+    [
+     "A minor",
+     0.092
+    ],
+    [
+     "D Major",
+     0.04
+    ],
+    [
+     "D minor",
+     0.0396
+    ]
+   ],
+   "ks_top3": [
+    [
+     "A minor",
+     0.6915
+    ],
+    [
+     "A major",
+     0.6681
+    ],
+    [
+     "D minor",
+     0.4573
+    ]
+   ],
+   "temperley_top3": [
+    [
+     "F major",
+     0.6045
+    ],
+    [
+     "D minor",
+     0.5578
+    ],
+    [
+     "A minor",
+     0.5493
+    ]
+   ],
+   "relations": {
+    "skey_vs_ks": "exact",
+    "skey_vs_temperley": "other",
+    "ks_vs_temperley": "other"
+   },
+   "skey_window_votes": [
+    [
+     "A minor",
+     16
+    ],
+    [
+     "D Major",
+     5
+    ]
+   ],
+   "skey_window_n": 21,
+   "ks_window_votes": [
+    [
+     "A minor",
+     15
+    ],
+    [
+     "A major",
+     6
+    ]
+   ],
+   "skey_window_agreement_with_global": 0.762,
+   "chord_diatonic_top3": [
+    [
+     "A minor",
+     0.61
+    ],
+    [
+     "C major",
+     0.61
+    ],
+    [
+     "D minor",
+     0.562
+    ]
+   ],
+   "chord_hist_top5": [
+    [
+     "Am",
+     133.9
+    ],
+    [
+     "A",
+     110.1
+    ],
+    [
+     "F",
+     26.8
+    ],
+    [
+     "G",
+     11.3
+    ],
+    [
+     "Dm",
+     8.0
+    ]
+   ],
+   "chord_vocab_n": 13,
+   "chord_n_segments": 59,
+   "chord_no_chord_frac": 0.045
+  },
+  "pitch": {
+   "swiftf0_secs": 0.8,
+   "rmvpe_secs": 4.2,
+   "swiftf0_frames": 19786,
+   "rmvpe_frames": 31659,
+   "swiftf0_voiced_gated_frac": 0.192,
+   "swiftf0_voiced_s": 60.7,
+   "swiftf0_midi_p2_p10_p50_p90_p98": [
+    55.33,
+    57.07,
+    61.15,
+    64.61,
+    67.96
+   ],
+   "swiftf0_range_names_p2_p98": [
+    "G3",
+    "G#4"
+   ],
+   "rmvpe_voiced_frac": 0.604,
+   "rmvpe_midi_p2_p10_p50_p90_p98": [
+    53.58,
+    56.69,
+    61.02,
+    69.22,
+    73.79
+   ],
+   "agree_both_voiced_frames": 3795,
+   "agree_within_1_semitone": 0.95,
+   "agree_octave_off": 0.033,
+   "format": "swiftf0.npz t/hz/conf/loudness_db float32 (16 ms hop); rmvpe.npz t/hz/conf (10 ms hop, hz 0 = unvoiced); *_notes.json"
+  },
+  "spectral": {
+   "integrated_lufs": -7.02,
+   "lra_lu": 6.49,
+   "sample_peak_dbfs": -0.0,
+   "kick_events_port": 680,
+   "kick_events_offline_ref": 617,
+   "onsets": {
+    "low": 1137,
+    "mid": 399,
+    "high": 611
+   },
+   "corr_median": 0.7,
+   "width_median": 0.156,
+   "timings_s": {
+    "load": 0.019,
+    "stft": 1.41,
+    "bands": 0.327,
+    "kick": 0.452,
+    "flux": 0.026,
+    "timbre_stereo": 0.874,
+    "loudness": 1.903,
+    "pyln_I_LRA": 2.772,
+    "librosa_import": 0.005,
+    "key_chords": 14.197,
+    "write": 1.754
+   },
+   "first_kicks": [
+    0.47,
+    0.81,
+    5.69,
+    7.65,
+    10.23,
+    10.91,
+    16.01,
+    17.93,
+    18.93,
+    19.21,
+    19.53,
+    19.8,
+    21.27,
+    21.58,
+    21.84,
+    22.43
+   ]
+  },
+  "dynamics": [
+   {
+    "t0": 0.0,
+    "t1": 8.7,
+    "rel_lu": -6.8,
+    "bass_db": -35.3,
+    "kick_hz": 1.15,
+    "slope": 0.23,
+    "level": "soft",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 8.7,
+    "t1": 277.7,
+    "rel_lu": 0.6,
+    "bass_db": -28.6,
+    "kick_hz": 8.98,
+    "slope": 0.01,
+    "level": "loud",
+    "tags": [
+     "drop"
+    ]
+   },
+   {
+    "t0": 277.7,
+    "t1": 316.5,
+    "rel_lu": -4.7,
+    "bass_db": -36.0,
+    "kick_hz": 7.65,
+    "slope": -0.78,
+    "level": "soft",
+    "tags": []
+   }
+  ],
+  "allin1_segments": [
+   [
+    0.0,
+    0.5,
+    "start"
+   ],
+   [
+    0.5,
+    21.8,
+    "intro"
+   ],
+   [
+    21.8,
+    40.1,
+    "verse"
+   ],
+   [
+    40.1,
+    58.4,
+    "chorus"
+   ],
+   [
+    58.4,
+    76.4,
+    "chorus"
+   ],
+   [
+    76.4,
+    94.7,
+    "verse"
+   ],
+   [
+    94.7,
+    113.0,
+    "verse"
+   ],
+   [
+    113.0,
+    131.1,
+    "chorus"
+   ],
+   [
+    131.1,
+    149.2,
+    "chorus"
+   ],
+   [
+    149.2,
+    176.1,
+    "bridge"
+   ],
+   [
+    176.1,
+    203.1,
+    "verse"
+   ],
+   [
+    203.1,
+    220.7,
+    "chorus"
+   ],
+   [
+    220.7,
+    237.8,
+    "chorus"
+   ],
+   [
+    237.8,
+    271.5,
+    "chorus"
+   ],
+   [
+    271.5,
+    288.1,
+    "chorus"
+   ],
+   [
+    288.1,
+    307.6,
+    "outro"
+   ],
+   [
+    307.6,
+    316.6,
+    "outro"
+   ]
+  ],
+  "mood": {
+   "emomusic_va_mean": [
+    5.127155780792236,
+    6.0570292472839355
+   ],
+   "deam_va_mean": [
+    5.399041652679443,
+    5.851081371307373
+   ],
+   "top_moodtheme_mean": [
+    [
+     "love",
+     0.167
+    ],
+    [
+     "melodic",
+     0.132
+    ],
+    [
+     "energetic",
+     0.113
+    ],
+    [
+     "ballad",
+     0.064
+    ],
+    [
+     "sad",
+     0.059
+    ],
+    [
+     "heavy",
+     0.052
+    ],
+    [
+     "emotional",
+     0.047
+    ],
+    [
+     "epic",
+     0.045
+    ]
+   ]
+  },
+  "instruments": {
+   "ced_mix_top12_mean": [
+    [
+     "Music",
+     0.826
+    ],
+    [
+     "Grunge",
+     0.368
+    ],
+    [
+     "Rock music",
+     0.18
+    ],
+    [
+     "Punk rock",
+     0.132
+    ],
+    [
+     "Musical instrument",
+     0.119
+    ],
+    [
+     "Progressive rock",
+     0.109
+    ],
+    [
+     "Guitar",
+     0.088
+    ],
+    [
+     "Singing",
+     0.079
+    ],
+    [
+     "Rock and roll",
+     0.05
+    ],
+    [
+     "Psychedelic rock",
+     0.05
+    ],
+    [
+     "Independent music",
+     0.05
+    ],
+    [
+     "Heavy metal",
+     0.048
+    ]
+   ],
+   "ced_htdemucs_drums_top12_mean": [
+    [
+     "Drum",
+     0.705
+    ],
+    [
+     "Drum kit",
+     0.693
+    ],
+    [
+     "Bass drum",
+     0.541
+    ],
+    [
+     "Music",
+     0.53
+    ],
+    [
+     "Musical instrument",
+     0.446
+    ],
+    [
+     "Snare drum",
+     0.357
+    ],
+    [
+     "Percussion",
+     0.325
+    ],
+    [
+     "Cymbal",
+     0.26
+    ],
+    [
+     "Rimshot",
+     0.258
+    ],
+    [
+     "Hi-hat",
+     0.207
+    ],
+    [
+     "Silence",
+     0.045
+    ],
+    [
+     "Drum roll",
+     0.044
+    ]
+   ],
+   "ced_htdemucs_bass_top12_mean": [
+    [
+     "Music",
+     0.843
+    ],
+    [
+     "Bass guitar",
+     0.749
+    ],
+    [
+     "Musical instrument",
+     0.634
+    ],
+    [
+     "Guitar",
+     0.584
+    ],
+    [
+     "Plucked string instrument",
+     0.519
+    ],
+    [
+     "Effects unit",
+     0.146
+    ],
+    [
+     "Distortion",
+     0.102
+    ],
+    [
+     "Electric guitar",
+     0.095
+    ],
+    [
+     "Silence",
+     0.036
+    ],
+    [
+     "Inside",
+     0.036
+    ],
+    [
+     "Reverberation",
+     0.034
+    ],
+    [
+     "Electronic tuner",
+     0.024
+    ]
+   ],
+   "ced_htdemucs_other_top12_mean": [
+    [
+     "Music",
+     0.852
+    ],
+    [
+     "Musical instrument",
+     0.483
+    ],
+    [
+     "Guitar",
+     0.435
+    ],
+    [
+     "Plucked string instrument",
+     0.336
+    ],
+    [
+     "Electric guitar",
+     0.222
+    ],
+    [
+     "Strum",
+     0.155
+    ],
+    [
+     "Effects unit",
+     0.111
+    ],
+    [
+     "Distortion",
+     0.091
+    ],
+    [
+     "Acoustic guitar",
+     0.073
+    ],
+    [
+     "Bass guitar",
+     0.056
+    ],
+    [
+     "Rock music",
+     0.053
+    ],
+    [
+     "Heavy metal",
+     0.031
+    ]
+   ],
+   "ced_htdemucs_vocals_top12_mean": [
+    [
+     "Male singing",
+     0.269
+    ],
+    [
+     "Music",
+     0.194
+    ],
+    [
+     "Speech",
+     0.177
+    ],
+    [
+     "Silence",
+     0.053
+    ],
+    [
+     "Singing",
+     0.051
+    ],
+    [
+     "Synthetic singing",
+     0.044
+    ],
+    [
+     "A capella",
+     0.038
+    ],
+    [
+     "Inside",
+     0.034
+    ],
+    [
+     "Chant",
+     0.031
+    ],
+    [
+     "Vocal music",
+     0.03
+    ],
+    [
+     "Screaming",
+     0.025
+    ],
+    [
+     "Musical instrument",
+     0.024
+    ]
+   ],
+   "ced_htdemucs_6s_guitar_top12_mean": [
+    [
+     "Music",
+     0.85
+    ],
+    [
+     "Musical instrument",
+     0.483
+    ],
+    [
+     "Guitar",
+     0.447
+    ],
+    [
+     "Plucked string instrument",
+     0.343
+    ],
+    [
+     "Electric guitar",
+     0.223
+    ],
+    [
+     "Effects unit",
+     0.148
+    ],
+    [
+     "Strum",
+     0.146
+    ],
+    [
+     "Distortion",
+     0.122
+    ],
+    [
+     "Acoustic guitar",
+     0.069
+    ],
+    [
+     "Bass guitar",
+     0.061
+    ],
+    [
+     "Rock music",
+     0.05
+    ],
+    [
+     "Echo",
+     0.043
+    ]
+   ],
+   "ced_htdemucs_6s_piano_top12_mean": [
+    [
+     "Silence",
+     0.564
+    ],
+    [
+     "Music",
+     0.227
+    ],
+    [
+     "Musical instrument",
+     0.035
+    ],
+    [
+     "Inside",
+     0.019
+    ],
+    [
+     "Speech",
+     0.019
+    ],
+    [
+     "Singing bowl",
+     0.018
+    ],
+    [
+     "Heart sounds",
+     0.014
+    ],
+    [
+     "Guitar",
+     0.009
+    ],
+    [
+     "Tick",
+     0.009
+    ],
+    [
+     "Sound effect",
+     0.009
+    ],
+    [
+     "Vehicle",
+     0.009
+    ],
+    [
+     "Animal",
+     0.006
+    ]
+   ],
+   "clap_mix_top8_mean_cos": [
+    [
+     "grunge rock",
+     0.376
+    ],
+    [
+     "acoustic drum kit",
+     0.268
+    ],
+    [
+     "distorted electric guitar",
+     0.213
+    ],
+    [
+     "acoustic guitar",
+     0.199
+    ],
+    [
+     "organ",
+     0.197
+    ],
+    [
+     "brass",
+     0.19
+    ],
+    [
+     "clean electric guitar",
+     0.164
+    ],
+    [
+     "synth bass",
+     0.154
+    ]
+   ],
+   "clap_htdemucs_drums_top8_mean_cos": [
+    [
+     "acoustic drum kit",
+     0.348
+    ],
+    [
+     "electronic drum machine",
+     0.343
+    ],
+    [
+     "grunge rock",
+     0.323
+    ],
+    [
+     "hi-hats",
+     0.317
+    ],
+    [
+     "vocal chops",
+     0.208
+    ],
+    [
+     "lead synthesizer",
+     0.202
+    ],
+    [
+     "silence",
+     0.161
+    ],
+    [
+     "snare drum",
+     0.155
+    ]
+   ],
+   "clap_htdemucs_bass_top8_mean_cos": [
+    [
+     "a woman singing",
+     0.312
+    ],
+    [
+     "grunge rock",
+     0.256
+    ],
+    [
+     "distorted electric guitar",
+     0.254
+    ],
+    [
+     "a choir singing",
+     0.23
+    ],
+    [
+     "electronic drum machine",
+     0.216
+    ],
+    [
+     "sound effects and risers",
+     0.211
+    ],
+    [
+     "vocal chops",
+     0.205
+    ],
+    [
+     "a man speaking",
+     0.181
+    ]
+   ],
+   "clap_htdemucs_other_top8_mean_cos": [
+    [
+     "distorted electric guitar",
+     0.388
+    ],
+    [
+     "synth pad",
+     0.253
+    ],
+    [
+     "organ",
+     0.249
+    ],
+    [
+     "grunge rock",
+     0.247
+    ],
+    [
+     "acoustic guitar",
+     0.207
+    ],
+    [
+     "a choir singing",
+     0.192
+    ],
+    [
+     "string orchestra",
+     0.183
+    ],
+    [
+     "sound effects and risers",
+     0.182
+    ]
+   ],
+   "clap_htdemucs_vocals_top8_mean_cos": [
+    [
+     "vocal chops",
+     0.282
+    ],
+    [
+     "a choir singing",
+     0.247
+    ],
+    [
+     "distorted electric guitar",
+     0.211
+    ],
+    [
+     "grunge rock",
+     0.198
+    ],
+    [
+     "a woman singing",
+     0.192
+    ],
+    [
+     "lead synthesizer",
+     0.181
+    ],
+    [
+     "organ",
+     0.181
+    ],
+    [
+     "brass",
+     0.149
+    ]
+   ]
+  },
+  "piano_presence": {
+   "stem_active_frac": 0.0,
+   "stem_rms_dbfs": -76.8,
+   "ced_mix_piano_mean": 0.0,
+   "ced_mix_piano_p95": 0.0,
+   "ced_pianostem_piano_mean": 0.0,
+   "rule": "run when stem_active_frac >= 0.10 or ced_mix_piano_mean >= 0.05 or ced_mix_piano_p95 >= 0.25",
+   "run": false
+  },
+  "demucs": {
+   "htdemucs": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals"
+    ],
+    "secs": 78.3,
+    "sum_vs_mix_relrms": 0.0355,
+    "stem_rms_dbfs": {
+     "drums": -16.9068603515625,
+     "bass": -17.61297607421875,
+     "other": -15.944104194641113,
+     "vocals": -17.884326934814453
+    },
+    "rel_to_mix_realtime_factor": 0.247,
+    "onnx": "demucs-onnx/htdemucs-onnx/htdemucs_fp16weights.onnx"
+   },
+   "htdemucs_6s": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals",
+     "guitar",
+     "piano"
+    ],
+    "secs": 81.0,
+    "sum_vs_mix_relrms": 0.0739,
+    "stem_rms_dbfs": {
+     "drums": -16.939098358154297,
+     "bass": -17.97695541381836,
+     "other": -38.2111701965332,
+     "vocals": -17.609210968017578,
+     "guitar": -16.357601165771484,
+     "piano": -73.13262176513672
+    },
+    "rel_to_mix_realtime_factor": 0.256,
+    "onnx": "demucs-onnx/htdemucs-6s-onnx/htdemucs_6s_fp16weights.onnx"
+   }
+  },
+  "decode": {
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 316.58666666666664,
+   "peak_dbfs": -0.0005301607889123261,
+   "rms_dbfs": -10.888557189545223,
+   "decoder_warning_count": 0
+  }
+ },
+ "newton-vs-nye": {
+  "timings": {
+   "decode": {
+    "wall_s": 0.32,
+    "proc_cpu_s": 0.2,
+    "sys_cpu": 0.24,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "demucs": {
+    "wall_s": 79.41,
+    "proc_cpu_s": 442.5,
+    "sys_cpu": 0.525,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "beat_this": {
+    "wall_s": 3.13,
+    "proc_cpu_s": 18.2,
+    "sys_cpu": 0.551,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "allin1": {
+    "wall_s": 26.84,
+    "proc_cpu_s": 91.5,
+    "sys_cpu": 0.387,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "librosa": {
+    "wall_s": 1.98,
+    "proc_cpu_s": 2.5,
+    "sys_cpu": 0.254,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "spectral_proto": {
+    "wall_s": 13.4,
+    "proc_cpu_s": 0.0,
+    "sys_cpu": 0.174,
+    "locks": [
+     "gpu:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-0:env-sep:whisper:jeremy:ggml-large-v3-turbo-q8_0",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "chords": {
+    "wall_s": 5.49,
+    "proc_cpu_s": 16.4,
+    "sys_cpu": 0.272,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "key": {
+    "wall_s": 5.74,
+    "proc_cpu_s": 8.2,
+    "sys_cpu": 0.187,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "notes": {
+    "wall_s": 3.23,
+    "proc_cpu_s": 20.3,
+    "sys_cpu": 0.49,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "pitch": {
+    "wall_s": 2.88,
+    "proc_cpu_s": 15.4,
+    "sys_cpu": 0.448,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "instruments": {
+    "wall_s": 55.46,
+    "proc_cpu_s": 262.5,
+    "sys_cpu": 0.46,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "mood": {
+    "wall_s": 1.04,
+    "proc_cpu_s": 6.7,
+    "sys_cpu": 0.507,
+    "locks": [
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "madmom_dbn": {
+    "wall_s": 36.24,
+    "proc_cpu_s": 36.1,
+    "sys_cpu": 0.391,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   },
+   "piano": {
+    "wall_s": 0.19,
+    "proc_cpu_s": 0.2,
+    "sys_cpu": 0.526,
+    "locks": [
+     "heavy-0:env-sep:newton-vs-nye:sw_6stem",
+     "heavy-1:bench-music:newton-vs-nye"
+    ]
+   }
+  },
+  "tempo": {
+   "beat_this_median_bpm": 136.36,
+   "beat_this_bpm_p10_p90": [
+    68.2,
+    142.9
+   ],
+   "beat_this_n_beats": 285,
+   "beat_this_n_downbeats": 66,
+   "beat_this_beats_per_bar_hist": {
+    "2": 2,
+    "4": 54,
+    "5": 1,
+    "6": 3,
+    "7": 2,
+    "8": 3
+   },
+   "allin1_bpm": 140,
+   "allin1_median_bpm_from_beats": 139.53,
+   "allin1_n_beats": 377,
+   "allin1_n_downbeats": 95,
+   "allin1_beats_per_bar_hist": {
+    "4": 94
+   },
+   "madmom_bpb34_median_bpm": 136.36,
+   "madmom_bpb4_median_bpm": 136.36,
+   "madmom_bpb34_n_beats": 370,
+   "madmom_bpb34_n_downbeats": 93,
+   "librosa_tempo_mean_agg": 136.0,
+   "librosa_tempo_dynamic_median": 136.0,
+   "librosa_beat_track_tempo": 136.0,
+   "librosa_tempogram_candidates": [
+    [
+     136.0,
+     0.684
+    ],
+    [
+     92.29,
+     0.6541
+    ],
+    [
+     69.84,
+     0.6167
+    ],
+    [
+     46.14,
+     0.6041
+    ],
+    [
+     54.98,
+     0.5911
+    ],
+    [
+     184.57,
+     0.4016
+    ]
+   ]
+  },
+  "beat_agreement": {
+   "beat_this|allin1": {
+    "beat_f_70ms": 0.852,
+    "beat_f_150ms": 0.852,
+    "beat_f_70ms_best_beat_shift": [
+     0.855,
+     2
+    ],
+    "downbeat_f_70ms": 0.8199,
+    "median_ibi_ratio_x_over_y": 1.023
+   },
+   "beat_this|madmom_bpb34": {
+    "beat_f_70ms": 0.8641,
+    "beat_f_150ms": 0.8672,
+    "beat_f_70ms_best_beat_shift": [
+     0.8672,
+     -2
+    ],
+    "downbeat_f_70ms": 0.0503,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|madmom_bpb4": {
+    "beat_f_70ms": 0.8641,
+    "beat_f_150ms": 0.8672,
+    "beat_f_70ms_best_beat_shift": [
+     0.8672,
+     -2
+    ],
+    "downbeat_f_70ms": 0.0503,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "beat_this|librosa_beat_track": {
+    "beat_f_70ms": 0.8489,
+    "beat_f_150ms": 0.852,
+    "beat_f_70ms_best_beat_shift": [
+     0.8489,
+     0
+    ],
+    "median_ibi_ratio_x_over_y": 0.997
+   },
+   "allin1|madmom_bpb34": {
+    "beat_f_70ms": 0.9692,
+    "beat_f_150ms": 0.9692,
+    "beat_f_70ms_best_beat_shift": [
+     0.9719,
+     -2
+    ],
+    "downbeat_f_70ms": 0.0426,
+    "median_ibi_ratio_x_over_y": 0.977
+   },
+   "allin1|madmom_bpb4": {
+    "beat_f_70ms": 0.9692,
+    "beat_f_150ms": 0.9692,
+    "beat_f_70ms_best_beat_shift": [
+     0.9719,
+     -2
+    ],
+    "downbeat_f_70ms": 0.0426,
+    "median_ibi_ratio_x_over_y": 0.977
+   },
+   "allin1|librosa_beat_track": {
+    "beat_f_70ms": 0.992,
+    "beat_f_150ms": 1.0,
+    "beat_f_70ms_best_beat_shift": [
+     0.9947,
+     -2
+    ],
+    "median_ibi_ratio_x_over_y": 0.975
+   },
+   "madmom_bpb34|madmom_bpb4": {
+    "beat_f_70ms": 1.0,
+    "beat_f_150ms": 1.0,
+    "beat_f_70ms_best_beat_shift": [
+     1.0,
+     0
+    ],
+    "downbeat_f_70ms": 1.0,
+    "median_ibi_ratio_x_over_y": 1.0
+   },
+   "madmom_bpb34|librosa_beat_track": {
+    "beat_f_70ms": 0.9639,
+    "beat_f_150ms": 0.9719,
+    "beat_f_70ms_best_beat_shift": [
+     0.9665,
+     -1
+    ],
+    "median_ibi_ratio_x_over_y": 0.997
+   },
+   "madmom_bpb4|librosa_beat_track": {
+    "beat_f_70ms": 0.9639,
+    "beat_f_150ms": 0.9719,
+    "beat_f_70ms_best_beat_shift": [
+     0.9665,
+     -1
+    ],
+    "median_ibi_ratio_x_over_y": 0.997
+   }
+  },
+  "key": {
+   "skey_global_top3": [
+    [
+     "A minor",
+     0.0937
+    ],
+    [
+     "G Major",
+     0.0399
+    ],
+    [
+     "D minor",
+     0.0396
+    ]
+   ],
+   "ks_top3": [
+    [
+     "A minor",
+     0.5421
+    ],
+    [
+     "F major",
+     0.4097
+    ],
+    [
+     "A major",
+     0.3106
+    ]
+   ],
+   "temperley_top3": [
+    [
+     "F major",
+     0.5162
+    ],
+    [
+     "D minor",
+     0.3245
+    ],
+    [
+     "A minor",
+     0.3053
+    ]
+   ],
+   "relations": {
+    "skey_vs_ks": "exact",
+    "skey_vs_temperley": "other",
+    "ks_vs_temperley": "other"
+   },
+   "skey_window_votes": [
+    [
+     "A minor",
+     11
+    ]
+   ],
+   "skey_window_n": 11,
+   "ks_window_votes": [
+    [
+     "A minor",
+     10
+    ],
+    [
+     "E minor",
+     1
+    ]
+   ],
+   "skey_window_agreement_with_global": 1.0,
+   "chord_diatonic_top3": [
+    [
+     "A minor",
+     0.982
+    ],
+    [
+     "C major",
+     0.982
+    ],
+    [
+     "F major",
+     0.917
+    ]
+   ],
+   "chord_hist_top5": [
+    [
+     "Am",
+     66.6
+    ],
+    [
+     "F",
+     55.1
+    ],
+    [
+     "G",
+     8.7
+    ],
+    [
+     "E",
+     2.4
+    ],
+    [
+     "D#",
+     0.0
+    ]
+   ],
+   "chord_vocab_n": 6,
+   "chord_n_segments": 56,
+   "chord_no_chord_frac": 0.221
+  },
+  "pitch": {
+   "swiftf0_secs": 0.3,
+   "rmvpe_secs": 2.2,
+   "swiftf0_frames": 10652,
+   "rmvpe_frames": 17044,
+   "swiftf0_voiced_gated_frac": 0.051,
+   "swiftf0_voiced_s": 8.6,
+   "swiftf0_midi_p2_p10_p50_p90_p98": [
+    48.12,
+    53.68,
+    65.66,
+    68.69,
+    69.84
+   ],
+   "swiftf0_range_names_p2_p98": [
+    "C3",
+    "A#4"
+   ],
+   "rmvpe_voiced_frac": 0.414,
+   "rmvpe_midi_p2_p10_p50_p90_p98": [
+    44.99,
+    49.21,
+    58.44,
+    66.51,
+    69.06
+   ],
+   "agree_both_voiced_frames": 538,
+   "agree_within_1_semitone": 0.998,
+   "agree_octave_off": 0.0,
+   "format": "swiftf0.npz t/hz/conf/loudness_db float32 (16 ms hop); rmvpe.npz t/hz/conf (10 ms hop, hz 0 = unvoiced); *_notes.json"
+  },
+  "spectral": {
+   "integrated_lufs": -10.08,
+   "lra_lu": 3.53,
+   "sample_peak_dbfs": 0.0,
+   "kick_events_port": 203,
+   "kick_events_offline_ref": 199,
+   "onsets": {
+    "low": 506,
+    "mid": 526,
+    "high": 743
+   },
+   "corr_median": 0.915,
+   "width_median": 0.043,
+   "timings_s": {
+    "load": 0.011,
+    "stft": 0.595,
+    "bands": 0.128,
+    "kick": 0.221,
+    "flux": 0.007,
+    "timbre_stereo": 0.319,
+    "loudness": 1.179,
+    "pyln_I_LRA": 1.08,
+    "librosa_import": 0.004,
+    "key_chords": 6.637,
+    "write": 0.659
+   },
+   "first_kicks": [
+    0.19,
+    14.06,
+    15.24,
+    17.05,
+    17.26,
+    19.87,
+    27.99,
+    28.64,
+    30.15,
+    30.81,
+    31.23,
+    31.45,
+    32.1,
+    33.63,
+    34.28,
+    34.71
+   ]
+  },
+  "dynamics": [
+   {
+    "t0": 0.0,
+    "t1": 5.4,
+    "rel_lu": -7.6,
+    "bass_db": -28.3,
+    "kick_hz": 1.86,
+    "slope": -0.15,
+    "level": "soft",
+    "tags": []
+   },
+   {
+    "t0": 5.4,
+    "t1": 18.9,
+    "rel_lu": -2.5,
+    "bass_db": -28.7,
+    "kick_hz": 0.82,
+    "slope": 0.66,
+    "level": "medium",
+    "tags": [
+     "build-up"
+    ]
+   },
+   {
+    "t0": 18.9,
+    "t1": 33.1,
+    "rel_lu": 0.5,
+    "bass_db": -27.9,
+    "kick_hz": 4.13,
+    "slope": 0.14,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 33.1,
+    "t1": 50.0,
+    "rel_lu": 0.4,
+    "bass_db": -30.2,
+    "kick_hz": 12.21,
+    "slope": -0.12,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 50.0,
+    "t1": 63.3,
+    "rel_lu": 0.6,
+    "bass_db": -29.7,
+    "kick_hz": 11.43,
+    "slope": 0.12,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 63.3,
+    "t1": 101.0,
+    "rel_lu": 0.9,
+    "bass_db": -28.4,
+    "kick_hz": 9.27,
+    "slope": -0.04,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 101.0,
+    "t1": 125.4,
+    "rel_lu": 0.3,
+    "bass_db": -28.2,
+    "kick_hz": 9.4,
+    "slope": 0.01,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 125.4,
+    "t1": 142.9,
+    "rel_lu": -0.1,
+    "bass_db": -28.3,
+    "kick_hz": 9.34,
+    "slope": -0.08,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 142.9,
+    "t1": 154.9,
+    "rel_lu": -1.1,
+    "bass_db": -29.6,
+    "kick_hz": 11.23,
+    "slope": -0.12,
+    "level": "loud",
+    "tags": []
+   },
+   {
+    "t0": 154.9,
+    "t1": 170.4,
+    "rel_lu": -2.1,
+    "bass_db": -90.4,
+    "kick_hz": 8.89,
+    "slope": -4.43,
+    "level": "medium",
+    "tags": [
+     "breakdown"
+    ]
+   }
+  ],
+  "allin1_segments": [
+   [
+    0.0,
+    0.1,
+    "start"
+   ],
+   [
+    0.1,
+    13.5,
+    "intro"
+   ],
+   [
+    13.5,
+    27.9,
+    "verse"
+   ],
+   [
+    27.9,
+    41.8,
+    "verse"
+   ],
+   [
+    41.8,
+    55.7,
+    "verse"
+   ],
+   [
+    55.7,
+    69.6,
+    "chorus"
+   ],
+   [
+    69.6,
+    94.0,
+    "verse"
+   ],
+   [
+    94.0,
+    107.9,
+    "chorus"
+   ],
+   [
+    107.9,
+    121.8,
+    "verse"
+   ],
+   [
+    121.8,
+    135.7,
+    "chorus"
+   ],
+   [
+    135.7,
+    149.6,
+    "outro"
+   ],
+   [
+    149.6,
+    163.6,
+    "outro"
+   ],
+   [
+    163.6,
+    170.4,
+    "end"
+   ]
+  ],
+  "mood": {
+   "emomusic_va_mean": [
+    4.400486469268799,
+    6.442714691162109
+   ],
+   "deam_va_mean": [
+    5.935410976409912,
+    5.3188605308532715
+   ],
+   "top_moodtheme_mean": [
+    [
+     "energetic",
+     0.261
+    ],
+    [
+     "love",
+     0.038
+    ],
+    [
+     "melodic",
+     0.029
+    ],
+    [
+     "party",
+     0.029
+    ],
+    [
+     "happy",
+     0.026
+    ],
+    [
+     "dark",
+     0.025
+    ],
+    [
+     "fun",
+     0.022
+    ],
+    [
+     "slow",
+     0.018
+    ]
+   ]
+  },
+  "instruments": {
+   "ced_mix_top12_mean": [
+    [
+     "Music",
+     0.866
+    ],
+    [
+     "Rapping",
+     0.284
+    ],
+    [
+     "Hip hop music",
+     0.281
+    ],
+    [
+     "Electronic music",
+     0.071
+    ],
+    [
+     "Drum machine",
+     0.052
+    ],
+    [
+     "Exciting music",
+     0.052
+    ],
+    [
+     "Rhythm and blues",
+     0.051
+    ],
+    [
+     "Pop music",
+     0.049
+    ],
+    [
+     "Speech",
+     0.046
+    ],
+    [
+     "Dubstep",
+     0.04
+    ],
+    [
+     "Dance music",
+     0.037
+    ],
+    [
+     "Musical instrument",
+     0.035
+    ]
+   ],
+   "ced_htdemucs_drums_top12_mean": [
+    [
+     "Music",
+     0.824
+    ],
+    [
+     "Drum machine",
+     0.359
+    ],
+    [
+     "Musical instrument",
+     0.183
+    ],
+    [
+     "Drum",
+     0.176
+    ],
+    [
+     "Electronic music",
+     0.161
+    ],
+    [
+     "Drum kit",
+     0.122
+    ],
+    [
+     "Dubstep",
+     0.097
+    ],
+    [
+     "Hip hop music",
+     0.089
+    ],
+    [
+     "Bass drum",
+     0.06
+    ],
+    [
+     "Sampler",
+     0.035
+    ],
+    [
+     "Techno",
+     0.023
+    ],
+    [
+     "Percussion",
+     0.022
+    ]
+   ],
+   "ced_htdemucs_bass_top12_mean": [
+    [
+     "Music",
+     0.609
+    ],
+    [
+     "Electronic music",
+     0.194
+    ],
+    [
+     "Ambient music",
+     0.149
+    ],
+    [
+     "Silence",
+     0.096
+    ],
+    [
+     "Hum",
+     0.091
+    ],
+    [
+     "Synthesizer",
+     0.078
+    ],
+    [
+     "Throbbing",
+     0.072
+    ],
+    [
+     "Musical instrument",
+     0.071
+    ],
+    [
+     "Sonar",
+     0.045
+    ],
+    [
+     "Trance music",
+     0.034
+    ],
+    [
+     "Drum and bass",
+     0.028
+    ],
+    [
+     "Keyboard (musical)",
+     0.025
+    ]
+   ],
+   "ced_htdemucs_other_top12_mean": [
+    [
+     "Music",
+     0.604
+    ],
+    [
+     "Musical instrument",
+     0.085
+    ],
+    [
+     "Electronic music",
+     0.077
+    ],
+    [
+     "Speech",
+     0.062
+    ],
+    [
+     "Techno",
+     0.045
+    ],
+    [
+     "Keyboard (musical)",
+     0.031
+    ],
+    [
+     "Animal",
+     0.03
+    ],
+    [
+     "Silence",
+     0.026
+    ],
+    [
+     "Piano",
+     0.024
+    ],
+    [
+     "Inside",
+     0.023
+    ],
+    [
+     "Bell",
+     0.023
+    ],
+    [
+     "Electronic dance music",
+     0.02
+    ]
+   ],
+   "ced_htdemucs_vocals_top12_mean": [
+    [
+     "Speech",
+     0.548
+    ],
+    [
+     "Groan",
+     0.091
+    ],
+    [
+     "Rapping",
+     0.058
+    ],
+    [
+     "Male speech",
+     0.058
+    ],
+    [
+     "Animal",
+     0.057
+    ],
+    [
+     "Speech synthesizer",
+     0.054
+    ],
+    [
+     "Music",
+     0.046
+    ],
+    [
+     "Bellow",
+     0.04
+    ],
+    [
+     "Narration",
+     0.036
+    ],
+    [
+     "Dog",
+     0.035
+    ],
+    [
+     "Radio",
+     0.033
+    ],
+    [
+     "Domestic animals",
+     0.033
+    ]
+   ],
+   "ced_htdemucs_6s_guitar_top12_mean": [
+    [
+     "Silence",
+     0.506
+    ],
+    [
+     "Music",
+     0.247
+    ],
+    [
+     "Musical instrument",
+     0.04
+    ],
+    [
+     "Speech",
+     0.02
+    ],
+    [
+     "Singing bowl",
+     0.017
+    ],
+    [
+     "Inside",
+     0.016
+    ],
+    [
+     "Sound effect",
+     0.013
+    ],
+    [
+     "Sonar",
+     0.01
+    ],
+    [
+     "Guitar",
+     0.01
+    ],
+    [
+     "Vehicle",
+     0.008
+    ],
+    [
+     "Television",
+     0.008
+    ],
+    [
+     "Effects unit",
+     0.006
+    ]
+   ],
+   "ced_htdemucs_6s_piano_top12_mean": [
+    [
+     "Silence",
+     0.484
+    ],
+    [
+     "Music",
+     0.257
+    ],
+    [
+     "Musical instrument",
+     0.026
+    ],
+    [
+     "Speech",
+     0.022
+    ],
+    [
+     "Sound effect",
+     0.016
+    ],
+    [
+     "Sonar",
+     0.016
+    ],
+    [
+     "Inside",
+     0.015
+    ],
+    [
+     "Vehicle",
+     0.009
+    ],
+    [
+     "Electronic music",
+     0.009
+    ],
+    [
+     "Television",
+     0.008
+    ],
+    [
+     "Singing bowl",
+     0.007
+    ],
+    [
+     "Animal",
+     0.007
+    ]
+   ],
+   "clap_mix_top8_mean_cos": [
+    [
+     "lead synthesizer",
+     0.445
+    ],
+    [
+     "brass",
+     0.343
+    ],
+    [
+     "grunge rock",
+     0.337
+    ],
+    [
+     "organ",
+     0.332
+    ],
+    [
+     "electronic dance music",
+     0.329
+    ],
+    [
+     "silence",
+     0.313
+    ],
+    [
+     "vocal chops",
+     0.302
+    ],
+    [
+     "hi-hats",
+     0.301
+    ]
+   ],
+   "clap_htdemucs_drums_top8_mean_cos": [
+    [
+     "electronic drum machine",
+     0.459
+    ],
+    [
+     "hi-hats",
+     0.453
+    ],
+    [
+     "lead synthesizer",
+     0.428
+    ],
+    [
+     "electronic dance music",
+     0.355
+    ],
+    [
+     "grunge rock",
+     0.334
+    ],
+    [
+     "vocal chops",
+     0.296
+    ],
+    [
+     "silence",
+     0.29
+    ],
+    [
+     "acoustic drum kit",
+     0.237
+    ]
+   ],
+   "clap_htdemucs_bass_top8_mean_cos": [
+    [
+     "sound effects and risers",
+     0.31
+    ],
+    [
+     "lead synthesizer",
+     0.273
+    ],
+    [
+     "electronic drum machine",
+     0.253
+    ],
+    [
+     "cello",
+     0.244
+    ],
+    [
+     "synth pad",
+     0.233
+    ],
+    [
+     "a woman singing",
+     0.219
+    ],
+    [
+     "synth bass",
+     0.213
+    ],
+    [
+     "grunge rock",
+     0.21
+    ]
+   ],
+   "clap_htdemucs_other_top8_mean_cos": [
+    [
+     "synth pad",
+     0.279
+    ],
+    [
+     "organ",
+     0.278
+    ],
+    [
+     "electronic dance music",
+     0.273
+    ],
+    [
+     "lead synthesizer",
+     0.259
+    ],
+    [
+     "vocal chops",
+     0.252
+    ],
+    [
+     "distorted electric guitar",
+     0.25
+    ],
+    [
+     "silence",
+     0.225
+    ],
+    [
+     "brass",
+     0.219
+    ]
+   ],
+   "clap_htdemucs_vocals_top8_mean_cos": [
+    [
+     "vocal chops",
+     0.414
+    ],
+    [
+     "brass",
+     0.282
+    ],
+    [
+     "organ",
+     0.261
+    ],
+    [
+     "silence",
+     0.251
+    ],
+    [
+     "grunge rock",
+     0.248
+    ],
+    [
+     "lead synthesizer",
+     0.248
+    ],
+    [
+     "a man rapping",
+     0.214
+    ],
+    [
+     "a man speaking",
+     0.191
+    ]
+   ]
+  },
+  "piano_presence": {
+   "stem_active_frac": 0.001,
+   "stem_rms_dbfs": -79.9,
+   "ced_mix_piano_mean": 0.001,
+   "ced_mix_piano_p95": 0.0,
+   "ced_pianostem_piano_mean": 0.0,
+   "rule": "run when stem_active_frac >= 0.10 or ced_mix_piano_mean >= 0.05 or ced_mix_piano_p95 >= 0.25",
+   "run": false
+  },
+  "demucs": {
+   "htdemucs": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals"
+    ],
+    "secs": 35.1,
+    "sum_vs_mix_relrms": 0.0209,
+    "stem_rms_dbfs": {
+     "drums": -14.914514541625977,
+     "bass": -20.927515029907227,
+     "other": -31.82281494140625,
+     "vocals": -19.193653106689453
+    },
+    "rel_to_mix_realtime_factor": 0.206,
+    "onnx": "demucs-onnx/htdemucs-onnx/htdemucs_fp16weights.onnx"
+   },
+   "htdemucs_6s": {
+    "stems": [
+     "drums",
+     "bass",
+     "other",
+     "vocals",
+     "guitar",
+     "piano"
+    ],
+    "secs": 37.7,
+    "sum_vs_mix_relrms": 0.0643,
+    "stem_rms_dbfs": {
+     "drums": -14.945783615112305,
+     "bass": -20.99329376220703,
+     "other": -32.46095275878906,
+     "vocals": -19.193819046020508,
+     "guitar": -49.13212203979492,
+     "piano": -55.71812057495117
+    },
+    "rel_to_mix_realtime_factor": 0.221,
+    "onnx": "demucs-onnx/htdemucs-6s-onnx/htdemucs_6s_fp16weights.onnx"
+   }
+  },
+  "decode": {
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 170.4348072562358,
+   "peak_dbfs": 0.0,
+   "rms_dbfs": -12.67680697830362,
+   "decoder_warning_count": 0
+  }
+ }
+}

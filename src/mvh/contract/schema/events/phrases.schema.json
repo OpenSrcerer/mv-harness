@@ -1,0 +1,70 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/phrases.schema.json",
+ "title": "mvh/events/phrases",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "4/8/16-bar phrases aligned to section starts",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/phrases"
+    },
+    "name": {
+     "const": "phrases"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "description": "Phrase (4/8/16 bars) id",
+        "pattern": "^P\\d{2,}$"
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "start_bar": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "n_bars": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "section_id": {
+        "type": "string",
+        "description": "Section id",
+        "pattern": "^S\\d{2,}$"
+       }
+      },
+      "required": [
+       "d",
+       "id",
+       "n_bars",
+       "section_id",
+       "start_bar",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

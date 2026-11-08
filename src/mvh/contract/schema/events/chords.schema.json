@@ -1,0 +1,94 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/events/chords.schema.json",
+ "title": "mvh/events/chords",
+ "x-contract-version": "1.0.0-rc.1",
+ "description": "chord timeline snapped to beats",
+ "allOf": [
+  {
+   "$ref": "https://mv-harness.local/schema/envelope/events.schema.json"
+  },
+  {
+   "properties": {
+    "schema": {
+     "const": "mvh/events/chords"
+    },
+    "name": {
+     "const": "chords"
+    },
+    "kind": {
+     "const": "segment"
+    },
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "time in seconds from the first sample of audio/mix.flac"
+       },
+       "d": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "duration in seconds",
+        "minimum": 0
+       },
+       "label": {
+        "type": "string",
+        "description": "Harte-style label, e.g. 'A:min', 'N' for no chord"
+       },
+       "root_pc": {
+        "type": [
+         "integer",
+         "null"
+        ],
+        "description": "pitch class, C = 0",
+        "minimum": 0,
+        "maximum": 11
+       },
+       "quality": {
+        "type": "string",
+        "description": "maj, min, 7, maj7, min7, dim, aug, sus2, sus4, N, ..."
+       },
+       "bass_pc": {
+        "type": [
+         "integer",
+         "null"
+        ],
+        "description": "pitch class, C = 0",
+        "minimum": 0,
+        "maximum": 11
+       },
+       "conf": {
+        "type": "number",
+        "x-unit": "0..1",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "beat_index": {
+        "type": [
+         "integer",
+         "null"
+        ],
+        "description": "beat the chord starts on",
+        "minimum": 0
+       }
+      },
+      "required": [
+       "bass_pc",
+       "beat_index",
+       "conf",
+       "d",
+       "label",
+       "quality",
+       "root_pc",
+       "t"
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

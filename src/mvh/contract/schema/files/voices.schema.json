@@ -1,0 +1,73 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/voices.schema.json",
+ "title": "mvh/files/voices",
+ "x-contract-version": "1.0.0-rc.1",
+ "type": "object",
+ "properties": {
+  "n_voices": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "method": {
+   "type": "string"
+  },
+  "n_source": {
+   "type": "string",
+   "enum": [
+    "intent",
+    "estimate",
+    "hints"
+   ]
+  },
+  "voices": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "Voice cluster (one singing or rapping voice) id",
+      "pattern": "^V[1-9]\\d*$"
+     },
+     "seconds": {
+      "type": "number",
+      "x-unit": "s"
+     },
+     "n_lines": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "proposed_character_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Character (from intent.md or meaning) id",
+      "pattern": "^C[1-9]\\d*$"
+     },
+     "hint": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "speaker label from the lyrics source"
+     }
+    },
+    "required": [
+     "hint",
+     "id",
+     "n_lines",
+     "proposed_character_id",
+     "seconds"
+    ]
+   }
+  }
+ },
+ "required": [
+  "method",
+  "n_source",
+  "n_voices",
+  "voices"
+ ]
+}
