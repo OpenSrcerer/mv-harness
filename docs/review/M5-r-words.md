@@ -45,3 +45,23 @@ and Jeremy's one singer is split into 4 voices. See `docs/build/reports/r-words-
 | r2-m3 | `lyrics/core.py::_finalise_line` | The last word's sustain hold is not capped at the next line's first word: jeremy L039's last word ends 1.34 s after L040 starts (the mouth gate and voice_spans overlap there). Related to round-1 m1 (still open). | `line_report.py r-words-m5-r2/real-jeremy`: L039 end 213.28 s, L040 start 211.94 s. | Cap the hold at the next non-backing line's first word start. |
 | r2-m4 | round-1 finding A evidence | Correction: round 1 called jeremy L033.03 (9.44 s, 175.52-184.96 s) a misplacement. The lead stem stays at -14 to -18 dBFS from 174.5 to 184.5 s with no whisper word inside, i.e. one held note; the long word is plausible. The other A evidence stands and is fixed. | 0.5 s RMS of `tests/contract/real-jeremy/stems/lead_vocals.flac`; cached whisper words at 174.39 and 185.09 s only. | None. |
 | r2-m5 | round-1 minors m1-m10 | Not addressed in the fix round (fixer report: "not cheap/safe"); m6 stays a change request. | fixer-m5 report. | W3 / next M5 round. |
+
+## Round 3 (r-words-m5-r3)
+
+Re-review after fixer round 2 (M5-D35..D38). Verified by running code (session resumed after a power outage; the
+interrupted real-versatile and header runs were redone). R2-2 (ASR repair clipped to neighbour lines, warning on the
+final times), R2-4 (SPIKE 2 s recipe plus seam-window replacement: real newton end to end grade B, G2 0.758, G4 0.109,
+offset -1.31 s) and R2-5 (jeremy 1 voice; 16 jittered trials all 1; newton 4; synth 2 with 10/10 lines) are fixed.
+R2-1 and R2-3 are only partly fixed (majors R3-1, R3-2), and there are two new majors on the user-supplied text path
+(R3-3 `[Name:]` / `Name:` battle markers, R3-4 unbracketed section headers sung as words). Failing tests:
+`tests/review/M5/r-words/test_rw5_r3_*.py`. Probes: `out/_wip/r-words-m5-r3/scripts/`. No real lyric text here.
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| r3-m1 | `lyrics/core.py::_finalise_line` (r2-m3 still open) | The last word's sustain hold still runs past the next line's first word: real jeremy has 7 non-backing line pairs where the line's last word ends after the next line starts (L010 by 1.48 s, L039 by 1.36 s). `crossings_left` is 0 because it looks at starts only. voice_spans of consecutive lines overlap there. | `lyrics.json` of `out/_wip/r-words-m5-r3/real-jeremy` (times only). | Cap the hold at the next non-backing line's first word start (minus a frame). |
+| r3-m2 | round-2 minors r2-m1, r2-m2, r2-m5 | Not addressed in fixer round 2 (the warning for r2-m2 now runs after the ASR repair only; the repeat expansion and the sustain hold are still not checked). | Code read of `core.py::run`. | W3 / next M5 round. |
+
+Checked and fine this round: no lyric text in any log, record, warning or non-lyric output of the newton and jeremy runs
+(scan of every file except `lyrics/*` and the cache-only `_http/` bodies: 0 hits); user TXT on synth grade A, line-only
+LRC grade A with offset 0.02 s; versatile instrumental (source none, voices skipped, lipsync ungated 0.68 s);
+megafauna transcribed on the vocals stem with grade D and every voice span flagged for review.

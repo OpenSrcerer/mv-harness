@@ -12,3 +12,9 @@
   waiting: synth, synth-lines, megafauna, versatile in batch1.
 - 4: synth (transcribed) B, onset median 20 ms, voices 10/10. NEW candidate: unbracketed headers ("Chorus:", "Verse 1:", "CHORUS",
   "(Chorus)" -> backing line, "Chorus x2" -> 2 lines) become sung lines in parse_txt. batch2.sh running synth-txt / synth-plainhdr / synth-capshdr.
+- 5 (resumed after power outage): synth-txt done (user TXT grade A). parse_txt probe confirms "Verse 1:"/"CHORUS"/"Chorus x2"
+  become sung lines, "(Chorus)" a backing line. Re-running batch3.sh (synth-plainhdr, synth-capshdr) to measure impact.
+- 6: NEW major R3-4 unbracketed headers: synth-plainhdr / synth-capshdr grade A, 14 lines / 58 words (truth 10/53), headers
+  placed as words, in SRT; test_rw5_r3_unbracketed_headers.py (5 fail, 1 guard pass). real-versatile was cut by the outage
+  mid-lyrics: re-running (batch4.sh -> real-versatile.log). Next: probe D31 seam replacement, offset, lipsync; write report.
+- 7: versatile rerun ok (instrumental). leak scan clean. Review doc Round 3 appended (r3-m1, r3-m2). Writing report + structured output.

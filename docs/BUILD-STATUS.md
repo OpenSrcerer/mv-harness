@@ -61,6 +61,14 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
   - Every agent gets the RESUMED suffix, so it reads its progress file first. Most of them had already written their reports.
   - A safety check-in (cron) is set for 07:47, just after the 5-hour reset.
 
+### Second outage (2026-11-09 ~03:00)
+- Before the cut, the continuation run wf_7901936d-843 finished these steps:
+  - fix M2 r2;
+  - final re-reviews (round 3) of M1, M4, M5 and M6b R-CONTRACT, with 4, 1, 4 and 5 blockers/majors still open.
+- Still unfinished: fix M3a r2 (its report was written) and the round-3 re-reviews of M2 and M3a.
+- 03:08: launched `C-continue2.js` (run wf_041717a6-9b1, task wxwmx1xvb) for just those 3 steps.
+- An **hourly** safety check-in now runs at :17 past each hour while the session is alive. It resumes whatever an outage or limit stopped.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.

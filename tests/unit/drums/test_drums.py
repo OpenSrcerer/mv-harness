@@ -371,7 +371,7 @@ def test_stage_recovers_toms_the_toms_stem_lost_from_the_classifier(tmp_path):
     with open(out / "events/drum_hits.json", encoding="utf-8") as fh:
         items = json.load(fh)["items"]
     toms = [it for it in items if it["drum"] == "tom"]
-    assert len(toms) >= 6 and all(it["source"] == "classifier" and "classifier_only" in it["evidence"] for it in toms)
+    assert len(toms) >= 6 and all(it["source"] == "drumsep" and "classifier_only" in it["evidence"] for it in toms)
     assert max(it["conf"] for it in toms) <= 0.5
     ref = [h["t"] for h in truth()["drum_hits"] if h["drum"] == "tom"]
     assert core.match_f1([it["t"] for it in toms], ref, TOL)[0] >= 0.7

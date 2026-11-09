@@ -143,7 +143,7 @@ def run(ctx) -> StageResult:
                     continue   # a kick / snare transient the classifier read as a tom (real stems: 90 % of its toms)
                 if have.size and float(np.min(np.abs(have - c.t))) <= 2 * tol:
                     continue
-                c.source = "classifier"
+                c.source = "drumsep"   # event path stays drumsep; evidence classifier_only marks the recovered stroke
                 c.conf = min(c.conf, 0.5)
                 c.evidence = list(c.evidence) + ["classifier_only"]
                 hits.append(c)

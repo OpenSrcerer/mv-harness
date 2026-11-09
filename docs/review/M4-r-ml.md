@@ -114,3 +114,39 @@ Probe logs: `out/_wip/r-ml-m4-r2/`.
 - evidence: when the song-level p_max is under 0.2 the `methods.skey` entry is absent (today it crashes instead: blocker B1). A reader
   cannot see that S-KEY ran and was gated.
 - fix: when fixing B1, always write `methods.skey` when S-KEY ran (`p_max`, `windows`, `voted: false`).
+
+## Round 3 (r-ml-m4-r3)
+
+r2 findings re-checked against the code, not only the tests. B1 is fixed for real: `core.analyse_key` now writes
+`methods.skey` whenever S-KEY ran (`methods.setdefault("skey", ...)` plus `voted`, `p_max`, `windows`), so a gated S-KEY no
+longer crashes the stage and is visible in `meta/key.json` (this also closes m11). Real S-KEY on 60 s white noise: no crash,
+`voted: false`, p_max 0.092. M1 is fixed for the cases it named: `keys.global_confidence` maps ks/temperley/albrecht to one
+"profiles" source and caps conf at 0.25 with `key:no_tonal_evidence` when fewer than two sources have a winner (white, pink and
+synth_noise give 0.25 + the flag). It is a general rule, not a test-specific hack. Real songs are unchanged against r2
+(jeremy .836, megafauna .50, versatile .50, newton-vs-nye .902; synth A minor .515): no regression. Fast suite (unit harmony/mood
+plus tests/review/M4, not real): 57 pass; the only failure is the new round-3 test. Probe logs: `out/_wip/r-ml-m4-r3/`.
+Gate note: `scripts/gate.ps1 M4` stops at `tests/unit/contract/test_catalog_dag.py::test_stub_files_are_stubs` because the rhythm
+stage is no longer a stub (another module); that is not an M4 defect.
+
+New major (failing test `tests/review/M4/r-ml/test_key_gating_band_noise.py`): the no-chord share is still not tonal evidence.
+Band-limited noise with real lv-chordia (100 % N) and real S-KEY (p_max 0.41, votes) gives F minor conf 0.70-0.80 with no
+low-confidence flag.
+
+### m12 The no-tonal-evidence label fires on tonal a cappella input
+- location: `harmony/keys.py` `global_confidence` (`len(sources) < 2`).
+- evidence: the synthetic vocals-only stem, lv-chordia returning one N segment and no S-KEY (`out/_wip/r-ml-m4-r3/fast2.py`): the
+  profiles alone name the right key but the stage writes `key:no_tonal_evidence`. The cap to 0.25 is fair (one source), but the
+  label says the audio is atonal when it says "only one source" (with S-KEY present the same stem gets A minor .913).
+- fix: emit `key:single_source` when there is chroma energy but only one source, and keep `key:no_tonal_evidence` for the
+  masked-chroma / all-N-and-gated cases.
+
+### m13 A single short spurious chord counts as a full independent source
+- location: `harmony/keys.py` `global_confidence` (sources set) and `Evidence.methods()` (a chord vector counts once it has any spread).
+- evidence: white noise, no S-KEY, lv returns N except one 2 s D:min (`out/_wip/r-ml-m4-r3/fast.py`): conf 0.882, no flags. Real
+  lv-chordia gave 100 % N on every noise probe, so this did not reproduce with the real model; it is the same root cause as the
+  round-3 major (no floor on the non-N share).
+- fix: count `chords` (and `phrase`) as a source only when the non-N share in the span is above a floor (for example 25 %).
+
+### m9 (still open) No unit tests for the gate paths
+- evidence: `tests/unit/harmony` still has no test of `recover_probs`, `skey_weight`, the `methods()` gate, the `voted` flag or the
+  `key:no_tonal_evidence` cap (grep finds none). Only the review tests cover them.

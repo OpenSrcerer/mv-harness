@@ -20,3 +20,5 @@
 - report written docs/build/reports/r-contract-m6b-r3.md; waiting for re-analyze + frames export (background) to check CSV
 - RESUMED after power outage (02:45): review tests unchanged (9 r-contract r3 fails as stated); analyze2 had died mid-lyrics;
   started `mvh frames e2e/synth --fps 24 --fps 24000/1001 --frame0 1` in background -> e2e/frames3.log
+- frames3: rc=1 not_run (upstream stale) -> R2-6 fix re-confirmed; started analyze3 + frames -> e2e/analyze3.log
+- analyze3 rc=0; frames rc=0: 24_f1fps.csv / 24000-1001_f1fps.csv checked (time_of exact, counts ok, no NaN in channels). Report addendum written. DONE.

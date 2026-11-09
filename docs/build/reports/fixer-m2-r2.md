@@ -33,3 +33,13 @@ changes, no regressions seen.
 - The 17.0 s evidence is intrinsically weak in this synthetic song (verse and chorus#1 share chords, similar drums); the
   grid refinement threshold (0.5) was chosen with the synthetic song and sanity-checked on the four real songs.
 - The bridge is labelled `verse` (structural labels; allin1 labels uninformative): not covered by a test.
+
+## Gate (scripts\gate.ps1 M2, log out/_wip/fixer-m2-r2/gate2.log)
+PASS: fixture, review (tests/review/M2 + m2), ruff, contract, validate, e2e, lib-node. M2 unit tests (allin1, rhythm, structure,
+choreo, cues) all pass.
+FAIL, both outside M2 ownership:
+- unit: tests/unit/contract/test_catalog_dag.py::test_stub_files_are_stubs asserts rhythm.run still contains "run_stub"
+  (stale once rhythm is implemented). W3 integrator: drop rhythm from that stub list.
+- determinism: 34 files differ between two --force runs, none from M2 (stems/*.flac, meta/separation|stems|voices|instruments,
+  curves/core|stems|vocal, lyrics/*, lipsync/*, events/instruments|singing|vocal_*|voice_*|stem_activity, manifest.json, viewer.html).
+  Root is separation / vocal-stem nondeterminism (M3-owned); rhythm/structure/choreo/cues/allin1 outputs are identical.

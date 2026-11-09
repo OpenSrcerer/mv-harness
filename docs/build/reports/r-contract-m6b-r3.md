@@ -43,3 +43,12 @@ hex palette, do-not over-capture, and the template dropping section do_not, moti
   determinism FAIL comes from upstream modules, as in round 2.
 - brief.md: synth with intent and authored.json is 1770 tokens; real fixtures are 882-1260 tokens (cap 4k).
 - Probes: out/_wip/r-contract-m6b-r3/p1-p5.py, run_scen.py, e2e/.
+
+## Addendum (resumed after power outage)
+
+- `mvh frames` on the stale folder again exited 1 with `not_run: upstream not done: lyrics (stale), ...` and listed no CSV (R2-6 fix re-confirmed).
+- After a fresh `mvh analyze` (rc 0), `mvh frames --fps 24 --fps 24000/1001 --frame0 1` exited 0 and wrote `frames/24_f1fps.csv`
+  (1356 rows) and `frames/24000-1001_f1fps.csv` (1355 rows). Names follow CONTRACT §14; `t` equals `time_of(n)` on every row (0 mismatches);
+  row counts agree with `frame_count`. No NaN/inf. Empty cells appear only in the event columns (section_id, bar, line_id, singer, cue_*), never in a
+  curve channel. The singer column uses `C1+C2` for multi-singer lines (D38).
+- Re-run of tests/review/M6b plus unit meaning/brief/frames: 18 failed (the 9 r-contract R3 tests and 9 r-words R3 tests, all for the stated reasons), 123 passed, 12 skipped.

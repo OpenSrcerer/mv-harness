@@ -12,3 +12,4 @@ Scoring: `python out/_wip/fixer-m3a/score.py <folder with stems/drums>` (oracle:
 - Final synth: 44.1 k1.0 s.993 h.926 t1.0 c.80; 48k k.994 s.98 h.917 t.889 c.714.
 - Gate running: out/_wip/fixer-m3a-r2/gate.log. NEXT: read gate result, write report docs/build/reports/fixer-m3a-r2.md, return structured output.
 - Gate re-run after outage: out/_wip/fixer-m3a-r2/gate2.log; report already written (docs/build/reports/fixer-m3a-r2.md). NEXT: read gate2.log, return structured output.
+- gate2: review test_drums_separated_synth failed (source set); changed classifier_only toms source->drumsep (+unit line 374). Re-run gate -> gate3.log
