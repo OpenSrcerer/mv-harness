@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """frames stage (contract v1, owner M6b, D19): ``frames/<fps>fps.csv`` on demand (``mvh frames``).
 
 One row per video frame under the frame rule ``{fps, frame0, early}`` (CONTRACT §2): ``frame``, ``t`` = time_of(n),

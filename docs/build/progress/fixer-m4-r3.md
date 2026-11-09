@@ -1,0 +1,2 @@
+- fixed R3-M1 in keys.py/core.py (no_chord_share gate), unit tests added; gate running
+- done; report written

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """MMS_FA forced alignment of lyric words to lead_vocals (PLAN §5 lyrics 2, SPIKE recipe).
 
 * emissions: the MMS_FA model (torchaudio pipeline, local ``model.pt``, ``with_star=False``) over 16 kHz mono in

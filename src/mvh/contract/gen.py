@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Regenerate the contract artefacts from catalog.py / registry.py.
 
     python -m mvh.contract.gen            # write schema/**.schema.json and the generated parts of docs/CONTRACT.md

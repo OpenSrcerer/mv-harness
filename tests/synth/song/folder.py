@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Write the complete contract song folder for the synthetic song (tests/contract/synth/) from the ground truth.
 
 Every catalogue output of every stage is written (public files at their contract path, cache-only outputs under

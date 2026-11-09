@@ -1,0 +1,19 @@
+# fixer-m2-r3 progress (W3 module fix r1)
+- started; reading tests: tests/review/M2/r-dsp/test_structure_rhythm_jitter.py, test_structure_drop_extent_real.py, tests/integration/M2/*
+- probe: out/_wip/fixer-m2-r3/probe.py [synth|jeremy|megafauna|versatile|newton-vs-nye] (structure on integrator .cache upstream + synthetic harness variants). Run: MVH_RUN_OFFLINE=1 powershell.exe -NoProfile -File scripts/run.ps1 python out/_wip/fixer-m2-r3/probe.py synth jeremy
+- baseline saved out/_wip/fixer-m2-r3/baseline.txt: synth real/-10/-20 F 0.923; megafauna drop cover 0.454; jeremy top impact gap 2.34 s, 12/20 chorus
+- review M2 baseline: only test_structure_rhythm_jitter fails among non-real (drop extent is -m real)
+- DONE F4-r3 part: features.bar_pattern centred slots; structure novelty averaged over bar grids shifted -2..+2 frames (param bar_jitter_frames=2); segment_dp short_pen = short_section_margin(0.25) x cost for <4-bar sections not ending at forced/song end. synth all variants (real, +-10/15/20 ms) F 1.0.
+- NEXT: real songs probe (megafauna drop extent F6-r3, jeremy S05 impact, S09 intro label)
+- DONE F6-r3: drop extent = plateau level (first 8 bars) -0.6 z, or same-repeat-group -1.2 z; repeat-of-drop pass (group consistency). megafauna drop 141.8-212.7 cover 1.0; versatile gains drop 51.7 + build 44.3 (SPIKE drop 47.5).
+- DONE S05: impact snap (impact_snap_strength 0.6): boundary moves 1 bar back to a major impact bar that clears cost. jeremy verse 19.47.
+- NEXT: S09 labels (intro/bridge), unit tests, gate. after1.txt holds the probe output.
+- DONE S09 labels: opening singleton below-median -> intro; singleton between choruses with allin1 max prob < 0.55 -> bridge. synth labels == truth.
+- NEXT: run review M2 (incl real) + unit tests (logs out/_wip/fixer-m2-r3/review.log, unit.log)
+- review M2 (incl real): 25 passed. NEXT unit tests
+- e2e rerun: out/_wip/fixer-m2-r3/rerun.ps1 (copies integrator folders, --only structure,choreo,cues --force); status in rerun.status
+- decisions M2.md appended (M2-D-jitter, impact-snap, drop-extent, form-labels); unit test tests/unit/structure/test_robustness.py added. Waiting on e2e rerun.
+- gate M2 running in background -> out/_wip/fixer-m2-r3/gate.log; compare script out/_wip/fixer-m2-r3/compare.py (synth S09 PASS F 1.0; megafauna drop cover 1.0)
+- e2e rerun done all 5 (rc 0, validate 0 errors). compare: synth F .923->1.0 S09 PASS; megafauna drop cover .454->1.0; jeremy S05 PASS (verse 19.47), 4+4 at 254.9 merged; versatile +build 44.3/+drop 51.7; newton unchanged. Waiting for gate.
+- report written docs/build/reports/fixer-m2-r3.md (gate determinism pending). gate: unit contract/ruff/contract FAIL from non-M2 files (vocals deps+lyrics, notes ruff I001)
+- gate done: M2 steps pass; unit-contract/contract/ruff/determinism fail from concurrent non-M2 edits (spectral edited 06:26-06:43 during run). M2 stages in-process deterministic. DONE except structured output.

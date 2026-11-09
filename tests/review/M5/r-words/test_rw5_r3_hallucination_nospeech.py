@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 3 (major, R2-3 only partly fixed): the "second signal" that lets a generic outro phrase drop a
 whole segment fires on about half of the genuinely sung, confident segments of real songs.
 

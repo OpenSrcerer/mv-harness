@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """harmony stage (contract v1, owner M4).
 
 HPSS + CQT chroma (100 Hz curve), lv-chordia chords snapped to beats (template + Viterbi fallback, which is also an
@@ -17,7 +16,7 @@ STAGE = StageSpec(
     "harmony",
     ('ingest', 'rhythm'),
     "main",
-    "1.0.1",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("harmony"),
     params={

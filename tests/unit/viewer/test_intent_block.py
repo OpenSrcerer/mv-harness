@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """The managed block of meaning/intent.md: the viewer must never disturb what the user wrote."""
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """``mvh brief <song folder> [--section S05] [--lyrics]`` (D35 module verb).
 
 Without ``--section``: prints brief.md (or renders it from the folder when absent). With ``--section``: a <= 1.5k-token

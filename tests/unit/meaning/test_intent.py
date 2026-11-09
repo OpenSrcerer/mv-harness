@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """intent.md parsing: free text (the synth fixture's answers), the YAML template, line singers, colours."""
 from __future__ import annotations
 

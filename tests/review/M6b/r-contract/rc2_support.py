@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Helpers for the R-CONTRACT round-2 review tests of M6b. Synthetic fixture only (tests/contract/synth: invented
 lyrics), so nothing here prints real lyric text. The meaning stage's ``build()`` runs in-process on a dict-backed
 Source, which lets a test remove upstream files (voices, lyrics) without touching the fixture."""

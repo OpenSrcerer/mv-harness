@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 import numpy as np
 
 from mvh.stages.mood import frontend as F

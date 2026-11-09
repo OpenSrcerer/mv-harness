@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 round 2, finding F4 again (major, not fixed): the structure stage still misses the synthetic song's
 sections when its upstream is realistic. The round-1 fix (melodic fingerprint, keeping strong boundaries) passes
 ``test_structure_real_allin1.py`` only because that test still uses the fixture's dynamics and harmony, and the fixture's

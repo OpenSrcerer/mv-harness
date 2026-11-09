@@ -71,11 +71,12 @@ const palette = m.palette_hint.length ? m.palette_hint : meaning.palette;       
 - `provenance.status === 'draft'` means an agent wrote it: keep it, but tell the user.
 - `provenance.status` is per section, so it can say `user` while single fields are the draft's. Read the per-field
   origin from `meaning.json`: `sections[].field_sources` (`{feel: 'user', camera_hint: 'draft', ...}`),
-  `characters[].field_sources` (name, description) and the top-level `field_sources` (logline, palette). A field marked
+  `characters[].field_sources` (name, description) and the top-level `field_sources` (logline, palette, and
+  `perspective.narrator` / `perspective.addressee`: who sings to whom). A field marked
   `draft` is a suggestion: use it, but do not present it as the user's direction.
 ```js
 const sec = meaning.sections.find(s => s.section_id === m.section_id);
-const isDraft = f => (sec.field_sources?.[f] ?? (sec.provenance.status === 'user' ? 'user' : 'draft')) !== 'user';
+const isDraft = f => (sec.field_sources?.[f] ?? (sec.provenance.status === 'user' ? 'user' : 'draft')) === 'draft';  // 'audio' = a measured fact
 const camera = isDraft('camera_hint') ? suggestion(m.camera_hint) : directive(m.camera_hint);
 ```
 - `do_not` rules (user's words) apply to every frame: check them before you add any element.

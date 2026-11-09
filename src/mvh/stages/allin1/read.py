@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Read the allin1 intermediates (cache only) from an Upstream handle.
 
 Works for both the real stage (matrices recorded in done.json) and the walking-skeleton / fixture copies

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tracker runners and DSP features for the rhythm stage (arrays in, explicit local model paths).
 
 * beat_this final0 (``Audio2Frames``): beat / downbeat logits at 50 fps from a mono float32 array.

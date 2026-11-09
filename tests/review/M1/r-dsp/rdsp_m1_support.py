@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas and docstrings)
 """Support for the R-DSP review tests of M1 (spectral, loudness, dynamics).
 
 * ``viz_causal``: runs the REAL viz/js/audio.js ``AudioEngine.update()`` under Node, frame by frame at a browser frame

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Stage declarations and the stage interface (PLAN §3.2, §3.3). FROZEN at contract v1.
 
 Every stage is a package ``mvh.stages.<name>`` whose ``__init__.py`` defines

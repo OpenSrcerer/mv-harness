@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long assertion messages)
 """R-DSP review round 2 (M1 spectral, hits.kick) after the fix of B1 / M1.
 
 The fix drops a click-less kick-band hit within kick_refractory_s (0.30 s) of a kept event, weights the >= 1 kHz click

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """The measured alignment gate G1-G8 (docs/spike/bench-words.md §5) and the song grade.
 
 | # | check | pass |

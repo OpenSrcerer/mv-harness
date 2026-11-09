@@ -1,0 +1,5 @@
+- 2026-11-09 r4 start: r3 did S04; verifying tests + gate
+- r4: patched vocals _lyric_mask (skip interpolated/lrclib_line/conf<=.02) + untagged lyric frames inherit tagger style; next: run review+unit tests, rerun megafauna vocals on copy, gate
+- r4: review tests pass (5). --only vocals refused (upstream stale) so running full analyze on copies in out/_wip/fixer-m3b-r4 (run2.sh, logs <slug>.full.log, all2.done). then compare w/ /tmp/cmp.py, then gate
+- r4: 5 songs rerun OK, megafauna S04 present/10 phrases/33 notes, no regression. running gate -> out/_wip/fixer-m3b-r4/gate.log
+- r4 done, report written

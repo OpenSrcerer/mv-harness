@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """CLAP (Xenova/larger_clap_music_and_speech, quantized ONNX) for RELATIVE curves only (owner M3b).
 
 docs/SPIKE.md: CLAP has low contrast (cosines about .2-.45) and its top prompt is often wrong, so it is never used as a

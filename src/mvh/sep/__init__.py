@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """Separation helpers shared by ``separate_fast``, ``separate_hq`` and the sep worker (owner M3a).
 
 Import rule (PLAN §3.3): modules here import only the stdlib and numpy at module level, so the sep worker env

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Speaker embeddings (SPIKE: ECAPA primary, WeSpeaker ONNX fallback; identical partitions at k = 3 and 4).
 
 * ECAPA-TDNN (SpeechBrain 1.1, VoxCeleb, 192-d): ``EncoderClassifier.from_hparams(source=<dir>, savedir=<scratch>,

@@ -1,6 +1,6 @@
 <!-- GENERATED copy of docs/CONTRACT.md (skill/mv-harness/scripts/sync_contract.py); do not edit. Agents: read only the sections you need (§2 time and frames, §3 IDs, §4 values, §9 helpers). -->
 
-# mv-harness output contract (v1.0.0-rc.1)
+# mv-harness output contract (v1.0.0-rc.2)
 
 The single source of truth for everything a song folder `out/<slug>/` contains and how to read it. Module builders code
 against it; video agents read it (it is copied to `skill/mv-harness/references/CONTRACT.md`).
@@ -281,7 +281,7 @@ Every `events/<name>.json` (and `lipsync/visemes.json`, `lipsync/phonemes.json`)
 (`mvh/envelope/events`):
 
 ```json
-{"schema": "mvh/events/beats", "schema_version": "1.0.0-rc.1", "name": "beats", "kind": "event",
+{"schema": "mvh/events/beats", "schema_version": "1.0.0-rc.2", "name": "beats", "kind": "event",
  "fields": {"t": {"unit": "s", "type": "number"}, ...}, "provenance": {...},
  "items": [ {"beat_index": 0, "t": 0.25, ...}, ... ]}
 ```
@@ -1027,6 +1027,7 @@ Producer `_runner` = the runner's finalize step; `_user` = user/agent-authored i
 | `curves/spectrum128.u8` | matrix | _runner | - | yes | [frames x 128] viz band values (u8/255 = viz bands[k]); same layout as viz bandBytes R channel; channels from spectral (packed by the runner) |
 | `curves/stems.f32` | curve | _runner | - | yes | Per-stem levels and activity at 100 Hz; channels from stem_activity (packed by the runner) |
 | `curves/vocal.f32` | curve | _runner | - | yes | Lead-vocal pitch and mouth_open at 100 Hz; channels from lipsync, vocals (packed by the runner) |
+| `lib/mvh.d.ts` | text | _runner | - | yes | TypeScript declarations for lib/mvh.js (D53) |
 | `lib/mvh.glsl` | text | _runner | - | yes | GLSL sampler mvhCurve |
 | `lib/mvh.js` | text | _runner | - | yes | JS loader (ES module, no dependencies) |
 | `lib/mvh_load.py` | text | _runner | - | yes | Python loader (numpy only) |
@@ -1232,9 +1233,9 @@ into the cache key). `curve:*` / `events:*` = everything. Each consumed producer
 | **instruments** | main | ingest, separate_fast, separate_hq, stem_activity | `audio:mix`<br>`audio:{stem}`<br>`audio:fast:{stem}`<br>`curve:stem.{stem}.active`<br>`file:meta/stems.json`: stems |
 | **notes** | main | separate_hq, stem_activity, rhythm | `audio:{stem}`<br>`curve:stem.{stem}.active`<br>`file:meta/stems.json`: stems<br>`events:beats`: t, beat_index, bar, beat_in_bar<br>`events:bars`: t, bar, beats_in_bar<br>`file:meta/tempo.json`: bpm, meter |
 | **structure** | main | allin1, rhythm, harmony, dynamics | `intermediate:allin1/allin1.json`: segments, labels<br>`intermediate:allin1/activations.f32`<br>`intermediate:allin1/embeddings.f32`<br>`events:bars`: t, d, bar, beats_in_bar<br>`events:beats`: t, beat_index<br>`curve:chroma.{pc}`<br>`events:dynamics`: t, d, level, rel_lu<br>`curve:dyn.intensity`<br>`curve:dyn.novelty`<br>`events:impacts`: id, t, strength<br>`events:silences`: id, t, d |
-| **lyrics** | main | identity, separate_hq, stem_activity, structure | `file:meta/identity.json`: title, artist, album, duration_s<br>`audio:lead_vocals`<br>`curve:stem.lead_vocals.active`<br>`events:sections`: id, t, d, repeat_group<br>`ext:param:lyrics`<br>`ext:http:lrclib` |
+| **lyrics** | main | identity, ingest, separate_hq, stem_activity, structure | `file:meta/identity.json`: title, artist, album, duration_s<br>`audio:lead_vocals`<br>`curve:stem.lead_vocals.active`<br>`events:sections`: id, t, d, repeat_group<br>`ext:param:lyrics`<br>`ext:http:lrclib` |
 | **mood** | main | ingest, structure | `audio:mix`<br>`events:sections`: id, t, d |
-| **vocals** | main | separate_hq, stem_activity, instruments, rhythm | `audio:lead_vocals`<br>`curve:stem.lead_vocals.active`<br>`file:meta/stems.json`: stems<br>`events:vocal_style`: t, d, style<br>`events:beats`: t, beat_index<br>`file:meta/tempo.json`: bpm |
+| **vocals** | main | separate_hq, stem_activity, instruments, rhythm, lyrics | `audio:lead_vocals`<br>`curve:stem.lead_vocals.active`<br>`file:meta/stems.json`: stems<br>`events:vocal_style`: t, d, style<br>`events:beats`: t, beat_index<br>`file:meta/tempo.json`: bpm |
 | **choreo** | main | rhythm, structure, drums, spectral, vocals, harmony, dynamics | `events:beats`: t, beat_index, bar, beat_in_bar, beats_in_bar, in_pulse, strength<br>`events:bars`: t, d, bar, beats_in_bar, n_beats, first_beat, pickup<br>`file:meta/tempo.json`: bpm, meter<br>`events:sections`: id, t, d, start_bar, n_bars, label, occurrence, repeat_group<br>`events:phrases`: id, t, d, start_bar, n_bars, section_id<br>`events:edm_roles`: id, t, d, role<br>`events:drum_hits`: t, drum, vel<br>`curve:drums.{drum}`<br>`events:onsets.bass`: t, strength<br>`events:onsets.mid`: t, strength<br>`events:onsets.high`: t, strength<br>`events:hits.kick`: t, strength<br>`events:notes.vocals`: t, d, midi<br>`events:vocal_phrases`: id, t, d<br>`curve:vocal.voiced`<br>`events:chords`: t, d, label<br>`events:dynamics`: t, d, level, mean_lufs<br>`events:impacts`: id, t, strength<br>`events:stops`: id, t, strength<br>`events:silences`: id, t, d<br>`events:decay_tails`: id, t, d, strength |
 | **cues** | main | choreo, structure, dynamics, rhythm, drums | `events:counts`: id, t, len<br>`events:hit_points`: id, t, strength, rank<br>`events:holds`: id, t, d<br>`events:sections`: id, t, d, label<br>`events:phrases`: id, t, d<br>`events:edm_roles`: id, t, d, role, n_bars<br>`events:impacts`: id, t, strength<br>`events:stops`: id, t, strength<br>`events:silences`: id, t, d<br>`events:beats`: t, beat_index, beat_in_bar<br>`events:bars`: t, d, bar<br>`events:drum_hits`: t, drum, vel<br>`ext:overrides.json#cues.pinned` |
 | **voices** | main | lyrics, separate_hq, stem_activity | `file:lyrics/lyrics.json`: lines, words, source<br>`audio:vocals`<br>`audio:lead_vocals`<br>`audio:backing_vocals`<br>`curve:stem.vocals.active`<br>`ext:meaning/intent.md` |
@@ -1415,3 +1416,142 @@ Where PLAN.md was silent or self-contradictory, this contract decides (each is a
   files). The runner sets it for stage children and the sep worker (audio-separator lets it override `model_file_dir`), the env scripts export
   it, and `mvh doctor` fails when the variable points at a folder lacking those files. For `HF_CACHE_IDS` models, `fetch` re-links an
   HF snapshot that is not the verified file, and `verify`/`doctor` check the snapshot too.
+
+### W3 integration (contract 1.0.0-rc.2)
+
+The W3 integrator applied the approved W2 change requests (`docs/build/W2-change-requests.md`) and merged the module decision files.
+Every item below is additive or an interpretation, except D48-D50, which change the events envelope, a cue rule and a stage's deps as
+their change requests required. The per-module files `docs/contract/decisions/<module>.md` stay as the full history; the IDs quoted
+below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
+
+- **D47 Determinism of separated drum sub-stems (NF1).** MDX23C DrumSep is a convolution network; on ROCm, MIOpen chooses convolution
+  kernels from the GPU workspace that is free at that moment, so the six `stems/drums/*.flac` changed in the last bits (about 1e-8,
+  reproduced with another process holding 80 % of GPU memory) whenever anything else used the GPU, and the differences cascaded into
+  `events/drum_hits.json`, `curves/*.f32`, the manifest and the viewer. `torch.backends.cudnn.deterministic` and
+  `torch.backends.miopen.immediate` do not fix it. `separate_hq` therefore runs the DrumSep step on the CPU by default (param
+  `drumsep_device: "cpu"`; `"auto"` restores the GPU path): bit-identical across runs, about 1.45 x real time at 6 threads, outputs
+  equal to the GPU's within 3e-7. The RoFormer steps have no convolutions and stay on the GPU (bit-identical under memory pressure).
+  `meta/separation.json.worker.settings.drumsep_device` records the choice. The gate's determinism diff stays exact on every file.
+- **D48 Events envelope `d` (CR M2-1).** In `mvh/envelope/events` an item's `d` is `number|null` for `kind: event` (instantaneous items
+  such as `moments` may leave it null, as their catalogue entry always said) and stays a required number for `kind: segment`.
+- **D49 Cue kind priority (CR M2-7, amends D37).** `pinned` comes first, then drop, build_start, breakdown, section, stop, silence,
+  impact, phrase, hit_point, downbeat, beat. A user pin keeps its identity whatever it is merged with (`kind = pinned`,
+  `kinds[0] = pinned`, `sources[0]` = the override).
+- **D50 lyrics deps += ingest (CR-M5-1).** `lyrics` declares `ingest`, so the cache-only `embedded_lyrics.json` (D32) is a declared read
+  (M5-D1's D8 path is no longer used). §11 and the PLAN_DEPS test are updated.
+- **D51 Voices read the user's whole intent (CR M6a-1, M6b CR-5).** Besides its own tolerant regexes (M5-D17), the voices stage reads the
+  viewer's managed block in `meaning/intent.md` (grammar: M6a V7): its `- Vn = Cm Name` lines win for the voice -> character proposal, and
+  the highest voice they map is a floor for the voice count (mapping V1 and V2 to one character keeps two voices). It also reads the
+  YAML interview template through the meaning stage's parser (`characters: {C1: {voices: [V1]}}`, the character count, `line_singers`).
+  `overrides.json voices.lines` keeps winning per line. The meaning stage already read the managed block (M6b).
+- **D52 Agent flags on `mvh analyze` (M6b CR-2, M6a CR-2).** `--intent f` copies f to `<song>/meaning/intent.md` and never replaces a
+  different existing file (exit 2); `--meaning-draft agent|anthropic|off` sets `meaning.draft` (`anthropic` then runs `mvh meaning
+  --draft anthropic`, which never overwrites authored.json); `--no-lyrics-to-agents` sets `meaning.lyrics_to_agents=false` **and**
+  `viewer.inline_lyrics=false`. A re-run (of the folder, or of the file into the same folder) keeps the earlier `--lyrics` file and
+  `--param`/flag values (`.cache/_run.json`); new values win per key; `--lyrics -` forgets the lyrics file.
+- **D53 `lib/mvh.d.ts`.** finalize copies the TypeScript declarations next to `lib/mvh.js` (catalogue entry `lib/mvh.d.ts`).
+- **D54 `meaningAt(t).field_sources`.** `song.meaningAt(t)` / `meaning_at(t)` also return the section's `field_sources` (field ->
+  `user` | `draft` | `audio`; `{}` when none), so code-path agents can tell draft fields in a user section apart without re-reading
+  meaning.json (golden addendum regenerated).
+- **D55 Runtime reporting.** A stage selected with `--only` whose upstream is not done is reported on stdout (`<stage>: not run -
+  upstream not done: ...`) as well as in run.json; on-demand stages that did not run (frames) are listed in run.json with status
+  `pending` and how to run them. Heavy-slot waiters poll every 2 s (was 15 s: the 15 s waiters starved behind 2 s re-acquirers).
+- **D56 M1 Signal (spectral, loudness, dynamics)**: M1-S1..S11, M1-L1..L6, M1-D1..D9 (decisions/M1.md). Hit events are viz attack
+  episodes timed on the low band's own step, with additive `env`, `rise_db`, `viz`, `kick_conf`: filter on `viz` for viz-identical
+  semantics and on `kick_conf` to drop bass-note attacks. `hits.*` values stay in 0..1 (the registry range 0..1.5 is unused headroom;
+  CR-M1-3 was not applied because nothing depends on it). Loudness additive keys (`short_term_percentiles`, `loudest`, `quietest`,
+  `limited_master`, `qa[]`). Dynamics parts cover the song with a level scale adapted to limited masters, additive evidence fields
+  (`energy`, `bass_db`, `kick_rate`, `role_hint`, ...) and the optional file `meta/dynamics.json`.
+- **D57 M2 Rhythm (allin1, rhythm, structure, choreo, cues)**: M2-D1..D17 and the fixer rounds (decisions/M2.md). Sections start at
+  bar 1 (the pickup bar belongs to no section); virtual beats carry conf 0.5; tracker latency calibration; a downbeat vote of three
+  trackers into a meter HMM; tempo-octave arbitration with `override_hint` alternatives and QA flags (`tempo_trackers_disagree`, ...);
+  structural labels for non-song forms; tier-4 cues only for in-pulse beats; cue snapping within 50 ms of a beat; the hit-point
+  formula. Additive keys in `meta/tempo.json` (`arbitration`, `downbeat_vote`, `trackers`, ...), `meta/structure.json`
+  (`boundary_evidence`, `section_similarity`, ...), `events/sections.json` (`energy`, `edm_role`), `events/bars.json` (`irregular`).
+- **D58 M3a Separation (separate_fast, separate_hq, stem_activity, drums)**: M3a-1..15, F1..F3, R2-1..R2-5 (decisions/M3a.md).
+  `backing_vocals = vocals - lead_vocals` exactly; mono or narrow masters skip or drop the karaoke split (`lead_backing_split=false`);
+  split stems are judged against their parent stem; `present` needs cross-model confirmation (`conf >= 0.4`); drum `vel` is relative
+  to the loudest hits of that drum; drum `t` is the one-shot's first sample; `perc` stays empty; the classifier path is a degraded
+  fallback with damped hat/cymbal `vel` (`vel_raw` kept); additive drum-hit fields `sub_stem`, `rise_db`, `in_active`, `evidence[]`.
+  The models.lock envelope schema accepts the W0 env labels.
+- **D59 M3b Pitch and timbre (notes, vocals, instruments)**: I-M3b-1..12 (decisions/M3b.md). Open instrument vocabulary (28 CED slugs,
+  CLAP synth sub-types, `term_<slug>`) with a curve for every slug; the stem x tagger fusion rule; CLAP curves are RELATIVE (their index
+  entries say so); `vstyle.*` sums to at most `inst.voice`; the MIDI tempo map puts every beat on a quarter note; the piano gate;
+  vocal presence and range rules (additive `basis`, `spoken_pitch`, `style` in `meta/vocal_range.json`); human-correction params
+  `notes.piano_mode`, `vocals.present`, `vocals.style`, `instruments.vocabulary` (stage params; CR-M3b-3, which would promote them to
+  overrides.json keys, stays open).
+- **D60 M4 Harmony and mood**: H1..H13 and mood M1..M5 (decisions/M4.md). Chord labels keep lv-chordia's root spelling, inversions go
+  to `bass_pc`; the chord timeline is gapless and beat-snapped; chord `conf` is our own evidence score; the key is an ensemble (S-KEY
+  with recovered probabilities, profiles, chords, bass, phrase starts) with a relative-key tie-break, flags, and a capped confidence
+  when tonal evidence is missing; mood heads are mapped 1..9 -> 0..1 with per-head optional fields and a low-confidence valence; all
+  56 mood tags are curves. Stage param `harmony.key_override` forces the key (an overrides.json section, CR-M4-1, stays open).
+- **D61 M5 Words (identity, lyrics, voices, lipsync)**: M5-D1..D38 (decisions/M5.md). Lyrics cascade user file > embedded tags >
+  LRCLIB > transcription; LRCLIB ranking; grade per bench-words §5; word `d` = sung duration; lines are only ever added; user word
+  timings are authoritative; overrides are keyed by this run's ids; temperature-0 ASR; additive `source.*`, `gate`, `asr`,
+  `alignment`, `lrclib`, `words[].flags`; voices `n_source` precedence intent > hints > estimate with minor-cluster folding;
+  `voice_spans.role/source`; the lipsync gate stops at the next line, and viseme timelines are `X`-filled per voice.
+- **D62 M6a Viewer**: V1..V9 (decisions/M6a.md). One self-contained `viewer.html` with inlined, size-capped data and lyrics (param
+  `viewer.inline_lyrics`, set false by `--no-lyrics-to-agents`, D52); edit mode only under `mvh view` (token, Host and Origin checks);
+  overrides POST validated and written atomically with an etag; singers and per-section meaning go to the managed block of
+  `meaning/intent.md` (read by voices, D51, and by meaning).
+- **D63 M6b Agent delivery (meaning, brief, frames, skill)**: A1..A9 and the interpretations (decisions/M6b.md). Meaning status
+  user > draft > pending with a status per claim; `field_sources` at the top level and per section and character; every voice gets a
+  character when lyrics exist; additive `singing` item fields `conf`, `source`, `review`; frames event columns and the optional
+  Deforum export; `meaning.lyrics_to_agents`.
+- **D64 Stage timings separate the heavy-slot wait (seam S08).** `run.json stages.<name>.seconds` is wall time including the wait for a
+  machine-wide heavy slot; the optional `wait_s` is that wait (runner-level slots only: waits inside the sep worker, per model step, stay
+  inside `seconds`). On a busy machine `seconds` alone made a 50 s separation look like 30 minutes. On a cache hit the optional
+  `computed_seconds` repeats the seconds of the run that computed the entry (kept in `.cache/<stage>/latest.json`).
+- **D65 Walking-skeleton test seam.** `MVH_STAGE_STUBS=all | all-but-ingest | a,b,c` makes the stage child run the fixture copier
+  (`mvh.contract.fixture.run_stub`) instead of the real `run` for those stages, and adds `stub: true` to their cache-key inputs so a stub
+  result never shares a key with a real one. Only the runtime tests set it (they test the runner on the walking skeleton).
+- **D66 Manifest key flags.** `meta/key.json` flags already carry the `key:` prefix; the manifest adds it only to bare flags (it showed
+  `key:key:modulation`; seam S02).
+
+### W3 integration, round 2 (integrator-r2, after the W3 module fix rounds)
+- **D67 vocals depends on lyrics, and lyric lines need acoustic support.** `vocals.deps += lyrics` (CR-M3b-1, already in the catalogue;
+  PLAN_DEPS updated). Aligned lyric lines open the vocals voice gate only when something outside the aligner heard the words: a lyrics
+  grade A-C, or G1 (`lyrics_match_score`) >= stage param `vocals.lyric_min_match` (0.3); forced alignment places any supplied text
+  (R-ML-M3b-r5-1). Untagged sung frames inside lines inherit the tagger's style only when it is `rap`; otherwise they count as sung
+  (R-ML-M3b-r5-2, so a stray `speech` label cannot erase the vocal range). The instruments vocal-style tagger reads the same lead stem
+  as vocals and lyrics (`instruments.lead.pick_lead_stem`). Stage versions vocals 1.1.0, instruments 1.1.0.
+- **D68 Section boundary edits are local; one provenance entry per key.** structure 1.2.0 applies `structure.boundaries` edits to the
+  automatic segmentation (after the DP, impact snap, repeat merge and phrase-grid split), never by re-optimising the song, so an edit
+  never moves a boundary the user did not touch (W3C-6). `provenance.overrides_applied` holds ONE entry per key whose value is the
+  whole edit list (as the runner's default does); readers must still accept repeated keys (the viewer collects them:
+  F-R5-APPLIED-BOUNDARY). Phrase remainders lead a section only on its own evidence: its start was snapped back to an impact, or the
+  boundary score at `a + r` beats both the section start and `b - r` by `structure.phrase_pickup_margin` x section cost (F8-r5; never a
+  vote of other sections). `sections.edm_role` is set on every section whose start lies inside an `edm_roles` span (m6).
+- **D69 Viewer voice mappings are a floor (amends D51).** The viewer block's highest mapped voice is `n_voices_min`: the voices stage
+  still estimates k and raises it to the floor; only an explicit count (free text or template) fixes k (F-R4-VOICE-FLOOR). Lyric
+  speaker hints come from every line, embedded or not (a speaker whose lines are all short no longer crashes the stage: R5-2). With a
+  single voice a grade-D alignment no longer flags every span for review (m2). voices 1.1.0.
+- **D70 Lead lines do not overlap.** lyrics 1.1.0 caps a lead line's last word at the next lead line's first word minus 10 ms
+  (backing lines are exempt): the held last word ran into the next rapper's line (W3C-5). `singer_at` / `singerAt` return one entry per
+  (character_id, voice_id). A lone `Name:` line is a speaker marker only when the name passes the name check (no pronoun or verb;
+  multi-word names not in a Title Case file), even when another candidate recurs (M5 R5-1).
+- **D71 Syncopation and grooves.** `grooves.syncopation` (and the synthetic truth) use the Longuet-Higgins/Lee form: each kick/snare onset
+  scores `w[j] - w[s]` for the next stronger step `j` (bar loops) when no onset lies in `(s, j]` (W3C-2). Groove ids (clean drum hits):
+  per-row onset F1 (exact step 1, +-1 step `choreo.groove_near_credit`), kick/snare weight 1, hat/perc `choreo.groove_hat_weight` with
+  hats below `choreo.groove_hat_min_vel` ignored, against the cluster's majority pattern; threshold `choreo.groove_similarity` 0.75
+  (W3C-1). choreo 1.1.0.
+- **D72 Key without chords.** harmony 1.1.0: a chord-less span (lv-chordia no-chord share >= 0.9) has a key only when the long-term chroma
+  is peaked (peak/mean >= 2.2) and the three profiles agree; S-KEY confirms it at p_max >= 0.35 (cap 0.8, `key:chroma_only`); with
+  S-KEY on a neighbour key or abstaining the key is kept at <= 0.5 with `key:chroma_only` + `key:low_confidence` (R5-M1, R5-M2).
+  Otherwise `key:no_tonal_evidence` (cap 0.3).
+- **D73 Ride/crash coincidence rule.** drums 1.1.0 applies the coincidence-decay check only at snare / tom strokes (snare leak), not at
+  kicks (R5-1: real rides on a kick were dropped).
+- **D74 Sep-env determinism.** The sep worker exports `ROCBLAS_USE_HIPBLASLT=0` for the rocm variant (with the math SDPA backend the
+  RoFormer stems are byte-reproducible; fixer-m3a-r4).
+- **D75 brief key flags** carry the `key:` prefix once (m1). SKILL.md names `frames/24_f1fps.csv` for `--frame0 1` (m7).
+- **D76 Module decisions of the W3 fix rounds** are merged by reference (each file's W3 sections are normative where this document is
+  silent): decisions/M1.md (spectral kick routes, `kick_*` params, `hits.kick` `kick_conf`, summary route counts; M1-S13 precedence is
+  superseded by user decision UD2, W4), M2.md ("W3 module fix round 1/2": M2-D-jitter, impact snap, drop extent, form labels, phrase
+  grid), M3a.md (R4 rules; rocBLAS / math-SDPA determinism), M3b.md, M4.md, M5.md (M5-D47..D55: `asr.gap_retry`, `asr.g1_scope`,
+  `alignment.vocals_after_last_line_s`, params `asr_gap_retry`, `asr_gap_min_s`, `tail_vocals_warn_s`, lipsync
+  `instrumental_fallback_min_s`; G1 is the scoped F1 with near-miss spellings), M6a.md, M6b.md (W3 rounds: `meaning.json`
+  `references`, `notes`, field_sources keys `perspective.narrator`, `perspective.addressee`, `references`, `notes`). The meaning intent
+  grammar is being replaced by user decision UD1 (W4).
+- **D77 R19 acceptance test.** `tests/integration/test_override_roundtrip.py` (real, slow) drives the edit server on copies of real max
+  runs: boundary move, downbeat phase, voice mapping, pinned cue and a section meaning edit; it asserts that only the stages downstream
+  of the edited keys / intent.md re-run and that every edit appears in the outputs.

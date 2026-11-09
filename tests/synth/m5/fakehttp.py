@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Synthetic recorded HTTP for the M5 tests (tests/fixtures/http/*.json; never real lyrics).
 
 * ``FakeHttp``: an in-memory stand-in for ``mvh.runner.http.CachedHttp`` (``get``/``post`` -> Response) that

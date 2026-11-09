@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long assertion messages)
 """R-DSP review (M1 spectral): regression guard for viz-port fidelity against the REAL viz/js/audio.js, driven causally
 under Node (viz_causal.cjs) with the AnalyserNode data a browser would deliver. The builder's parity test checks the
 band map and single functions; this checks the whole offline pipeline end to end. viz is frame-rate dependent (its flux

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """notes stage (contract v1, owner M3b).
 
 What it does (PLAN §5 notes, docs/SPIKE.md):

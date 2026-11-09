@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """dynamics stage: run(ctx). Detectors in ``detect.py``, segmentation and intensity in ``segment.py``."""
 
 from __future__ import annotations
@@ -335,7 +334,8 @@ def role_hints(segs: list[G.Segment], det: D.Detections, inp: D.Inputs) -> None:
         if hints:
             sc, role = max(hints)
             if sc >= 0.3:
-                s.stats["role_hint"], s.stats["role_score"] = role, round(sc, 3)
+                # rank on the raw score (a build's can exceed 1), report it on the declared 0..1 scale (review m23)
+                s.stats["role_hint"], s.stats["role_score"] = role, round(min(1.0, sc), 3)
 
 
 # ------------------------------------------------------------------------------------------------ run

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """voices orchestration (PLAN §5 voices, SPIKE, bench-words §6).
 
 1. Items: every aligned lyric line (first word start .. last word end); lines longer than ``split_s`` are also cut
@@ -17,6 +16,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -42,6 +42,25 @@ def _segments(words: list[dict[str, Any]], chunk_s: float) -> list[list[dict[str
             out[-1] += cur
         else:
             out.append(cur)
+    return out
+
+
+_JOINT_SPLIT = re.compile(r"\s*(?:&|\+|,|/|\band\b|\bfeat\.|\bft\.)\s*", re.I)
+_JOINT_ALL = {"both", "all", "everyone", "everybody", "together", "group", "crowd", "unison", "tutti", "choir"}
+
+
+def hint_parts(hint: str | None) -> list[str]:
+    """Singer names in a speaker hint: 'Ann' -> ['Ann']; 'Ann & Bob' / 'Ann and Bob' / 'Ann, Bob' -> ['Ann', 'Bob'];
+    'Both' / 'All' -> [] (a joint line whose singers the text does not name)."""
+    if not hint or not hint.strip():
+        return []
+    if hint.strip().lower().strip(".!") in _JOINT_ALL:
+        return []
+    parts = [x.strip(" .") for x in _JOINT_SPLIT.split(hint) if x and x.strip(" .")]
+    out: list[str] = []
+    for x in parts:
+        if x.lower() not in _JOINT_ALL and x not in out:
+            out.append(x)
     return out
 
 
@@ -116,15 +135,21 @@ def run(ctx) -> StageResult:  # noqa: C901
     w = np.array([it["t1"] - it["t0"] for it in emb_items])
 
     # ---------------------------------------------------------------- 3. k and labels
-    hints = sorted({it["hint"] for it in emb_items if it["hint"]})
+    # joint labels ('Ann & Bob', 'Both') are not voices of their own (M5-D55): k counts the single names
+    for it in items:
+        it["parts"] = hint_parts(it["hint"])
+        it["solo"] = it["parts"][0] if len(it["parts"]) == 1 else None
+    # every named singer, including one whose lines are all too short to embed (R5-2: a 0.6 s announcer line)
+    hints = sorted({pt for it in items for pt in it["parts"]})
     n_int = intent.get("n_voices") or intent.get("n_characters")
+    n_min = int(intent.get("n_voices_min") or 0)
     k_info: dict[str, Any] = {}
     if len(emb_items) == 0:
         labels = np.zeros(0, dtype=np.int64)
         k, n_source = 1, "estimate"
         k_info["reason"] = "all lines shorter than min_item_s: one voice"
     elif n_int:
-        k = max(1, min(int(n_int), len(emb_items)))
+        k = max(1, min(max(int(n_int), n_min), len(emb_items)))
         n_source = "intent"
         labels = K.agglo(E, k)
         k_info["reason"] = f"user count from intent.md ({int(n_int)})"
@@ -136,11 +161,20 @@ def run(ctx) -> StageResult:  # noqa: C901
         hid = {h: i for i, h in enumerate(hints)}
         C = []
         for h in hints:
-            m = np.array([it["hint"] == h for it in emb_items])
-            v = (E[m] * w[m][:, None]).sum(0)
+            m = np.array([it["solo"] == h for it in emb_items])
+            if not m.any():   # a name heard only in joint lines
+                m = np.array([h in it["parts"] for it in emb_items])
+            v = (E[m] * w[m][:, None]).sum(0) if m.any() else np.zeros(E.shape[1])   # a name with no embedded line
             C.append(v / (np.linalg.norm(v) + 1e-9))
         C = np.asarray(C)
-        labels = np.array([hid[it["hint"]] if it["hint"] else int(np.argmax(C @ e)) for it, e in zip(emb_items, E)], dtype=np.int64)
+
+        def _lab(it: dict[str, Any], e: np.ndarray) -> int:
+            if it["solo"]:
+                return hid[it["solo"]]
+            cand = [hid[pt] for pt in it["parts"]] or list(range(k))   # joint line: nearest of its singers
+            return int(cand[int(np.argmax(C[cand] @ e))])
+
+        labels = np.array([_lab(it, e) for it, e in zip(emb_items, E)], dtype=np.int64)
         k_info["reason"] = "speaker labels in the lyrics source"
     else:
         n_source = "estimate"
@@ -152,6 +186,11 @@ def run(ctx) -> StageResult:  # noqa: C901
             if merged:
                 k_info["merged_minor"] = merged
                 k_info["k_before_merge"] = k
+        if n_min and int(labels.max()) + 1 < n_min <= len(emb_items):
+            # the voices the user mapped in the viewer are a floor (D51)
+            k_info["floor"] = n_min
+            k_info["k_estimated"] = int(labels.max()) + 1
+            labels = K.agglo(E, n_min)
     for it, lab in zip(emb_items, labels):
         it["label"] = int(lab)
     k = int(labels.max()) + 1 if len(labels) else 1
@@ -163,7 +202,7 @@ def run(ctx) -> StageResult:  # noqa: C901
         margin = float(o[0] - o[1]) if len(o) > 1 else 1.0
         it["sim"] = float(sims[it["label"]])
         it["conf"] = float(np.clip(0.5 + 1.5 * margin, 0.0, 1.0)) if k > 1 else float(np.clip(0.4 + 0.6 * max(0.0, it["sim"]), 0, 1))
-        it["source"] = "hint" if (n_source == "hints" and it["hint"]) else "embedding"
+        it["source"] = "hint" if (n_source == "hints" and it["solo"]) else "embedding"
         if it["source"] == "hint":
             it["conf"] = max(it["conf"], 0.9)
     # short items inherit the voice of the nearest embedded neighbour (previous first)
@@ -176,9 +215,11 @@ def run(ctx) -> StageResult:  # noqa: C901
         it["label"] = nb["label"] if nb is not None else 0
         it["conf"] = round(0.5 * (nb["conf"] if nb is not None else 0.5), 4)
         it["source"] = "neighbour"
-        if it["hint"] and n_source == "hints":
-            it["label"] = hints.index(it["hint"])
+        if it["solo"] and n_source == "hints":
+            it["label"] = hints.index(it["solo"])
             it["source"], it["conf"] = "hint", 0.9
+        elif it["parts"] and n_source == "hints" and it["label"] not in [hints.index(pt) for pt in it["parts"]]:
+            it["label"] = hints.index(it["parts"][0])   # joint line: one of its singers
 
     # ---------------------------------------------------------------- 4. voice ids by first appearance
     order: dict[int, int] = {}
@@ -241,7 +282,8 @@ def run(ctx) -> StageResult:  # noqa: C901
     review_thr = float(p.get("review_below", 0.5))
     # M5-D22: a grade-D lyrics alignment puts the embedding windows on unreliable spans: every estimated span
     # is flagged for review (forced voices from overrides / intent are the user's and stay unflagged)
-    weak_words = lyr.get("grade") == "D"
+    # (m2, W3: with ONE voice there is no singer to get wrong, so grade D alone flags nothing)
+    weak_words = lyr.get("grade") == "D" and len({s["voice_id"] for s in spans}) > 1
     if weak_words:
         warnings.append("lyrics alignment grade D: every estimated voice span is flagged for review")
     out_spans = []
@@ -273,9 +315,9 @@ def run(ctx) -> StageResult:  # noqa: C901
         notes.append("proposed V_k -> C_k by order of first appearance (intent names as many characters as voices)")
     hint_of = {}
     for it in items:
-        if it["hint"]:
-            hint_of.setdefault(it["voice"], {}).setdefault(it["hint"], 0)
-            hint_of[it["voice"]][it["hint"]] += 1
+        if it["solo"]:
+            hint_of.setdefault(it["voice"], {}).setdefault(it["solo"], 0)
+            hint_of[it["voice"]][it["solo"]] += 1
     meta_voices = []
     for v in voices_all:
         sec = sum(a["d"] for a in act if a["voice_id"] == v)

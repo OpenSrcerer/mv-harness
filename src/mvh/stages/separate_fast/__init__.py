@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """separate_fast stage (PLAN §5 separate_fast, SPIKE "demucs-onnx"; owner M3a).
 
 htdemucs 4-stem (vocals, drums, bass, other) through demucs-onnx on the ARRAY route with our own ORT session

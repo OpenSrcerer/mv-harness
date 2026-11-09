@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """``mvh frames <song folder> --fps 24 [--fps 30000/1001] [--frame0 1] [--early] [--curves a,b] [--events ...]``
 (D35 module verb, D19 on-demand stage).
 

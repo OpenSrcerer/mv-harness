@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Shared fixtures for the meaning tests. Real-song tests are marked ``real`` and run only with ``-m real`` or
 MVH_REAL_TESTS=1 (they read tests/contract/real-<slug>/, gitignored, and never print lyric text)."""
 from __future__ import annotations

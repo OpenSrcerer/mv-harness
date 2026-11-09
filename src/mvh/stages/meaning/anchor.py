@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Anchor per-section claims to the current canonical sections (PLAN §8.5, CONTRACT §7).
 
 A claim addresses sections by id (``S03``, with the ``t0``/``t1`` it was written against), by occurrence

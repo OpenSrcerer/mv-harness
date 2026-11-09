@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 2.
 
 R2-4 (major, new; same class as round-1 F2): the user maps voices only (``C1: {voices: [V1]}``); the draft names and

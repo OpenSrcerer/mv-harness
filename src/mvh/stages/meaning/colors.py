@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Colour words -> hex for palettes written in plain words ("night blue, lantern amber, rust red").
 
 Deterministic and small on purpose: a base colour word (the last one in the phrase wins, earlier colour

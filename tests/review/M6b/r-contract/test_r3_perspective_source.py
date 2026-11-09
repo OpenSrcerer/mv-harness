@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 3, R3-5 (major; same class as R2-4/R2-5 and N5/N6, on a field the fix missed).
 
 SKILL.md §3 now says: "A `user` section or character can still hold draft text: meaning.json

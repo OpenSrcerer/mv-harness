@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """The output catalogue: every file, every events name, their frozen fields, and the Consumed-by matrix.
 
 FROZEN at contract v1 (PLAN §4.6): the envelope schemas, IDs, time/unit conventions and every field marked
@@ -20,7 +19,7 @@ from typing import Any
 from .ids import DRUM_SUBSTEMS, ID_KINDS, PITCHED_SOURCES, STEM_NAMES
 from .registry import CHANNELS, CURVE_FILES
 
-CONTRACT_VERSION = "1.0.0-rc.1"
+CONTRACT_VERSION = "1.0.0-rc.2"
 SCHEMA_BASE = "https://mv-harness.local/schema/"
 
 # ============================================================================ schema building blocks
@@ -370,10 +369,11 @@ EVENTS_ENVELOPE = obj({
     "kind": string(enum=["event", "segment"]),
     "fields": mapof(obj({"unit": nullable(string()), "type": string()}, opt={"description": string()}), "field -> unit/type"),
     "provenance": ref("envelope/provenance"),
-    "items": arr(obj({"t": num("s")}, opt={"d": D, "id": string()}), "sorted by t (ties: file order)"),
+    "items": arr(obj({"t": num("s")}, opt={"d": nullable(D), "id": string()}), "sorted by t (ties: file order)"),
 }, desc="event-file envelope")
+# D48 (W3, CR M2-1): an instantaneous event may carry d = null (moments.d is nullable(D)); a segment's d stays a number.
 EVENTS_ENVELOPE["allOf"] = [{"if": {"properties": {"kind": {"const": "segment"}}},
-                             "then": {"properties": {"items": {"items": {"required": ["t", "d"]}}}}}]
+                             "then": {"properties": {"items": {"items": {"required": ["t", "d"], "properties": {"d": D}}}}}}]
 
 MANIFEST = obj({
     "schema": {"const": "mvh/manifest"}, "schema_version": SEMVER, "mvh_version": string(), "contract_version": SEMVER,
@@ -424,7 +424,9 @@ RUN = obj({
     "stages": mapof(obj({"status": string(enum=["done", "degraded", "skipped", "failed", "pending", "stale"]),
                          "cache": string(enum=["hit", "miss", "forced"]), "key": nullable(SHA), "seconds": nullable(num("s")),
                          "threads": integer(minimum=1), "device": string(), "env": string(enum=["main", "sep"]),
-                         "variant": nullable(string()), "fallbacks": arr(string()), "warnings": arr(string())})),
+                         "variant": nullable(string()), "fallbacks": arr(string()), "warnings": arr(string())},
+                        opt={"wait_s": nullable(num("s", "time spent waiting for a heavy slot (included in seconds; D64)")),
+                             "computed_seconds": num("s", "cache hit: seconds of the run that computed the entry (D64)")})),
     "licences": arr(obj({"model_id": string(), "licence": string(), "used_by": arr(string())})),
     "fallbacks_used": arr(string()), "warnings": arr(string()),
 }, desc="run.json: everything volatile (never compared for determinism)")
@@ -730,6 +732,7 @@ RUNNER_FILES: list[FileDef] = [
     *[_f(cf.path, "_runner", "matrix" if cf.layout == "row-major" else "curve", None, cf.description) for cf in CURVE_FILES.values()],
     _f("run.json", "_runner", "json", "envelope/run", "volatile run facts"),
     _f("lib/mvh.js", "_runner", "text", None, "JS loader (ES module, no dependencies)"),
+    _f("lib/mvh.d.ts", "_runner", "text", None, "TypeScript declarations for lib/mvh.js (D53)"),
     _f("lib/mvh_load.py", "_runner", "text", None, "Python loader (numpy only)"),
     _f("lib/mvh.glsl", "_runner", "text", None, "GLSL sampler mvhCurve"),
     _f("schema/{name}.schema.json", "_runner", "json", None, "copies of the contract schemas"),

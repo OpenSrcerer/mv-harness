@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Shared deterministic test-signal primitives (PLAN §7.1 "per-module generators"). Each returns (audio, sr, truth).
 
   click_track      metronome clicks with an optional linear tempo ramp and 8th-note swing; truth = click/beat times

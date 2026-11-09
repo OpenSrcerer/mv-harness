@@ -1,4 +1,4 @@
-/* mvh.js - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.1).
+/* mvh.js - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.2).
  *
  * ES module, no dependencies. Works in browsers (fetch), Node (loadSync / fs) and Remotion (call
  * `await load(...)` / `await song.ensure(...)` first; afterwards every helper is synchronous).
@@ -13,8 +13,8 @@
  * fps is a number (taken literally) or [num, den] (e.g. [24000, 1001]). Helpers never return NaN.
  */
 
-export const VERSION = '1.0.0-rc.1';
-export const CONTRACT_VERSION = '1.0.0-rc.1';
+export const VERSION = '1.0.0-rc.2';
+export const CONTRACT_VERSION = '1.0.0-rc.2';
 export const EPS = 1e-9;
 export const POLICIES = Object.freeze(['linear', 'mean', 'max', 'hold']);
 export const CURVE_RATE_HZ = 100;
@@ -378,11 +378,19 @@ function singerOrder(a, b) {
   return xa < xb ? -1 : xa > xb ? 1 : 0;
 }
 
-/** singerAt(t): singing items containing t, lead first, then voice number, then line id. */
+/** singerAt(t): singing items containing t, lead first, then voice number, then line id; one entry per
+ *  (character, voice) (the first in that order; W3C-5). */
 export function singerAt(t, singing, mouthOpen) {
   num(t);
-  const hits = singing.filter((it) => containsT(it, t));
-  hits.sort(singerOrder);
+  const all = singing.filter((it) => containsT(it, t));
+  all.sort(singerOrder);
+  const seen = new Set();
+  const hits = all.filter((it) => {
+    const k = JSON.stringify([it.character_id ?? null, it.voice_id ?? null]);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   return hits.map((it) => ({
     character_id: it.character_id ?? null, voice_id: it.voice_id ?? null, lead_backing: it.lead_backing ?? null,
     line_id: it.line_id ?? null, mouth_open: +mouthOpen(it.voice_id ?? null, t),
@@ -898,6 +906,7 @@ export class Song {
     const out = {
       section_id: null, meaning: null, feel: null, emotion: null, palette_hint: [], movement_hint: null, camera_hint: null,
       characters_present: [], do_not: [...new Set(globalDoNot)], provenance: null, status: M ? (M.status ?? null) : null,
+      field_sources: {},
     };
     if (sec === null) return out;
     out.section_id = sec.item.id ?? null;
@@ -914,6 +923,8 @@ export class Song {
     out.characters_present = Array.isArray(e.characters_present) ? [...e.characters_present] : [];
     out.do_not = [...new Set([...globalDoNot, ...(Array.isArray(e.do_not) ? e.do_not : [])])];
     out.provenance = e.provenance ?? null;
+    // D54: which fields of this section are the user's and which a draft's (meaning.json sections[].field_sources)
+    out.field_sources = e.field_sources && typeof e.field_sources === 'object' ? { ...e.field_sources } : {};
     return out;
   }
 

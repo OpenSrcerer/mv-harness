@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a round 2, finding N2: the F1 fix relabels open hats as cymbals (and drops other hats) whenever the
 hi-hat stem is less bright than the synthetic one.
 

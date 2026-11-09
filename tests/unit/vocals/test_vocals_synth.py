@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """vocals against synthetic ground truth: vibrato 'sung' sines (range +-1 semitone, PLAN §7) and the synthetic song."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4 round 2: F3 is only half fixed. White noise still gets a confident key with no flag.
 
 The fixer caps the confidence at 0.25 when fewer than two non-anchor methods have evidence (``len(winners) < 2`` in

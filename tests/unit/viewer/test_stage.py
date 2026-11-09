@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """The viewer stage: what viewer.html contains, size caps, privacy switch, determinism, script validity."""
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """EBU R128 / ITU-R BS.1770-4 measurements (numpy/scipy + pyloudnorm's K-weighting filters; no I/O except ffmpeg).
 
 * K-weighting: pyloudnorm's two-stage filter (high shelf + RLB high-pass, designed for the actual sample rate),

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """frames tests: synthetic by default; real-song runs are marked ``real`` (-m real or MVH_REAL_TESTS=1)."""
 from __future__ import annotations
 

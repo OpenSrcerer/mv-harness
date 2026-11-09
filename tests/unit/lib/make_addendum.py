@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Generate src/mvh/assets/golden/addendum-vectors.json: golden cases for the lib-only helpers.
 
     python tests/unit/lib/make_addendum.py           # write
@@ -163,6 +162,7 @@ def inputs() -> dict:
                 "characters_present": ["C1", "C2"],
                 "do_not": ["no text", "no faces"],
                 "provenance": {"source": "user", "status": "user", "cites": []},
+                "field_sources": {"feel": "user", "meaning": "draft"},
             },
             {
                 "section_id": "S09",
@@ -303,6 +303,7 @@ def meaning_expected(inp, t) -> dict:
         "do_not": list(dict.fromkeys(M["do_not"])),
         "provenance": None,
         "status": M["status"],
+        "field_sources": {},
     }
     if sec is None:
         return out
@@ -321,6 +322,7 @@ def meaning_expected(inp, t) -> dict:
             "palette_hint": e["palette_hint"],
             "characters_present": e["characters_present"],
             "do_not": list(dict.fromkeys(M["do_not"] + e["do_not"])),
+            "field_sources": dict(e.get("field_sources") or {}),
         }
     )
     return out

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Vocal-stem envelope helpers shared by lyrics (sustain extension, activity fallback) and lipsync.
 
 All curves are 100 Hz with sample i centred at i/100 s (CONTRACT §2), ``n = ceil(n_samples * 100 / sr)``.

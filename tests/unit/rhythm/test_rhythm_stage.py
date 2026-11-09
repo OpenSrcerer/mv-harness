@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """The rhythm stage end to end on synthetic click tracks (PLAN §7: beats F1 >= 0.98 at +-70 ms, tempo error <= 0.5
 BPM). Fast tests use the DSP tracker path (``use_models=False``: PLP + onset activation into the same fusion);
 ``slow`` tests run beat_this + madmom on the click tracks and on the synthetic song."""

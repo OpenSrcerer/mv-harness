@@ -1,5 +1,4 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
-"""mvh_load.py - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.1). numpy only.
+"""mvh_load.py - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.2). numpy only.
 
 The same API as ``lib/mvh.js`` in snake_case (options become keyword arguments); the semantics are
 defined by ``mvh.contract.conventions`` (the reference) and docs/CONTRACT.md section 9. This file is
@@ -26,8 +25,8 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import numpy as np
 
-VERSION = "1.0.0-rc.1"
-CONTRACT_VERSION = "1.0.0-rc.1"
+VERSION = "1.0.0-rc.2"
+CONTRACT_VERSION = "1.0.0-rc.2"
 EPS = 1e-9
 POLICIES = ("linear", "mean", "max", "hold")
 CURVE_RATE_HZ = 100
@@ -528,7 +527,8 @@ def _contains(it: Mapping[str, Any], t: float) -> bool:
 def singer_at(
     t: float, singing: Sequence[Mapping[str, Any]], mouth_open: Callable[[str | None, float], float]
 ) -> list[dict[str, Any]]:
-    """Singing items containing t, lead before backing, then voice number, then line_id."""
+    """Singing items containing t, lead before backing, then voice number, then line_id; one entry per
+    (character, voice) (the first in that order; W3C-5)."""
     t = _num(t)
     hits = [it for it in singing if _contains(it, t)]
     hits.sort(
@@ -538,6 +538,14 @@ def singer_at(
             it.get("line_id") or "",
         )
     )
+    seen: set[tuple[Any, Any]] = set()
+    uniq = []
+    for it in hits:
+        k = (it.get("character_id"), it.get("voice_id"))
+        if k not in seen:
+            seen.add(k)
+            uniq.append(it)
+    hits = uniq
     return [
         {
             "character_id": it.get("character_id"),
@@ -1169,6 +1177,7 @@ class Song:
             "do_not": dedupe(gdn),
             "provenance": None,
             "status": M.get("status") if M else None,
+            "field_sources": {},
         }
         if sec is None:
             return out
@@ -1199,6 +1208,8 @@ class Song:
                 "characters_present": list(e.get("characters_present") or []),
                 "do_not": dedupe(gdn + list(e.get("do_not") or [])),
                 "provenance": e.get("provenance"),
+                # D54: user / draft per field (meaning.json sections[].field_sources)
+                "field_sources": dict(e.get("field_sources") or {}) if isinstance(e.get("field_sources"), dict) else {},
             }
         )
         return out

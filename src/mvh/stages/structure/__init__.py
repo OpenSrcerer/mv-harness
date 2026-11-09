@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """structure stage (contract v1, owner M2): canonical sections, repeat groups, phrases and THE EDM roles.
 
 * **Boundaries** are chosen among bar starts (downbeats) by dynamic programming over a per-bar boundary score:
@@ -17,7 +16,9 @@
 * **Labels**: allin1's Harmonix probabilities when they are informative (vocal songs); otherwise (electronic /
   instrumental, SPIKE "allin1 labels are uninformative") structural labels from energy and the EDM roles:
   intro, drop, build, breakdown, inst, outro, silence. ``label_probs`` always carries allin1's probabilities.
-* **Phrases** use the dominant 4/8/16-bar length that best fits the section lengths, from each section start.
+* **Phrases** use the dominant 4/8/16-bar length that best fits the section lengths, from each section start; a
+  section that is not a whole number of phrases puts its remainder first (a pickup phrase) when the song's other
+  section starts sit on that grid, else last.
 * **EDM roles** (defined ONLY here): drop = a section where bass/kick drive jumps (>= 6 dB bass or +0.5 kick
   per beat) into the loudest part of the song; build = the rising stretch before a drop (up to a stop/silence);
   breakdown = a >= 4-bar low-drive section after a high-energy part. Evidence strings cite the measurements and
@@ -41,12 +42,14 @@ STAGE = StageSpec(
     "structure",
     ('allin1', 'rhythm', 'harmony', 'dynamics'),
     "main",
-    "1.0.0",
+    "1.2.0",
     override_keys=('structure.boundaries', 'structure.labels'),
     outputs=catalog_outputs("structure"),
     params={'min_section_bars': 2, 'phrase_bars': [4, 8, 16], 'repeat_threshold': 0.62, 'section_cost_q': 75,
             'drop_bass_jump_db': 6.0, 'drop_kick_jump': 0.5, 'drop_context_bars': 2, 'merge_repeat_max_bars': 8, 'merge_keep_strong': 1.4,
-            'silence_db': -55.0, 'w_pattern': 0.7, 'w_embedding': 0.5, 'dyn_gate': 0.7, 'split_min_novelty': 0.5, 'repeat_len_exp': 0.15, 'repeat_adjacent_penalty': 0.85},
+            'silence_db': -55.0, 'w_pattern': 0.7, 'w_embedding': 0.5, 'dyn_gate': 0.7, 'split_min_novelty': 0.5, 'repeat_len_exp': 0.15, 'repeat_adjacent_penalty': 0.85,
+            'bar_jitter_frames': 2, 'short_section_margin': 0.25, 'impact_snap_strength': 0.6,
+            'phrase_pickup_margin': 0.3},
     module="M2",
     description='Canonical sections (allin1 labels, downbeat-snapped, >= 2 bars), repetition groups, phrases, EDM roles.',
 )
@@ -74,9 +77,12 @@ def _reg(L: int) -> float:
     return r
 
 
-def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced: set[int], forbidden: set[int]) -> list[int]:
+def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced: set[int], forbidden: set[int],
+               short_pen: float = 0.0) -> list[int]:
     """Section start bars (indices into the section bars, always including 0) maximising
-    sum(score[start] - cost + reg(length))."""
+    sum(score[start] - cost + reg(length)). A section shorter than 4 bars that does not end at a forced boundary or
+    at the song's end pays ``short_pen`` more: a phrase-breaking cut needs a clear margin over the section cost, so
+    it does not appear or vanish with one frame of downbeat jitter (F4-r3)."""
     NEG = -1e18
     if n_bars <= min_len:
         return [0]
@@ -94,6 +100,8 @@ def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced
             if any(i < q < j for q in forced_sorted):
                 continue
             g = f[i] + (score[i] if i > 0 else 0.0) - cost + _reg(j - i)
+            if j - i < 4 and j != n_bars and j not in forced:
+                g -= short_pen
             if g > f[j]:
                 f[j], arg[j] = g, i
         if f[j] <= NEG / 2 and (j == n_bars or j in forced):
@@ -109,6 +117,36 @@ def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced
         out.append(i)
         j = i
     return sorted(set(out))
+
+
+def phrase_layout(sec_ranges: list[tuple[int, int]], phrase_L: int, lead: set[int] | frozenset[int] = frozenset(),
+                  evidence: np.ndarray | None = None, margin: float = 0.3) -> list[tuple[int, int, int]]:
+    """Phrases as (first bar, end bar, section index), restarting at every section start.
+
+    A section that is not a whole number of phrases puts its remainder FIRST (a leading pickup phrase) only on local
+    evidence (F8-r5: never on a count of sections elsewhere in the song):
+    - its start was snapped one bar back to a major impact (``lead`` holds those section indices), or
+    - the boundary evidence at ``a + remainder`` beats both the evidence at the section start ``a`` (the start sits on a
+      fill or lead-in bar) and at ``b - remainder`` (where a trailing remainder would start) by ``margin``.
+    Otherwise the remainder closes the section.
+    """
+    out: list[tuple[int, int, int]] = []
+    for i, (a, b) in enumerate(sec_ranges):
+        k = a
+        r = (b - a) % phrase_L
+        if r and b - a > phrase_L:
+            pickup = i in lead
+            if not pickup and evidence is not None and 0 <= a + r < len(evidence) and 0 <= b - r < len(evidence):
+                e_lead = float(evidence[a + r])
+                pickup = e_lead >= float(evidence[a]) + margin and e_lead >= float(evidence[b - r]) + margin
+            if pickup:
+                out.append((a, a + r, i))
+                k = a + r
+        while k < b:
+            e = min(b, k + phrase_L)
+            out.append((k, e, i))
+            k = e
+    return out
 
 
 def run(ctx) -> StageResult:  # noqa: C901
@@ -213,23 +251,46 @@ def run(ctx) -> StageResult:  # noqa: C901
                 silent[k] = True
 
     # ------------------------------------------------------------------ self-similarity, novelty, energy change
-    groups = [fx.zscore(mfcc_b), fx.zscore(chroma_b)]
-    if emb_b is not None:
-        groups.append(fx.zscore(emb_b))
-    S_list = [fx.cosine_ssm(g) for g in groups]
-    S = np.mean(S_list, axis=0)
-    nov = 0.5 * fx.norm01(fx.foote(S, 4)) + 0.5 * fx.norm01(fx.foote(S, 8))
-    energy = fx.zscore(np.column_stack([rms_b, bass_b, 4 * kick_rate, 2 * onset_rate, np.log(np.maximum(cent_b, 50))]))
-    chg = np.zeros(N)
-    for k in range(1, N):
-        a = energy[max(0, k - 2):k].mean(axis=0)
-        b = energy[k:min(N, k + 2)].mean(axis=0)
-        chg[k] = float(np.linalg.norm(b - a))
-    chg = fx.norm01(chg)
-    pat = fx.bar_pattern([af["kick"], af["onset"], af["hat"]], spans)
-    S_pat = fx.cosine_ssm(pat - pat.mean(axis=0, keepdims=True))
-    nov_pat = 0.5 * fx.norm01(fx.foote(S_pat, 2)) + 0.5 * fx.norm01(fx.foote(S_pat, 4))
-    nov_emb = (0.5 * fx.norm01(fx.foote(S_list[2], 2)) + 0.5 * fx.norm01(fx.foote(S_list[2], 4))) if emb_b is not None else np.zeros(N)
+    def novelty_terms(sp: list[tuple[int, int]], emb_rows: np.ndarray | None) -> dict[str, Any]:
+        """Self-similarity novelty, energy change and drum-pattern / embedding novelty for one set of bar spans."""
+        mf = fx.pool(af["mfcc"], sp)
+        chb = fx.pool(chroma, sp)
+        grp = [fx.zscore(mf), fx.zscore(chb)]
+        if emb_rows is not None:
+            grp.append(fx.zscore(emb_rows))
+        s_list = [fx.cosine_ssm(g) for g in grp]
+        s_all = np.mean(s_list, axis=0)
+        nv = 0.5 * fx.norm01(fx.foote(s_all, 4)) + 0.5 * fx.norm01(fx.foote(s_all, 8))
+        en = fx.zscore(np.column_stack([fx.pool(af["rms_db"], sp), fx.pool(af["bass_db"], sp), 4 * fx.peak_rate(af["kick"], sp, bpb),
+                                        2 * fx.peak_rate(af["onset"], sp, bpb, rel=0.3), np.log(np.maximum(fx.pool(af["centroid"], sp), 50))]))
+        ch_ = np.zeros(N)
+        for k in range(1, N):
+            ch_[k] = float(np.linalg.norm(en[k:min(N, k + 2)].mean(axis=0) - en[max(0, k - 2):k].mean(axis=0)))
+        pt = fx.bar_pattern([af["kick"], af["onset"], af["hat"]], sp)
+        s_pat = fx.cosine_ssm(pt - pt.mean(axis=0, keepdims=True))
+        return {"S_list": s_list, "S_pat": s_pat, "S_hom": np.mean(s_list + [s_pat], axis=0), "nov": nv, "chg": fx.norm01(ch_),
+                "nov_pat": 0.5 * fx.norm01(fx.foote(s_pat, 2)) + 0.5 * fx.norm01(fx.foote(s_pat, 4)),
+                "nov_emb": (0.5 * fx.norm01(fx.foote(s_list[2], 2)) + 0.5 * fx.norm01(fx.foote(s_list[2], 4))) if emb_rows is not None else np.zeros(N)}
+
+    # The bar grid is an ESTIMATE (downbeats within +-20 ms of the truth are correct by the rhythm thresholds), so the
+    # novelty evidence is averaged over bar grids shifted by -jitter..+jitter frames: a boundary decision must not flip
+    # on one frame of downbeat jitter (F4-r3). The unshifted grid gives the features used for repeat groups and energy.
+    base = novelty_terms(spans, emb_b)
+    jit = int(p.get("bar_jitter_frames", 2))
+    terms = {k: [base[k]] for k in ("nov", "chg", "nov_pat", "nov_emb", "S_hom")}
+    for dj in [d for d in range(-jit, jit + 1) if d != 0]:
+        sp = [(min(max(a + dj, 0), n - 1), min(max(e + dj, min(max(a + dj, 0), n - 1) + 1), n)) for a, e in spans]
+        er = None
+        if emb_b is not None and a1 is not None and a1.emb_rate_hz:
+            r = a1.emb_rate_hz
+            es = [(int(round((b["t"] + dj / fx.FPS) * r)), int(round((b["t"] + b["d"] + dj / fx.FPS) * r))) for b in sbars]
+            es = [(min(max(a_, 0), len(a1.emb) - 1), min(max(e_, max(a_, 0) + 1), len(a1.emb))) for a_, e_ in es]
+            er = fx.pool(a1.emb, es)
+        alt = novelty_terms(sp, er)
+        for k in terms:
+            terms[k].append(alt[k])
+    nov, chg, nov_pat, nov_emb = (np.mean(terms[k], axis=0) for k in ("nov", "chg", "nov_pat", "nov_emb"))
+    S_hom = np.mean(terms["S_hom"], axis=0)
     sil_edge = np.zeros(N)
     for k in range(1, N):
         if silent[k - 1] and not silent[k]:
@@ -252,22 +313,11 @@ def run(ctx) -> StageResult:  # noqa: C901
     # a short silence ends the section it falls in; sections do not start on a silent bar (long ones are forced below)
     score[silent] *= 0.2
 
-    # ------------------------------------------------------------------ overrides + DP
+    # ------------------------------------------------------------------ DP, impact snap, then the user's edits
+    # W3C-6 (integrator-r2): the user's boundary edits are applied LOCALLY to the un-overridden segmentation (the same
+    # result the user saw and edited), never by re-optimising the whole song, so an edit cannot move boundaries the
+    # user did not touch.
     forced: set[int] = set()
-    forbidden: set[int] = set()
-    applied: list[dict[str, Any]] = []
-    for ed in ctx.overrides.get("structure.boundaries") or []:
-        act = ed.get("action")
-        k = _nearest_bar(float(ed["t"]), starts)
-        if act == "add":
-            forced.add(k)
-        elif act == "remove":
-            forbidden.add(k)
-        elif act == "move":
-            forbidden.add(k)
-            if ed.get("to_t") is not None:
-                forced.add(_nearest_bar(float(ed["to_t"]), starts))
-        applied.append({"key": "structure.boundaries", "value": ed})
     # silent runs >= 2 bars are sections of their own
     k = 0
     while k < N:
@@ -286,8 +336,27 @@ def run(ctx) -> StageResult:  # noqa: C901
     forced.discard(0)
     min_len = int(p.get("min_section_bars", 2))
     cost = float(max(0.8, np.percentile(score[1:], float(p.get("section_cost_q", 75))))) if N > 2 else 1.0
-    S_hom = np.mean(S_list + [S_pat], axis=0)
-    bounds = segment_dp(score, N, min_len, cost, forced, forbidden - forced)
+    bounds = segment_dp(score, N, min_len, cost, forced, set(), float(p.get("short_section_margin", 0.25)) * cost)
+    # a major impact on the downbeat one bar BEFORE a section start is where the arrangement changes (the band enters,
+    # then the voice a bar later): the section starts at the impact when that bar clears the section cost on its own
+    # (S05). The DP cannot keep both (a 1-bar section), and allin1's functional boundary follows the voice.
+    snap = float(p.get("impact_snap_strength", 0.6))
+    snapped: set[int] = set()     # section start bars moved back by the snap (their phrase remainder leads, F8-r5)
+    if snap > 0:
+        moved = []
+        bset = set(bounds)
+        for k in sorted(bset):
+            if k <= 0 or k in forced or (k - 1) in bset or silent[k - 1]:
+                continue
+            prev_b = max(q for q in bset if q < k)
+            if imp_b[k - 1] >= snap and imp_b[k - 1] > imp_b[k] and score[k - 1] >= cost and (k - 1) - prev_b >= min_len:
+                bset.discard(k)
+                bset.add(k - 1)
+                snapped.add(k - 1)
+                moved.append(f"{starts[k]:.2f}->{starts[k - 1]:.2f} s")
+        if moved:
+            bounds = sorted(bset)
+            notes.append("section start moved one bar back to a major impact: " + ", ".join(moved))
     sec_ranges = [(bounds[i], bounds[i + 1] if i + 1 < len(bounds) else N) for i in range(len(bounds))]
 
     # ------------------------------------------------------------------ repeat groups
@@ -383,10 +452,11 @@ def run(ctx) -> StageResult:  # noqa: C901
     split_min = float(p.get("split_min_novelty", 0.5))
     if split_min > 0:
         nov_grid = fx.norm01(fx.foote(S_hom, 4))
+        comps["nov_grid"] = nov_grid
         refined: list[tuple[int, int]] = []
 
         def split_range(a: int, b: int) -> list[tuple[int, int]]:
-            cand = [m for m in range(a + 4, b - 3, 4) if m not in forbidden]
+            cand = list(range(a + 4, b - 3, 4))
             if b - a < 8 or not cand or silent[a:b].any():
                 return [(a, b)]
             m = max(cand, key=lambda q: nov_grid[q])
@@ -400,6 +470,35 @@ def run(ctx) -> StageResult:  # noqa: C901
             notes.append(f"phrase-grid refinement split {len(refined) - len(sec_ranges)} long section(s) at 4-bar novelty >= {split_min}")
             sec_ranges = refined
             nsec, sims, is_sil, group_of, reps = grouping(sec_ranges)
+    # the user's boundary edits, applied to the automatic result (W3C-6: local edits; nothing else moves)
+    applied: list[dict[str, Any]] = []
+    edits = list(ctx.overrides.get("structure.boundaries") or [])
+    if edits:
+        bset = {a_ for a_, _ in sec_ranges}
+        for ed in edits:
+            act = ed.get("action")
+            k = _nearest_bar(float(ed["t"]), starts)
+            if act == "add":
+                if k > 0:
+                    bset.add(k)
+            elif act == "remove":
+                if k > 0:
+                    bset.discard(k)
+                snapped.discard(k)
+            elif act == "move":
+                if k > 0:
+                    bset.discard(k)
+                snapped.discard(k)
+                if ed.get("to_t") is not None:
+                    k2 = _nearest_bar(float(ed["to_t"]), starts)
+                    if k2 > 0:
+                        bset.add(k2)
+        bset.add(0)
+        bl = sorted(bset)
+        sec_ranges = [(bl[i], bl[i + 1] if i + 1 < len(bl) else N) for i in range(len(bl))]
+        nsec, sims, is_sil, group_of, reps = grouping(sec_ranges)
+        # one entry per key holding the whole edit list (as the runner's default provenance does; F-R5-APPLIED-BOUNDARY)
+        applied.append({"key": "structure.boundaries", "value": edits})
     # group letters in order of first appearance
     order = sorted(range(len(reps)), key=lambda g: min(reps[g]))
     letter = {g: repeat_group_label(k + 1) for k, g in enumerate(order)}
@@ -423,14 +522,82 @@ def run(ctx) -> StageResult:  # noqa: C901
     live = [d for d, s in zip(drive, is_sil) if not s] or [0.0]
     drive_hi = float(np.percentile(live, 70))
     drive_peak = float(max(live))
-    for i in range(1, nsec):
-        if is_sil[i] or i in role_of:
-            continue
+    def drop_level(a: int) -> float:
+        """The drop's plateau level: mean bar drive over its first 8 non-silent bars, whatever the segmentation (a drop
+        that opens with a 4-bar section must not set a higher bar for its continuation than one opening with 8)."""
+        idx = [k for k in range(a, min(N, a + 8)) if nonsil[k]] or [a]
+        return float(np.mean(drive_bar[idx]))
+
+    def place_drop(i: int, ev: list[str], conf: float) -> None:
+        a = sec_ranges[i][0]
+        level = drop_level(a)
+        groups_in = {group_of[i]}
+        j = i
+        # the drop runs on while the energy stays on the plateau: a following section within 0.6 z of the opening level,
+        # or one that repeats material already in this drop (same repeat group) and stays within 1.2 z (F6-r3)
+        while j + 1 < nsec and not is_sil[j + 1] and j + 1 not in role_of:
+            dj = drive[j + 1]
+            if dj >= level - 0.6 or (group_of[j + 1] in groups_in and dj >= level - 1.2):
+                j += 1
+                groups_in.add(group_of[j])
+            else:
+                break
+        t_end = starts[sec_ranges[j][1]] if sec_ranges[j][1] < N else duration
+        roles.append({"role": "drop", "a": a, "b": sec_ranges[j][1], "t": float(starts[a]), "t_end": float(t_end), "sec": i, "conf": conf,
+                      "evidence": ev, "level": level, "groups": groups_in})
+        for q in range(i, j + 1):
+            role_of[q] = "drop"
+        place_build(i)
+
+    def place_build(i: int) -> None:
+        """The build: the section before the drop (skipping silence), when it rises or ends in a stop."""
+        q = i - 1
+        while q >= 0 and is_sil[q]:
+            q -= 1
+        if q < 0 or q in role_of:
+            return
+        ba, bb = sec_ranges[q]
+        end = bb
+        while end > ba and silent[end - 1]:
+            end -= 1
+        if end - ba < 2:
+            return
+        idx = np.arange(ba, end)
+        xs = (idx - idx.mean()) / max(1.0, idx.std())
+        sl_on = float(np.polyfit(xs, onset_rate[idx], 1)[0]) if len(idx) > 2 else 0.0
+        sl_ce = float(np.polyfit(xs, np.log(np.maximum(cent_b[idx], 50)), 1)[0]) if len(idx) > 2 else 0.0
+        sl_rms = float(np.polyfit(xs, rms_b[idx], 1)[0]) if len(idx) > 2 else 0.0
+        rising = sl_on > 0.05 or sl_ce > 0.05 or sl_rms > 0.5
+        lower = drive[q] < drive[i] - 0.25
+        ends_stop = end < bb or any(abs(s["t"] - starts[min(end, N - 1)]) < 0.6 * sbars[min(end, N - 1)]["d"] for s in stops)
+        if not ((rising and (lower or ends_stop)) or (lower and ends_stop)):
+            return
+        evb = []
+        if sl_on > 0.05:
+            evb.append("rising onset density")
+        if sl_ce > 0.05:
+            evb.append("riser (brightness rising)")
+        if sl_rms > 0.5:
+            evb.append("rising level")
+        if ends_stop:
+            evb.append("ends in a stop/silence")
+        for s in stops:
+            if starts[ba] <= s["t"] <= (starts[end] if end < N else duration) + 0.1:
+                evb.append(f"stop {s['id']}")
+        bconf = float(np.clip(0.35 + 0.15 * len(evb), 0, 0.95))
+        t_end_b = starts[end] if end < N else duration
+        roles.append({"role": "build", "a": ba, "b": end, "t": float(starts[ba]), "t_end": float(t_end_b), "sec": q,
+                      "conf": bconf, "evidence": evb})
+        role_of[q] = "build"
+
+    def drop_cue(i: int) -> tuple[bool, list[str], float] | None:
+        """The entry of a drop at section i: a bass / kick jump against the bars right before it, a silence or stop
+        just before it, or a strong impact with a large rise. Returns (cue, evidence, confidence)."""
         a, b = sec_ranges[i]
         # context before: the last up-to-4 non-silent bars before the section
         prev = [k for k in range(a - 1, -1, -1) if nonsil[k]][:4]
         if not prev:
-            continue
+            return None
         # the bass / kick jump is measured against the bars right before the section (an instrument entering earlier
         # in the previous section is not part of this jump)
         near = prev[:max(1, int(p.get("drop_context_bars", 2)))]
@@ -445,59 +612,34 @@ def run(ctx) -> StageResult:  # noqa: C901
         rise = float(np.mean(drive_bar[a:min(b, a + 4)])) - float(np.mean(drive_bar[prev]))
         kick_enters = pk <= 0.35 and nk >= max(0.75, pk + float(p.get("drop_kick_jump", 0.5)))
         big_jump = (jump_b >= float(p.get("drop_bass_jump_db", 6.0)) or kick_enters) and rise >= 0.8
+        cue = big_jump or (gap_sil and rise >= 0.3) or (imp_s >= 0.6 and rise >= 1.2 and jump_b >= 3.0)
+        ev = [f"bass {jump_b:+.1f} dB", f"kick {pk:.2f}->{nk:.2f}/beat", f"drive {rise:+.2f} z"]
+        for it in impacts:
+            if abs(it["t"] - starts[a]) <= 0.25 * sbars[a]["d"]:
+                ev.append(f"impact {it['id']}")
+        if gap_sil:
+            ev.append("silence/stop before")
+        conf = float(np.clip(0.4 + 0.04 * max(jump_b, 0) + 0.25 * max(jump_k, 0) + 0.1 * max(rise, 0) + (0.15 if gap_sil else 0)
+                             + 0.1 * imp_s, 0, 0.97))
+        return cue, ev, conf
+
+    for i in range(1, nsec):
+        if is_sil[i] or i in role_of:
+            continue
         at_peak = drive[i] >= drive_hi and drive[i] >= drive_peak - 1.0
-        if at_peak and (big_jump or (gap_sil and rise >= 0.3) or (imp_s >= 0.6 and rise >= 1.2 and jump_b >= 3.0)):
-            j = i
-            while j + 1 < nsec and not is_sil[j + 1] and drive[j + 1] >= drive[i] - 0.6:
-                j += 1
-            ev = [f"bass {jump_b:+.1f} dB", f"kick {pk:.2f}->{nk:.2f}/beat", f"drive {rise:+.2f} z"]
-            for it in impacts:
-                if abs(it["t"] - starts[a]) <= 0.25 * sbars[a]["d"]:
-                    ev.append(f"impact {it['id']}")
-            if gap_sil:
-                ev.append("silence/stop before")
-            conf = float(np.clip(0.4 + 0.04 * max(jump_b, 0) + 0.25 * max(jump_k, 0) + 0.1 * max(rise, 0) + (0.15 if gap_sil else 0)
-                                 + 0.1 * imp_s, 0, 0.97))
-            t_end = starts[sec_ranges[j][1]] if sec_ranges[j][1] < N else duration
-            roles.append({"role": "drop", "a": a, "b": sec_ranges[j][1], "t": float(starts[a]), "t_end": float(t_end), "sec": i, "conf": conf, "evidence": ev})
-            for q in range(i, j + 1):
-                role_of[q] = "drop"
-            # the build: the section(s) before, up to a stop/silence before the drop
-            q = i - 1
-            while q >= 0 and is_sil[q]:
-                q -= 1
-            if q >= 0 and q not in role_of:
-                ba, bb = sec_ranges[q]
-                end = bb
-                while end > ba and silent[end - 1]:
-                    end -= 1
-                if end - ba >= 2:
-                    idx = np.arange(ba, end)
-                    xs = (idx - idx.mean()) / max(1.0, idx.std())
-                    sl_on = float(np.polyfit(xs, onset_rate[idx], 1)[0]) if len(idx) > 2 else 0.0
-                    sl_ce = float(np.polyfit(xs, np.log(np.maximum(cent_b[idx], 50)), 1)[0]) if len(idx) > 2 else 0.0
-                    sl_rms = float(np.polyfit(xs, rms_b[idx], 1)[0]) if len(idx) > 2 else 0.0
-                    rising = sl_on > 0.05 or sl_ce > 0.05 or sl_rms > 0.5
-                    lower = drive[q] < drive[i] - 0.25
-                    ends_stop = end < bb or any(abs(s["t"] - starts[min(end, N - 1)]) < 0.6 * sbars[min(end, N - 1)]["d"] for s in stops)
-                    if (rising and (lower or ends_stop)) or (lower and ends_stop):
-                        evb = []
-                        if sl_on > 0.05:
-                            evb.append("rising onset density")
-                        if sl_ce > 0.05:
-                            evb.append("riser (brightness rising)")
-                        if sl_rms > 0.5:
-                            evb.append("rising level")
-                        if ends_stop:
-                            evb.append("ends in a stop/silence")
-                        for s in stops:
-                            if starts[ba] <= s["t"] <= (starts[end] if end < N else duration) + 0.1:
-                                evb.append(f"stop {s['id']}")
-                        bconf = float(np.clip(0.35 + 0.15 * len(evb), 0, 0.95))
-                        t_end_b = starts[end] if end < N else duration
-                        roles.append({"role": "build", "a": ba, "b": end, "t": float(starts[ba]), "t_end": float(t_end_b), "sec": q,
-                                      "conf": bconf, "evidence": evb})
-                        role_of[q] = "build"
+        dc = drop_cue(i) if at_peak else None
+        if dc is not None and dc[0]:
+            place_drop(i, dc[1], dc[2])
+    # roles stay consistent within a repeat group: the drop's material entering again with its own drop cue at the
+    # drop's energy (within 0.6 z of its plateau) is a drop too, even when that section sits just below the song's
+    # 70th-percentile drive (the 'at peak' test is a percentile and must not split one material into drop and inst)
+    for i in range(1, nsec):
+        if is_sil[i] or i in role_of:
+            continue
+        src = next((r for r in roles if r["role"] == "drop" and group_of[i] in r["groups"] and drive[i] >= r["level"] - 0.6), None)
+        dc = drop_cue(i) if src is not None else None
+        if dc is not None and dc[0]:
+            place_drop(i, dc[1] + [f"repeats the drop at {src['t']:.1f} s (group {letter[group_of[i]]})"], dc[2])
     # breakdowns: low-drive sections (>= 4 bars) after a drop / high-energy section
     first_high = next((i for i in range(nsec) if not is_sil[i] and drive[i] >= drive_hi), None)
     for i in range(1, nsec):
@@ -549,6 +691,25 @@ def run(ctx) -> StageResult:  # noqa: C901
                 lab = max(agg, key=agg.get) if (len(mem) > 1 and agg) else (max(own, key=own.get) if own else "inst")
                 labels[m] = lab
                 confs[m] = float(own.get(lab, 0.3)) if own else 0.3
+        # form rules on top of the model's frame labels (allin1 labels a vocal-less opening or a contrasting middle part
+        # by its nearest Harmonix class): the song's opening section is an intro when nothing repeats it and it is
+        # quieter than the song's typical level; a part that is not repeated, sits between two choruses and that the
+        # model cannot place (no Harmonix class above 0.55: neither verse nor chorus) is a bridge
+        live_i = [i for i in range(nsec) if not is_sil[i]]
+        med_drive = float(np.median([drive[i] for i in live_i])) if live_i else 0.0
+        singleton = [len(reps[group_of[i]]) == 1 for i in range(nsec)]
+        if live_i:
+            i0 = live_i[0]
+            if singleton[i0] and labels[i0] not in ("intro", "silence") and drive[i0] < med_drive and len(live_i) > 2:
+                notes.append(f"labels: opening section relabelled intro (not repeated, below the median drive; allin1 said {labels[i0]})")
+                labels[i0] = "intro"
+                confs[i0] = float(sec_probs[i0].get("intro", 0.5)) if sec_probs[i0] else 0.5
+        for i in range(1, nsec - 1):
+            if (singleton[i] and not is_sil[i] and labels[i] not in ("chorus", "bridge", "intro", "outro")
+                    and labels[i - 1] == "chorus" and labels[i + 1] == "chorus" and max(sec_probs[i].values(), default=0.0) < 0.55):
+                notes.append(f"labels: section at {starts[sec_ranges[i][0]]:.1f} s relabelled bridge (not repeated, between choruses; allin1 said {labels[i]})")
+                labels[i] = "bridge"
+                confs[i] = float(sec_probs[i].get("bridge", 0.4)) if sec_probs[i] else 0.4
         notes.append("labels: allin1 Harmonix probabilities (informative), shared within repeat groups")
     else:
         e_sec = drive
@@ -584,7 +745,8 @@ def run(ctx) -> StageResult:  # noqa: C901
             if t0 - 1e-6 <= t < t1:
                 labels[i] = str(lo["label"])
                 confs[i] = 1.0
-        applied.append({"key": "structure.labels", "value": lo})
+    if ctx.overrides.get("structure.labels"):
+        applied.append({"key": "structure.labels", "value": list(ctx.overrides.get("structure.labels"))})
 
     # ------------------------------------------------------------------ sections
     sections = []
@@ -620,16 +782,20 @@ def run(ctx) -> StageResult:  # noqa: C901
     fits = {L: sum(ln for ln in lens if ln % L == 0) / max(1, sum(lens)) for L in cands}
     ok = [L for L in sorted(cands, reverse=True) if fits[L] >= 0.65]
     phrase_L = ok[0] if ok else max(pscore, key=lambda L_: (round(pscore[L_], 6), -L_))
-    phrases = []
-    for i, (a, b) in enumerate(sec_ranges):
-        k = a
-        while k < b:
-            e = min(b, k + phrase_L)
-            t0 = float(starts[k])
-            t1 = float(starts[e]) if e < N else float(duration)
-            phrases.append({"id": make_id("phrase", len(phrases) + 1), "t": round(t0, 6), "d": round(t1 - t0, 6),
-                            "start_bar": int(sbars[k]["bar"]), "n_bars": int(e - k), "section_id": sid[i]})
-            k = e
+    phrases: list[dict[str, Any]] = []
+    lead_moved = []
+    snapped_secs = {i for i, (a, _b) in enumerate(sec_ranges) if a in snapped}
+    for k, e, i in phrase_layout(sec_ranges, phrase_L, snapped_secs, score,
+                                 float(p.get("phrase_pickup_margin", 0.3)) * cost):
+        t0 = float(starts[k])
+        t1 = float(starts[e]) if e < N else float(duration)
+        phrases.append({"id": make_id("phrase", len(phrases) + 1), "t": round(t0, 6), "d": round(t1 - t0, 6),
+                        "start_bar": int(sbars[k]["bar"]), "n_bars": int(e - k), "section_id": sid[i]})
+        a, b = sec_ranges[i]
+        if k == a and e - k < phrase_L and e < b:
+            lead_moved.append(f"{t0:.2f} s ({e - k} bar{'s' if e - k > 1 else ''})")
+    if lead_moved:
+        notes.append("phrase remainder placed at the section start (song phrase grid): " + ", ".join(lead_moved))
 
     # ------------------------------------------------------------------ EDM role items
     edm = []
@@ -638,7 +804,9 @@ def run(ctx) -> StageResult:  # noqa: C901
                     "start_bar": int(sbars[r["a"]]["bar"]), "n_bars": int(max(1, r["b"] - r["a"])), "section_id": sid[r["sec"]],
                     "conf": round(r["conf"], 3), "evidence": r["evidence"]})
     for s in sections:
-        s["edm_role"] = next((e["role"] for e in edm if e["section_id"] == s["id"]), None)
+        # the EDM role whose span holds the section's start (m6: every section of a multi-section drop is 'drop')
+        s["edm_role"] = next((e["role"] for e in edm if e["section_id"] == s["id"]), None) or next(
+            (e["role"] for e in edm if e["t"] - 1e-6 <= s["t"] < e["t"] + e["d"] - 1e-6), None)
 
     # ------------------------------------------------------------------ write
     w = ctx.writer

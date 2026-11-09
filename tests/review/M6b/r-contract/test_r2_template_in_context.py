@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 2, R2-2 (major): round-1 F3 is fixed only for a file that is nothing but the template.
 
 interview.md: "answer in meaning/intent.md (free text is fine, or copy the template at the end)", and the template's

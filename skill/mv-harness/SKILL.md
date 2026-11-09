@@ -40,9 +40,12 @@ Recipes per engine: `references/RECIPES.md`.
   id or time; quotes <= 10 words), then run `mvh meaning out/<slug>`. Never overwrite the user's claims; conflicts go
   to `open_questions`. `mvh meaning out/<slug> --draft anthropic` drafts through the Claude API if the user wants that.
 - **Do-not rules** (`meaning.json do_not`, in brief.md verbatim) are hard constraints on everything you render.
+- `meaning.json` `notes` and `references` are the user's other words (free text not filed under a field; counted in
+  brief.md). Read them before you design: they are direction, not drafts.
 - `meaning: draft` = an agent's suggestion: say so to the user before building on it. `user` = authored.
 - A `user` section or character can still hold draft text: `meaning.json` `sections[].field_sources` and
-  `characters[].field_sources` (and the top-level `field_sources`) give each field's origin, `user` or `draft`.
+  `characters[].field_sources` (and the top-level `field_sources`, incl. `perspective.narrator`/`.addressee`) give
+  each field's origin, `user` or `draft`.
   Treat every `draft` field as a suggestion, whatever `provenance.status` says (brief.md marks them `(draft)`).
 - Never edit generated files. Corrections (beats, sections, lyric timing, singers) go through the viewer
   (`mvh view out/<slug>`) or `overrides.json`, then `mvh analyze out/<slug>` re-runs only what changed.
@@ -70,7 +73,7 @@ Recipes per engine: `references/RECIPES.md`.
 | Energy | `curve('dyn.intensity')`, `curve('loud.short_term')`, `events('dynamics')`, `events('edm_roles')` (build/drop) |
 | Melody and pitch | `song.vocalAt(t)` (pitch01, midi), `events('notes.bass')`, `events('chords')` |
 | Spectrum for shaders | `song.spectrumAt(t)`, `song.textureData(ids)` + `lib/mvh.glsl` |
-| Non-JS/Python tools | `mvh frames out/<slug> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` -> `frames/24fps.csv` |
+| Non-JS/Python tools | `mvh frames out/<slug> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` -> `frames/24fps.csv` (`frames/24_f1fps.csv` with `--frame0 1`) |
 
 ## 6. Check the result
 

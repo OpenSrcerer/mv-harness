@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long assertion messages)
 """R-DSP review (M1 dynamics): drop evidence must survive the downbeat snap.
 
 Parts snap to downbeats (contract: "boundaries snapped to downbeats"); impact boundaries snap within half a bar, but

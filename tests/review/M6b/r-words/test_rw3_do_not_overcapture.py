@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS round 3 (r-words-m6b-r3), finding R3-3: the do-not detection now swallows text that is not a prohibition.
 
 * The N2 fix opens a do-not block at a label line ('Avoid: ...', '**Never show**') and keeps it open across blank

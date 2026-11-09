@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long templates)
 """The meaning stage (PLAN §8, CONTRACT §7 / D3, D5, D7, D38).
 
 Inputs (never written here): ``meaning/intent.md`` (the user) and ``meaning/authored.json`` (a draft by an agent or
@@ -367,8 +366,18 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
             return list(d[key])
         return []
 
-    perspective = {"narrator": intent["perspective"]["narrator"] or (d.get("perspective") or {}).get("narrator"),
-                   "addressee": intent["perspective"]["addressee"] or (d.get("perspective") or {}).get("addressee")}
+    perspective: dict[str, Any] = {}
+    for k in ("narrator", "addressee"):  # who sings to whom: user, else the draft's (marked per part)
+        perspective[k] = intent["perspective"][k] or (d.get("perspective") or {}).get(k)
+        if intent["perspective"][k]:
+            gsrc[f"perspective.{k}"] = "user"
+        elif perspective[k]:
+            gsrc[f"perspective.{k}"] = "draft"
+    references = list(intent.get("references") or [])
+    user_notes = list(intent.get("notes") or [])
+    for key, val in (("references", references), ("notes", user_notes)):
+        if val:
+            gsrc[key] = "user"
     palette = list(intent["palette"])
     palette_names = list(intent["palette_names"])
     if palette:
@@ -381,7 +390,7 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
     motifs = _motifs(intent, d, lines_by_id, gsrc)
     has_user = intent["present"] and (any(intent.get(k) for k in ("logline", "summary", "setting", "tone", "themes",
                                                                    "symbolism", "do_not", "palette", "motifs", "sections",
-                                                                   "characters", "line_singers"))
+                                                                   "characters", "line_singers", "references", "notes"))
                                       or any(intent["perspective"].values()))
     status = "user" if has_user else ("draft" if draft is not None else "pending")
     if intent["present"] and not has_user:
@@ -406,6 +415,7 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         "sections": sections_out, "palette": palette, "tone": g("tone"), "do_not": global_dn,
         "open_questions": open_q, "palette_names": palette_names, "field_sources": dict(sorted(gsrc.items())),
         "intent_form": intent["form"], "draft_used": draft is not None,
+        "references": references, "notes": user_notes,
     }
     meaning, final_probs = check_claims(meaning, known | set(chars) | {m["id"] for m in motifs}, duration, status="user")
     # check_claims stamps one status on everything; restore the per-claim origin

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Regeneration is deterministic: a fresh build into tmp_path is byte-identical to the committed .done.json hashes."""
 
 import json

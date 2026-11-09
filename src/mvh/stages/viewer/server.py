@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """``mvh view``: a tiny local server for the viewer's EDIT MODE (PLAN §9, CONTRACT D35).
 
 * binds 127.0.0.1 (port 0 = any free port), checks the Host header (DNS-rebinding guard) and, for every POST, a

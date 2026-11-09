@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Deterministic signal generators (numpy + scipy.signal only). Every random source takes an explicit seed.
 
 All generators return float64 mono arrays at ``sr`` unless stated. One-shots start at sample 0 (the event time

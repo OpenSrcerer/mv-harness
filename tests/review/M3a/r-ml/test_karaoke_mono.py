@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a, finding F3: on a mono input the karaoke split (lead / backing) inverts, silently.
 
 The karaoke model (mel_band_roformer_karaoke_aufr33_viperx) was trained on stereo mixes, where the lead is centred and

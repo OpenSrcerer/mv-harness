@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long assertion messages)
 """R-DSP review round 3 (M1 spectral, hits.kick) after fixer-m1-r2 replaced the click refractory by the low band's own
 attack (dsp.select_kick_events).
 

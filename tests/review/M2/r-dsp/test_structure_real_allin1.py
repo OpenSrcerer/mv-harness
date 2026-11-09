@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 finding F4 (major): the structure synthetic-truth tests are circular, and with a realistic allin1 the
 stage misses a section boundary and the chorus repeat on the synthetic song.
 

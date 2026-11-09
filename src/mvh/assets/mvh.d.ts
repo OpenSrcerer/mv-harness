@@ -1,4 +1,4 @@
-// Type declarations for lib/mvh.js (mv-harness contract v1.0.0-rc.1). Semantics: docs/CONTRACT.md §9.
+// Type declarations for lib/mvh.js (mv-harness contract v1.0.0-rc.2). Semantics: docs/CONTRACT.md §9.
 // Every time is in seconds from the first sample of audio/mix.flac. Helpers never return NaN.
 
 export const VERSION: string;
@@ -171,6 +171,8 @@ export interface MeaningValue {
   provenance: { source: string; status: string; cites: unknown[] } | null;
   /** meaning.json status: user | draft | pending (null without meaning.json). */
   status: 'user' | 'draft' | 'pending' | null;
+  /** D54: the section's field_sources from meaning.json (field -> 'user' | 'draft' | ...); {} when none. */
+  field_sources: Record<string, string>;
 }
 
 export interface TextureLayout { id: string; row0: number; rows: number; n: number; rate: number; width: number;

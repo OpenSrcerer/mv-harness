@@ -277,3 +277,71 @@ out/_wip/r-dsp-m2-r3/probes (p_sens, p_full, p_jitter, p_pattern, p_loop, p_mega
 - The structure tests, both unit and review round 2, still use the fixture's truth rhythm. None checks stability under
   tracker jitter.
 - `test_pattern_features.py` does not cover hits that sit on the slot edges.
+
+## Round 4 (r-dsp-m2-r4, W3 verify)
+
+Fixes checked: F4-r3 (bar-jitter stability) fixed, F6-r3 (MEGAFAUNA drop extent) fixed, S05 (Jeremy band entry) fixed in the
+stage, S09 (synthetic intro/bridge labels) fixed for the synthetic song. These were verified by re-running structure, choreo and cues
+with the current code on the integrator's real runner caches (out/_wip/r-dsp-m2-r4/real/<slug>, probes/runreal.py). The synthetic
+song gives boundary F 1.0 with labels intro/verse/chorus/bridge/chorus/outro. The structure stage also holds F 1.0 under every
+constant bar shift from -40 to +40 ms and random per-bar jitter of ±20/±30 ms (12 seeds; p_jit2_*.log). One new major:
+F7-r4 (the S05 snap shifts the eight-count grid; tests/review/M2/r-dsp/test_structure_impact_snap_counts_real.py).
+
+**r4-m1. The integration tests for S05/S09 still fail, but only because the integrator outputs are stale**
+- out/_wip/integrator/* was produced at 05:10, before fixer-m2-r3 (06:21). On a re-run from the same upstream, Jeremy's top
+  impact (19.47 s) is a section start and the synthetic intro is one 'intro' section. Both tests will pass once the integrator re-runs.
+- The structure cache key changes only because new params were added (bar_jitter_frames, short_section_margin,
+  impact_snap_strength). See r4-m2.
+
+**r4-m2. The structure StageSpec version is still "1.0.0" after three rounds of behaviour changes**
+- The runner key covers the stage version and params, not the code. A future behaviour-only fix that adds no param would leave
+  every cached structure/choreo/cues output stale.
+- Suggested fix: bump the stage version with each behaviour change (choreo and cues follow through the upstream key).
+
+**r4-m3. Jeremy: 11 of 19 sections are still labelled chorus** (the second half of S09, carried over)
+- The four 8-bar sections from 220.7 to 271.5 s (group G) and 203.1 s (F) are all 'chorus', after the choruses at 176.1/194.1 s.
+- Labels come from allin1 shared within groups. No relabel rule covers a long repeated outro/vamp.
+
+**r4-m4. r3-m4 still open: the DSP-only rhythm fallback locks onto the off-beat**
+- p_loop.py (kicks at 0.5 s + 0.5 k): bars land at 0.76 s, so the 'ab' song's B section starts at 32.74 s instead of 32.5 s.
+- Fallback path only.
+
+**Round-3 minors re-checked:** r3-m1 is fixed (on the uniform loop the refinement no longer adds splits; same sections with and
+without it). r3-m3 is fixed (MEGAFAUNA groups I/J are all drop; Versatile 129.2 s is 'break' + breakdown). r3-m2 is unchanged
+(dyn_gate is still absolute) but is no longer decisive on the synthetic song. r3-m5 is covered by the fixer's tests/unit/structure/test_robustness.py.
+
+## Round 5 (r-dsp-m2-r5, W3 verify)
+
+Fix checked: **F7-r4 is fixed for Jeremy.** verse#1 is phrased P02 19.47 s (1 bar) + P03 21.80 s (8 bars); the eight-counts are
+E005 19.47 s (4-beat partial) then 21.80 / 26.37 / 30.96 / 35.56 s, the pre-snap grid; no partial dangles before the chorus. The
+section cue stays at 19.47 s (tier 1) and 21.80 s gets a tier-2 phrase cue. The fix is a general rule (`structure.phrase_layout`), not a
+test-specific hack. r4-m2 is fixed (structure StageSpec 1.1.0). Re-run with the current code on the integrator's real caches
+(out/_wip/r-dsp-m2-r5/real/<slug>, probes/runreal.py) for all four real songs and the synthetic song: byte-identical to fixer-m2-r4's
+re-run and to a second run of my own (deterministic). Tests: tests/review/M2/r-dsp + M2 unit tests 75 passed / 13 skipped,
+`-m real` 6 passed. tests/integration/M2 still fails 2/2, only because out/_wip/integrator/* (05:10) is stale (see r4-m1).
+
+New major: **F8-r5**, the phrase-remainder placement is a global vote of every other section start, so it depends on how many
+sections lie before vs after the section rather than on the section's music
+(tests/review/M2/r-dsp/test_phrase_grid_nonlocal.py, fast, synthetic truth).
+
+**r5-m1. The same sec_ranges give the pickup reading early in the song and the trailing reading late in the song** (explains F8-r5)
+- probes/p_layout.py, phrase_layout(..., 8):
+  - A verse#1 with a trailing stop bar, (0,8),(8,17),(17,25),(25,33),(33,41),(41,49): verse -> (8,9),(9,17), a pickup. This is
+    the same layout as Jeremy's snapped verse, so the two can never be told apart, and count 1 moves off the vocal entry.
+  - The same trailing bar in the second-last section, (...,(32,41),(41,49)): -> (32,40),(40,41), remainder at the end.
+- The song start (bar 0) is excluded from the support, so for the first section after the intro only the LATER sections vote.
+- The impact snap knows which start it moved; that is the one case where "pickup" is evidenced.
+
+**r5-m2. An odd pickup of 3+ bars still leaves a partial count right before the main phrase**
+- phrase_layout((0,8),(8,19),(19,27),(27,35),(35,43), 8) gives a 3-bar pickup (8,11). choreo cuts every phrase forward from its start,
+  so the pickup becomes an 8-beat count plus a 4-beat partial ending at bar 11: the F7-r4 "dangling partial" shape, one phrase earlier.
+- For a leading (pickup) phrase, choreo should align its counts backwards from the phrase end (partial first).
+- No real song hits this today.
+
+**r5-m3. With the snap disabled, Jeremy's 9-bar intro now gets a 1-bar pickup at the song start**
+- (0,9),(9,17),... -> (0,1),(1,9): the intro's first bar (0.48 s) becomes a 4-beat partial. Before round 4 it was 8 + 1 (remainder at
+  the end, at the band-entry bar). Only reachable with impact_snap_strength 0; noted because it changes a user-override path.
+
+**r5-m4. The pickup count is numbered 1-4 (first_count 1)**
+- A 1-bar pickup into a phrase is danced "5-6-7-8". CONTRACT allows first_count 5 only for E000 (D13), so the stage cannot say so.
+  A contract/CR question for the W3 integrator, not a stage bug.

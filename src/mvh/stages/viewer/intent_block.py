@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """The managed block the viewer writes into ``meaning/intent.md`` (voice -> character mapping, per-section meaning).
 
 ``meaning/intent.md`` is the user's own file (CONTRACT §1: never overwritten by ``mvh analyze``).  The viewer must

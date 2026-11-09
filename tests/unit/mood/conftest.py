@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Fixtures for the mood tests. Tests marked ``real`` run the Essentia ONNX heads inside a heavy slot."""
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Claim checks for drafts and the merged meaning (PLAN §8.4): every claim typed, cited IDs and time ranges exist,
 quotes of at most 10 words. Problems are reported (never with quote text: NF5) and repaired conservatively:
 an unknown cited id is dropped, a long quote is cut to 10 words, an untyped claim becomes ``speculative``."""

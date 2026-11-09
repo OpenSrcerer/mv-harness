@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4: key confidence must not come from S-KEY guessing on audio that carries no tonal evidence.
 
 ``SKey.log_scores`` peak-normalises every input, so digital silence and near-silent stretches (room tone, a fade

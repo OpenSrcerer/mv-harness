@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Shared pytest setup for the M1 unit tests: ``real`` (real songs; opt-in with MVH_REAL_TESTS=1 or ``-m real``) and
 ``slow`` markers, and the real-song table (W0 reference numbers from docs/spike/bench-music.md §4)."""
 

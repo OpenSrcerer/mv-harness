@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 finding F2 (major): the rhythm stage crashes on any input shorter than about 6 s, and choreo crashes on
 inputs shorter than 2 s.
 

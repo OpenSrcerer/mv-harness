@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 3 (major, new): two common speaker-label formats of user-supplied lyrics lose the labels.
 
 The rap battle (3 rappers + an announcer) is M5's stress test, and speaker labels in the lyrics source are the

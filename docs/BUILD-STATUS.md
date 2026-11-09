@@ -15,9 +15,9 @@ Final reports go to `docs/build/reports/<agent>.md`.
 |---|---|---|---|
 | A: W0 spike + W1a contract | env-main (sonnet) → bench-music (sonnet) ‖ bench-words (sonnet); env-sep (sonnet); contract-architect (opus) | **done, gate PASS** (see docs/SPIKE.md) | wf_f9a3f942-cb7 |
 | B: W1b foundation | runtime (opus), lib (opus), fixtures (**opus**, upgraded: it is the ground truth for every module) → R-CONTRACT (opus) ‖ R-PLATFORM (opus) → fixer (sonnet, only if blockers/majors) | **done, gate PASS** (orchestrator re-ran `scripts\gate.ps1 W1b`: 9/9 steps) | wf_363e7f56-9f5 |
-| C: W2 modules | pipeline over 8 modules: builder (opus; M4, M6a sonnet) → lens reviewer(s) (opus; M6b gets R-CONTRACT + R-WORDS) → fixer (sonnet) → re-review (opus), up to 2 fix rounds | running | wf_bb5257ef-656 · `C:\Users\OpenSrcerer\.claude\projects\C--Users-OpenSrcerer-Desktop-playground\cfc48f00-d046-409f-8e46-ef42c153038f\workflows\scripts\mvh-c-modules-wf_bb5257ef-656.js` (relaunch with resumeFromRunId in the same session, or relaunch the script in a new one: agents resume from progress files) |
-| D: W3 integration | integrator (opus) → module fixers (sonnet) ‖ completeness critic (opus) | pending | — |
-| E: W4 final | R-ADVERSARY (opus) ‖ R-DOGFOOD (sonnet) ‖ R-PLATFORM (opus) → fixers (sonnet) | pending | — |
+| C: W2 modules | pipeline over 8 modules: builder (opus; M4, M6a sonnet) → lens reviewer(s) (opus; M6b gets R-CONTRACT + R-WORDS) → fixer (sonnet) → re-review (opus), up to 2 fix rounds | **done** 03:30 (after 1 usage-limit stop and 2 power outages; continuations wf_7901936d-843, wf_041717a6-9b1). M3b clean; 2 blockers + 21 majors open → `docs/build/W2-open-findings.md`, CRs → `W2-change-requests.md`. Commit fd6621a | wf_bb5257ef-656 · `C:\Users\OpenSrcerer\.claude\projects\C--Users-OpenSrcerer-Desktop-playground\cfc48f00-d046-409f-8e46-ef42c153038f\workflows\scripts\mvh-c-modules-wf_bb5257ef-656.js` (relaunch with resumeFromRunId in the same session, or relaunch the script in a new one: agents resume from progress files) |
+| D: W3 integration | integrator (opus) → per-module fixer (opus for M1/M2/M5/M6b, sonnet others) → opus verifier, up to 2 rounds ‖ completeness critic (opus) → integrator-r2 (opus) | **running** since 03:52 (run wf_e97bbb13-9a4, task wurgp5yr8). Orchestrator gate after W2: `docs/build/W2-gate.md`: no unit test ran (collection error), 55 review fails = open findings, determinism fails on the GPU drum sub-stems | `docs/build/workflows/D-integration.js`, args.open_findings = W2-open-findings.json. After an outage: relaunch the same script; every agent resumes from its progress file |
+| E: W4 final | ud1-meaning ‖ ud2-kick (opus) → R-ADVERSARY (opus) ‖ R-DOGFOOD (sonnet) ‖ R-PLATFORM (opus) → 3 fixers split by ownership (analysis / words / platform, opus) each with an opus verifier, up to 2 rounds | script ready (dry-run OK); launch after D's commit | `docs/build/workflows/E-final.js` (no args). After E: orchestrator gate + one max analyze, commit, user reviews a song in the viewer |
 
 ## Resuming workflow C after an interruption (usage limit, crash, session expiry)
 Checkpoint taken 2026-11-08 17:40 with session usage at 92 %. State then:
@@ -69,6 +69,29 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
 - 03:08: launched `C-continue2.js` (run wf_041717a6-9b1, task wxwmx1xvb) for just those 3 steps.
 - An **hourly** safety check-in now runs at :17 past each hour while the session is alive. It resumes whatever an outage or limit stopped.
 
+## User decisions (2026-11-09). Implemented in W4 (workflow E) phase 0 by dedicated agents; integrator-r2: do NOT start them, just avoid conflicting changes
+- **UD1, meaning input format: APPROVED.**
+  - meaning/intent.md is read in exactly two ways.
+    1. **The interview template.** One documented grammar, round-tripped exactly, accepted fenced or unfenced. It is the ONLY source of structured
+       fields: characters, voice mapping, per-section feel/meaning/movement/camera/palette, and do-not rules (the only hard constraints).
+    2. **Free text.** Everything outside the template is passed to agents as the user's prose notes, marked user-authored, never parsed into fields
+       and never turned into do-not rules.
+  - Plus the viewer's machine-written managed block (D-M6a grammar).
+  - Remove the heuristic markdown guessing (bold labels, "Avoid…" headings, colon labels).
+  - Rewrite the review tests that assert heuristic parsing of free-form markdown to the new rule. Template-variant and round-trip tests stay.
+  - Tell the user in SKILL.md / interview.md: "use the template for anything that must be obeyed".
+- **UD2, kick source: APPROVED (2026-11-09).**
+  1. **Agent-facing kick = the drum-stem kick.** These read drum_hits (drum=kick) whenever the drums stage produced it: the lib (mvh.js / mvh_load.py
+     kick events and kick helpers), brief.md kick counts, the viewer kick lane, and the frames export.
+  2. **Fallback = hits.kick from the mix**, used when the drum stems are absent (draft profile, separation failed). It is marked lower quality.
+  3. **The manifest records which source is in use**: `kick_source: drums|mix` (a contract decision).
+  4. **QA:** compute the agreement between the two timelines (share of mix kicks within ±30 ms of a stem kick, and the reverse) and raise a QA flag
+     when it is low.
+  5. **Re-tune hits.kick for precision over recall** (fewer invented kicks). The M1 review tests that demand full recall on hard textures are
+     rewritten to the fallback's precision target instead of chased.
+  6. The continuous hits.kick curve (the viz-style pulse in vizState) is unchanged.
+  7. rhythm, dynamics and structure keep using the mix kick internally as one input among several: no DAG change.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.
@@ -101,3 +124,6 @@ The user approved commits and pushes on 2026-11-09 00:40 ("start pushing commits
   Gate W1b PASS. Real-song fixtures rebuilt. Workflow C launched (ultracode on: added a re-review after each fix round).
   Routed leftovers: models.lock schema mismatch → M3a; lyrics deps += ingest → M5; merge_cues → M2 cues; lines.tsv 'C1+C2' → M6b.
   Modules record decisions in docs/contract/decisions/<module>.md for the W3 integrator to merge into CONTRACT.md.
+- 2026-11-09: W3 integrator-r2 done (docs/build/reports/integrator-r2.md). D67-D77 added; fresh max runs of all 5 songs (analyze 0 / validate 0) in
+  out/_wip/integrator/<slug> (phase-1 folders in out/_wip/integrator/_phase1); R19 round-trip test passes; gate: unit PASS, determinism PASS,
+  review 39 fails = W4 items only (UD2 M1 kicks 11, UD1 M6b intent 23, critic W3C-3/W3C-4/grooves/backing 5). docs/RUNS.md written; SEAMS updated.

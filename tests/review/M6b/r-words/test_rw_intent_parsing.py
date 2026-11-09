@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b F3 and F4 (major): intent.md parsing turns things the user did NOT say into user claims.
 
 F3: a "Never show" bullet addressed to a section ("- Chorus: never show the singers' faces.") is kept verbatim as a

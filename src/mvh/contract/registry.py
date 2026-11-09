@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Curve channel registry (PLAN §4.1 curves/, §4.4 values). FROZEN at contract v1 (ids, units, policies).
 
 Every channel lives in exactly one curve file. Patterned ids (``stem.{stem}.level``, ``vocal.mouth_open.{voice}``,

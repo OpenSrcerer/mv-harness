@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Pure-numpy pitch logic of the vocals stage (owner M3b): arbitration, gating, octave repair, note segmentation,
 phrases, range statistics, register and the eased pitch01 curve. All arrays are on the 100 Hz contract grid."""
 
@@ -268,3 +267,4 @@ def level_db_100hz(y: np.ndarray, sr: int, n: int, win_s: float = 0.04) -> np.nd
     a, b = np.clip(ctr - h, 0, p.size), np.clip(ctr + h, 0, p.size)
     e = (c[b] - c[a]) / np.maximum(b - a, 1)
     return np.maximum(10 * np.log10(np.maximum(e, 1e-12)), -120.0)
+

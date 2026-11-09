@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """vocals stage (contract v1, owner M3b).
 
 What it does (PLAN §5 vocals, §4.4; docs/SPIKE.md):
@@ -16,7 +15,9 @@ What it does (PLAN §5 vocals, §4.4; docs/SPIKE.md):
    confidence). ``present`` needs >= 8 voiced seconds of singing; when the lead vocal is mainly rap or speech
    (instruments' vocal_style) the sung-range statistics are computed only over sung frames and are null when those are
    fewer than 8 s (docs/SPIKE.md: f0 range statistics are not run on rap); the spoken pitch is reported separately.
-Lyrics coverage is not available here (lyrics is not a dependency of vocals in the DAG; CR-M3b-1).
+Lyrics coverage (CR-M3b-1, lyrics is a dependency): a pitched frame inside an aligned lyric line passes the voice gate and, when
+the tagger gave it no style, counts as sung. When lead_vocals is nearly silent next to the vocals stem (karaoke split suspect)
+the vocals stem is tracked instead.
 Human correction: ``--param vocals.present=true|false`` forces presence (range statistics then need only 1 s of frames) and
 ``--param vocals.style="singing"|"speech"|"rap"`` replaces the tagger's dominant lead style (the statistics basis).
 """
@@ -29,14 +30,14 @@ from mvh.runner.spec import StageResult, StageSpec, catalog_outputs
 
 STAGE = StageSpec(
     "vocals",
-    ('separate_hq', 'stem_activity', 'instruments', 'rhythm'),
+    ('separate_hq', 'stem_activity', 'instruments', 'rhythm', 'lyrics'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("vocals"),
     params={'min_voiced_s': 8.0, 'pitch01_ease_s': 0.15, 'rmvpe_gate': 0.3, 'swift_gate': 0.9, 'voice_gate': 0.35,
-            'level_floor_db': -55.0, 'level_below_peak_db': 35.0, 'phrase_gap_s': 0.45, 'min_spoken_s': 15.0,
-            'present': None, 'style': None},
+            'level_floor_db': -55.0, 'lead_gap_db': 20.0, 'level_below_peak_db': 35.0, 'phrase_gap_s': 0.45, 'min_spoken_s': 15.0,
+            'present': None, 'style': None, 'lyric_pad_s': 0.15, 'lyric_min_match': 0.3},
     models=("rmvpe_onnx", "swift_f0_onnx", "ced_base_onnx"),
     module="M3b",
     description='SwiftF0 + RMVPE on lead_vocals: f0, pitch01, voiced, range, phrases, vocal notes.',
@@ -59,7 +60,56 @@ def _style_mask(ctx, n: int) -> tuple[np.ndarray | None, dict[str, float]]:
     return lab, secs
 
 
+def _lyric_mask(ctx, n: int, pad: float, warnings: list[str], min_match: float = 0.3) -> tuple[np.ndarray, int]:
+    """100 Hz mask of the aligned lyric lines (padded), from lyrics/lyrics.json. Empty when lyrics is absent,
+    instrumental, or has no lines."""
+    out = np.zeros(n, bool)
+    try:
+        d = ctx.upstream("lyrics").json("lyrics/lyrics.json")
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"lyrics unavailable ({type(e).__name__}): presence without lyric coverage")
+        return out, 0
+    if d.get("instrumental"):
+        return out, 0
+    # R-ML-M3b-r5-1: forced alignment always places supplied words, so a line says nothing about a voice by itself.
+    # The lines count only when something outside the aligner heard the words: a song grade above D, or an ASR that
+    # matched at least ``min_match`` of the text (G1; MEGAFAUNA's processed voice: 0.57).
+    grade = str(d.get("grade") or "")
+    try:
+        g1 = d.get("lyrics_match_score")
+        if g1 is None:
+            g1 = ((d.get("gate") or {}).get("checks") or {}).get("G1", {}).get("value")
+        g1 = float(g1) if g1 is not None else None
+    except (TypeError, ValueError, AttributeError):
+        g1 = None
+    min_match = float(min_match)
+    if grade not in ("A", "B", "C") and not (g1 is not None and g1 >= min_match):
+        if d.get("lines"):
+            warnings.append(f"lyric lines not used as voice evidence: grade {grade or '?'}, ASR match "
+                            f"{'n/a' if g1 is None else f'{g1:.2f}'} < {min_match:g} (the aligner alone places any text)")
+        return out, 0
+    k = 0
+    for ln in d.get("lines") or []:
+        # only lines whose timing has acoustic support are voice evidence: "interpolated" (spread from the text) and
+        # "lrclib_line" (copied LRCLIB times) lines say nothing about where a voice is
+        if str(ln.get("timing_source") or "") in ("interpolated", "lrclib_line", "user_line", "none"):
+            continue
+        try:
+            if float(ln.get("conf", 1.0)) <= 0.02:
+                continue
+        except (TypeError, ValueError):
+            pass
+        try:
+            a, b = float(ln["t"]) - pad, float(ln["t"]) + float(ln["d"]) + pad
+        except (KeyError, TypeError, ValueError):
+            continue
+        out[max(0, int(round(a * 100))): min(n, int(round(b * 100)))] = True
+        k += 1
+    return out, k
+
+
 def run(ctx) -> StageResult:
+    from mvh.stages.instruments.lead import pick_lead_stem
     from mvh.stages.notes import post
     from mvh.stages.notes.midi import smf_bytes, tempo_map_from_ctx
 
@@ -75,7 +125,22 @@ def run(ctx) -> StageResult:
     n = -(-n_samples * 100 // sr)
     duration = n_samples / sr
 
-    y = ctx.audio("lead_vocals", sr=16000, mono=True).samples[0].astype(np.float32)
+    lyr, n_lines = _lyric_mask(ctx, n, float(prm.get("lyric_pad_s", 0.15)), warnings, float(prm.get("lyric_min_match", 0.3)))
+    lead_name, y = pick_lead_stem(ctx, float(prm.get("lead_gap_db", 20.0)))
+    if lead_name != "lead_vocals":
+        # the full vocals stem is a rescue for a suspect karaoke split, used only when something else says a voice is
+        # there (aligned lyric lines or the stem_activity presence vote); otherwise it is mostly synth content
+        try:
+            voted = bool(ctx.upstream("stem_activity").json("meta/stems.json")["stems"]["vocals"]["present"])
+        except Exception:  # noqa: BLE001
+            voted = False
+        if n_lines > 0 or voted:
+            fallbacks.append("vocals:vocals_stem")
+            warnings.append("lead_vocals is nearly silent next to the vocals stem (karaoke split sent the voice to backing): "
+                            "pitch tracked on the full vocals stem")
+        else:
+            lead_name = "lead_vocals"
+            y = np.asarray(ctx.audio("lead_vocals", sr=16000, mono=True).samples[0], np.float32)
     # ---------------------------------------------------------------- trackers
     from rmvpe_onnx import RMVPE
 
@@ -103,12 +168,12 @@ def run(ctx) -> StageResult:
     level = P.level_db_100hz(y, 16000, n)
     loud = level > max(float(prm.get("level_floor_db", -55.0)), float(np.percentile(level, 99)) - float(prm.get("level_below_peak_db", 35.0)))
     try:
-        active = np.asarray(ctx.curve("stem.lead_vocals.active").values)[:n] > 0.5
+        active = np.asarray(ctx.curve(f"stem.{lead_name}.active").values)[:n] > 0.5
         if active.size < n:
             active = np.concatenate([active, np.zeros(n - active.size, bool)])
     except Exception:  # noqa: BLE001
         active = np.ones(n, bool)
-        warnings.append("stem.lead_vocals.active unavailable: activity gate skipped")
+        warnings.append(f"stem.{lead_name}.active unavailable: activity gate skipped")
     try:
         iv = np.asarray(ctx.curve("inst.voice").values, np.float64)
         voice = np.interp(np.arange(n) / 100.0, np.arange(iv.size), iv) >= float(prm.get("voice_gate", 0.35))
@@ -116,7 +181,11 @@ def run(ctx) -> StageResult:
         voice = np.ones(n, bool)
         warnings.append("inst.voice unavailable: the tagger voice gate is skipped (stem energy alone is weak evidence)")
         fallbacks.append("vocals:no_voice_gate")
-    gate = active & loud & voice
+    # lyrics coverage (CR-M3b-1): a pitched frame inside an aligned lyric line is a voice even where the tagger says
+    # synth (MEGAFAUNA: processed lead voice). Lines are the source's / the aligner's, so the evidence is by coverage.
+    if lyr.any():
+        notes_prov.append(f"lyric coverage {lyr.sum() / 100:.1f} s in {n_lines} line(s) counted as voice evidence")
+    gate = active & loud & (voice | lyr)
     raw_voiced = float(np.isfinite(arb.midi).sum()) / 100
     midi = np.where(gate, arb.midi, np.nan)
     midi = P.fix_octave_islands(midi)
@@ -132,6 +201,20 @@ def run(ctx) -> StageResult:
 
     # ---------------------------------------------------------------- style + statistics
     lab, style_secs = _style_mask(ctx, n)
+    # frames the tagger gave no style but the aligned lyrics place a voice on: a lyric line shows a VOICE, not that it sings.
+    # They take the style the tagger found for the song (a rap verse the tagger missed stays rap); only when the tagger
+    # labelled nothing at all do they count as sung.
+    lyr_untagged = voiced & lyr & (lab < 0) if lab is not None else np.zeros(n, bool)
+    tagged = {k: v for k, v in style_secs.items() if v > 0}
+    if lab is not None and lyr_untagged.any():
+        # R-ML-M3b-r5-2: only a rap-dominant tagging is inherited (a rap verse the tagger missed stays rap); a stray
+        # 'speech' label elsewhere must not turn sung lyric frames into speech and erase the vocal range
+        if tagged and max(tagged, key=lambda k: tagged[k]) == "rap":
+            lab = np.where(lyr_untagged, 2, lab).astype(lab.dtype)
+        else:
+            lab = np.where(lyr_untagged, 0, lab).astype(lab.dtype)
+            style_secs = dict(style_secs)
+            style_secs["singing"] = style_secs.get("singing", 0.0) + float(lyr_untagged.sum()) / 100
     sung = voiced & (lab == 0) if lab is not None else voiced
     spoken = voiced & (lab > 0) if lab is not None else np.zeros(n, bool)
     spoken_s = float(spoken.sum()) / 100
@@ -156,11 +239,21 @@ def run(ctx) -> StageResult:
     stats_mask = sung if rap_like else voiced
     present = bool(voiced_s >= min_voiced and (stats_mask.sum() / 100 >= min_voiced
                                                 or (rap_like and spoken_s >= float(prm.get("min_spoken_s", 15.0)))))
+    # lyric-backed presence: the aligned text places a voice for a good part of the song and the tracker finds pitch in it
+    lyr_voiced_s = float((voiced & lyr).sum()) / 100
+    lyric_present = bool(not present and lyr_voiced_s >= float(prm.get("lyric_min_voiced_s", 4.0))
+                         and float(lyr.sum()) / 100 >= float(prm.get("lyric_min_s", 20.0)))
+    if lyric_present:
+        present = True
+        notes_prov.append(f"presence from lyric coverage: {lyr_voiced_s:.1f} s pitched inside {lyr.sum() / 100:.0f} s of aligned lines "
+                          f"(tracker alone found {voiced_s:.1f} s < {min_voiced:g} s)")
     user_present = prm.get("present")
     if isinstance(user_present, bool):
         notes_prov.append(f"presence set by the user: {user_present} (detector said {present})")
         present = user_present
     min_stats = int(min_voiced * 100) if not isinstance(user_present, bool) else 100
+    if lyric_present and not isinstance(user_present, bool):
+        min_stats = int(float(prm.get("lyric_min_voiced_s", 4.0)) * 100)
     mv = midi[voiced]
     norm_lo = float(np.percentile(mv, 2)) if mv.size else float("nan")
     norm_hi = float(np.percentile(mv, 98)) if mv.size else float("nan")

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long templates)
 """Human-facing texts of the meaning stage: interview.md (questions + the YAML template), request.md (the drafting
 agent's instructions) and meaning.md. No lyric text beyond quotes of at most 8 words (NF5)."""
 from __future__ import annotations
@@ -21,7 +20,7 @@ def _q(s: Any) -> str:
     """A YAML-safe double-quoted scalar."""
     if s is None:
         return '""'
-    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") + '"'
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"').replace("\r", "").replace("\n", "\\n").replace("\t", "\\t") + '"'
 
 
 def _quote(text: str | None, n: int = 8) -> str:
@@ -56,10 +55,13 @@ def _ranges(ids: list[str]) -> str:
 
 
 def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapping[str, Any]) -> str:
-    """The intent template prefilled with this song's characters and sections (answers the user already gave are
-    filled in, so the template can replace the free text without losing anything)."""
+    """The intent template prefilled with this song's characters and sections. Every user claim is written back
+    (global fields, characters, line singers, palette, do_not, motifs, symbolism, references, notes and each
+    section's own fields and do_not rules), so parsing the template gives the same claims as the file it came from
+    (grammar: ``intent.py``; round trip: tests/unit/meaning/test_intent_grammar.py)."""
     L = ["```yaml", "# mvh-intent v1: copy this block into meaning/intent.md (with or without the markdown fence) and fill it in. Empty = no answer.",
          "# Times are in seconds of audio/mix.flac; keep t0/t1 so the notes follow the sections if they move.",
+         "# Hex colours can be typed as they are ([#1b2a49, night blue]); a comment needs two spaces before its '#'.",
          f"logline: {_q(intent.get('logline'))}", f"summary: {_q(intent.get('summary'))}",
          "themes: [" + ", ".join(_q(t) for t in intent.get("themes") or []) + "]",
          f"setting: {_q(intent.get('setting'))}", f"tone: {_q(intent.get('tone'))}",
@@ -83,10 +85,18 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
     pal = intent.get("palette_names") or intent.get("palette") or []
     L.append("palette: [" + ", ".join(_q(p) for p in pal) + "]   # hex (#1b2a49) or colour words (night blue)")
     L.append("do_not:   # rules in your own words; copied verbatim to every agent")
-    for r in intent.get("do_not") or []:
+    global_dn = list(intent.get("do_not") or [])
+    for r in global_dn:
         L.append(f"  - {_q(r)}")
-    L.append("motifs: []   # [{name: lanterns, lines: [L001, L009], note: \"\"}]")
-    L.append("symbolism: []")
+    motifs = intent.get("motifs") or []
+    if motifs:
+        L.append("motifs:   # name, the lyric lines it appears on, a note")
+        for m in motifs:
+            L.append(f"  - {{name: {_q(m.get('name'))}, lines: [{', '.join(m.get('lines') or [])}], note: {_q(m.get('note'))}}}")
+    else:
+        L.append("motifs: []   # [{name: lanterns, lines: [L001, L009], note: \"\"}]")
+    for key in ("symbolism", "references", "notes"):
+        L.append(f"{key}: [" + ", ".join(_q(t) for t in intent.get(key) or []) + "]")
     L.append("sections:")
     for s in fc["sections"]:
         sm = next((x for x in meaning.get("sections") or [] if x["section_id"] == s["id"]), {})
@@ -109,7 +119,8 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
         L.append(f"    palette: [{', '.join(_q(h) for h in ph or [])}]")
         cp = sm.get("characters_present") if fs.get("characters_present") == "user" else []
         L.append(f"    characters: [{', '.join(cp or [])}]")
-        L.append("    do_not: []")
+        own_dn = [r for r in sm.get("do_not") or [] if r not in global_dn]  # the section's own rules (user only)
+        L.append(f"    do_not: [{', '.join(_q(r) for r in own_dn)}]")
     L.append("```")
     return "\n".join(L)
 
@@ -277,8 +288,11 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
         if meaning.get(k):
             out.append(f"**{lab}**: {meaning[k]}")
     p = meaning.get("perspective") or {}
+    fs = meaning.get("field_sources") or {}
     if any(p.values()):
-        out.append(f"**Perspective**: narrator {p.get('narrator') or '?'}, addressee {p.get('addressee') or '?'}")
+        def who(k: str) -> str:
+            return (p.get(k) or "?") + (" (draft)" if p.get(k) and fs.get(f"perspective.{k}") == "draft" else "")
+        out.append(f"**Perspective**: narrator {who('narrator')}, addressee {who('addressee')}")
     if meaning.get("themes"):
         out.append("**Themes**: " + "; ".join(f"{t['text']} ({t['source']}, {t.get('status')})" for t in meaning["themes"]))
     out.append("")
@@ -313,6 +327,10 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
         out += ["", "## Palette", "", " ".join(meaning["palette"]) + (f" ({', '.join(names)})" if names else "")]
     if meaning.get("motifs"):
         out += ["", "## Motifs", ""] + [f"- {m['id']} {m['name']}: {len(m.get('occurrences') or [])} occurrence(s)" for m in meaning["motifs"]]
+    if meaning.get("references"):
+        out += ["", "## References (user)", ""] + [f"- {r}" for r in meaning["references"]]
+    if meaning.get("notes"):
+        out += ["", "## Notes (user)", ""] + [f"- {r}" for r in meaning["notes"][:30]]
     out += ["", "## Never show", ""] + ([f"- {r}" for r in meaning.get("do_not") or []] or ["- (no rules yet)"])
     if orphans:
         out += ["", f"## Orphaned claims ({len(orphans)})", "", "Claims whose section no longer exists (meaning/orphans.json):"]

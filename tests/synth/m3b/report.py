@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Print a compact summary of the M3b outputs of a song folder (no lyric text). Owner builder-m3b.
 
     uv run --frozen --no-sync python -m tests.synth.m3b.report out/_wip/builder-m3b/<slug> [...]

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """A stub run of every stage succeeds against the synthetic fixture, and the runner-style curve packing reproduces it."""
 
 import numpy as np

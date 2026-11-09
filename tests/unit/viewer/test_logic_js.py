@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Runs the node unit tests of the DOM-free viewer logic (logic.test.mjs) under pytest so the gate covers them."""
 from __future__ import annotations
 

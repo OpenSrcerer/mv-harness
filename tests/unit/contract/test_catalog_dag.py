@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """The stage DAG built from the stubs matches PLAN §3.2, and the catalogue / Consumed-by matrix are consistent."""
 import re
 
@@ -26,9 +25,9 @@ PLAN_DEPS = {
     "drums": {"separate_hq", "stem_activity"},
     "instruments": {"ingest", "separate_fast", "separate_hq", "stem_activity"},
     "notes": {"separate_hq", "stem_activity", "rhythm"},
-    "vocals": {"separate_hq", "stem_activity", "instruments", "rhythm"},
+    "vocals": {"separate_hq", "stem_activity", "instruments", "rhythm", "lyrics"},  # W3 CR-M3b-1 (D67)
     "mood": {"ingest", "structure"},
-    "lyrics": {"identity", "separate_hq", "stem_activity", "structure"},
+    "lyrics": {"identity", "ingest", "separate_hq", "stem_activity", "structure"},   # W3 CR-M5-1 (D32 embedded lyrics)
     "voices": {"lyrics", "separate_hq", "stem_activity"},
     "lipsync": {"lyrics", "voices", "separate_hq"},
     "choreo": {"rhythm", "structure", "drums", "spectral", "vocals", "harmony", "dynamics"},
@@ -193,9 +192,14 @@ def test_registry_patterns():
     assert e["twin"] == "stem.bass.rms_db" and e["norm"]["of"] == "stem.bass.rms_db"
 
 
-def test_stub_files_are_stubs():
+def test_no_stage_is_still_a_stub(specs):
+    """W3: every walking-skeleton stub has been replaced by a real implementation (PLAN §12 W3 step 1).
+    The stub copier itself (mvh.contract.fixture.run_stub) stays covered by test_schemas_io.py."""
+    import importlib
     import inspect
 
-    import mvh.stages.rhythm as r
-    assert "run_stub" in inspect.getsource(r.run)
-    assert re.match(r"^\d+\.\d+\.\d+", r.STAGE.version)
+    for name in specs:
+        mod = importlib.import_module(f"mvh.stages.{name}")
+        src = inspect.getsource(mod.run)
+        assert "run_stub" not in src, f"{name}.run still delegates to the fixture copier"
+        assert re.match(r"^\d+\.\d+\.\d+", mod.STAGE.version), name

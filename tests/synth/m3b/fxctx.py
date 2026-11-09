@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """A direct Ctx for running one M3b stage's ``run(ctx)`` on a fixture folder without the runner (owner builder-m3b).
 
 Upstream data are read from ``roots`` in order: output folders of stages run earlier with this harness (their

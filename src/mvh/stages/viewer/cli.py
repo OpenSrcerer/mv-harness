@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """``mvh view <song>``: open the viewer in EDIT MODE (CONTRACT D35: verbs come from stages/<name>/cli.py)."""
 from __future__ import annotations
 

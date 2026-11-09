@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Read-only data sources shared by the meaning, brief and frames stages.
 
 Two implementations of one small interface:

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 r"""Model registry over the root ``models.lock.json`` (PLAN §3.3 "Models"). ``mvh models fetch`` is THE only
 downloader.
 

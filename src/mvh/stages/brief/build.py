@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long templates)
 """brief.md (CONTRACT §12, PLAN §4.7): the LLM entry point, <= 4k tokens (target 2.5k; tokens ~ characters / 4),
 and the per-section zoom (``mvh brief --section S05``, <= 1.5k tokens).
 
@@ -99,7 +98,7 @@ def flags_from_records(records: Mapping[str, Mapping[str, Any]], tempo: Mapping[
         if rec.get("status") == "failed":
             flags.append(f"failed:{name}")
     flags += [str(f) for f in ((tempo or {}).get("qa") or {}).get("flags", [])]
-    flags += [f"key:{f}" for f in (key or {}).get("flags", [])]
+    flags += [f if str(f).startswith("key:") else f"key:{f}" for f in (key or {}).get("flags", [])]   # m1: flags carry key: already
     return list(dict.fromkeys(flags))
 
 
@@ -347,6 +346,16 @@ def _meaning_block(d: Mapping[str, Any]) -> list[str]:
     dn = m.get("do_not") or []
     if dn:
         out += ["", "Do not (the user's words): " + " ".join(f'"{x}"' for x in dn)]
+    notes, refs = m.get("notes") or [], m.get("references") or []
+    if notes or refs:  # the user's other words (free text the intent grammar did not file under a field)
+        bits = []
+        if notes:
+            bits.append(f"{len(notes)} note(s) " + " ".join(f'"{_short(str(x), 12)}"' for x in notes[:3])
+                        + (" ..." if len(notes) > 3 else ""))
+        if refs:
+            bits.append(f"{len(refs)} reference(s) " + "; ".join(_short(str(x), 8) for x in refs[:3])
+                        + (" ..." if len(refs) > 3 else ""))
+        out += ["", "User notes (meaning/meaning.json notes, references): " + " · ".join(bits)]
     pal = m.get("palette") or []
     if pal:
         psrc = (m.get("field_sources") or {}).get("palette")

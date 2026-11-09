@@ -115,7 +115,17 @@ function appliedOverrides(evName) {
   // the override values a stage reports having applied (provenance.overrides_applied)
   const out = {};
   const prov = (evName === 'lyrics' ? (rawGet('lyrics') || {}).provenance : ev(evName).provenance) || {};
-  for (const o of prov.overrides_applied || []) out[o.key] = o.value;
+  // a key may repeat (one entry per edit, e.g. structure.boundaries before structure 1.2.0): repeated keys collect
+  // their values into one list, plain-object maps (lyrics.lines) merge (F-R5-APPLIED-BOUNDARY)
+  const plain = (x) => x != null && typeof x === 'object' && !Array.isArray(x);
+  const listy = { 'structure.boundaries': 1, 'structure.labels': 1 };
+  for (const o of prov.overrides_applied || []) {
+    const k = o.key, v = o.value;
+    if (!(k in out)) out[k] = listy[k] ? [].concat(v == null ? [] : v) : v;
+    else if (listy[k] || Array.isArray(out[k])) out[k] = [].concat(out[k], v == null ? [] : v);
+    else if (plain(out[k]) && plain(v)) out[k] = Object.assign({}, out[k], v);
+    else out[k] = v;
+  }
   return out;
 }
 

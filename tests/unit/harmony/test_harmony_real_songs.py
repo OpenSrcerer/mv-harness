@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Snapshots of the harmony stage on the four real W0 songs (no ground truth: tolerances and plausibility only).
 
 Uses the cached lv-chordia decode in tests/.cache/real/<slug>/chords/ so the test does not re-run the 5-model ensemble, the real

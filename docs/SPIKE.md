@@ -49,7 +49,7 @@ Detailed evidence lives in:
   user-supplied terms, never as a top-1 label.
 - **CED-base** ONNX output is already a probability, so never apply a sigmoid.
 - **S-KEY** uses a pinned HF revision of `musetric/skey-onnx` (NC weights). Its probability is flat, so confidence comes
-  from window and cross-method agreement (KS/Temperley profile ensemble).
+  from window and cross-method agreement (KS/Temperley profile ensemble). *(W3 amendment: the flatness is an export artefact, softmax applied twice; `harmony` inverts it (`keys.recover_probs`, see the M4 decisions merged into CONTRACT.md) and the recovered p is informative. Windows with recovered p_max < 0.2 do not vote.)*
 - **Rhythm**: beat_this half/double-tempo flips and madmom's downbeat phase are each wrong on 2 of 4 songs. The rhythm stage
   carries **tempo candidates** and a per-segment feel, arbitrates the tempo octave against kick evidence, and **fuses downbeats by a
   2-of-3 vote** (beat_this, allin1, madmom). MEGAFAUNA (about 105 / 143.6 / 193–200) is the regression case.

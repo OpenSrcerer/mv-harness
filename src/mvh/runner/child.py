@@ -91,7 +91,14 @@ def run_stage(job: dict[str, Any]) -> dict[str, Any]:
     log = _logger(stage)
     writer = StageWriter(spec, out, job)
     ctx = StageCtx(spec, job, writer, log)
-    res = mod.run(ctx)
+    if _stubbed(stage):
+        # W3 test seam: the runtime tests run the runner on the walking skeleton (every stage copying from
+        # MVH_FIXTURE_DIR) now that the stages are real; MVH_STAGE_STUBS = "all" | "all-but-ingest" | a,b,c
+        from mvh.contract.fixture import run_stub
+
+        res = run_stub(ctx)
+    else:
+        res = mod.run(ctx)
     if isinstance(res, dict):
         res = StageResult(**res)
     if not isinstance(res, StageResult):
@@ -156,6 +163,19 @@ def run_stage(job: dict[str, Any]) -> dict[str, Any]:
         json.dump(done, fh, ensure_ascii=False, indent=1, allow_nan=False)
     tmp.replace(p)
     return done
+
+
+def _stubbed(stage: str) -> bool:
+    import os
+
+    v = os.environ.get("MVH_STAGE_STUBS", "").strip()
+    if not v:
+        return False
+    if v == "all":
+        return True
+    if v == "all-but-ingest":
+        return stage != "ingest"
+    return stage in {s.strip() for s in v.split(",")}
 
 
 def main(argv: list[str] | None = None) -> int:

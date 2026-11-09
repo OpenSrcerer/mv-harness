@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Vendored CTC forced alignment (Viterbi), numpy only: the fallback when torchaudio's compiled
 ``forced_align`` is unavailable or fails (PLAN §3.1 "Forced alignment"). Golden-tested against torchaudio in
 tests/unit/lyrics/test_ctc_viterbi.py (same best-path score, same frame labels on random emissions).

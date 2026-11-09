@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """Shared pytest hook for the M3a unit-test folders: tests marked ``real`` (real models or real songs) are skipped
 unless selected explicitly with ``-m real`` or ``MVH_RUN_REAL=1`` (PLAN §12: unit tests default to synthetic inputs)."""
 

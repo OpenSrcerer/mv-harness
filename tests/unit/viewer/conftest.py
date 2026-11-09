@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Fixtures for the viewer tests."""
 from __future__ import annotations
 

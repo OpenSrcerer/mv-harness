@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 __all__ = ["finalize", "pack_curves", "copy_lib", "copy_schemas", "build_manifest", "ASSETS", "LIB_FILES"]
 
 ASSETS = Path(mvh.__file__).resolve().parent / "assets"
-LIB_FILES = ("mvh.js", "mvh_load.py", "mvh.glsl")
+LIB_FILES = ("mvh.js", "mvh.d.ts", "mvh_load.py", "mvh.glsl")   # D53: + the TypeScript declarations
 OK = ("done", "degraded", "skipped")
 _PKGS = (
     "numpy",
@@ -131,6 +131,27 @@ def _num(x: Any) -> float | None:
     return float(x) if isinstance(x, (int, float)) and not isinstance(x, bool) else None
 
 
+def _computed(runner: "Runner", name: str, st: Any) -> dict[str, Any]:
+    """D64: on a cache hit, the seconds the run that computed the entry took (``latest.json``), so a no-op
+    re-run does not erase what each stage costs."""
+    if st.cache != "hit" or not st.key:
+        return {}
+    try:
+        lat = runner.cache.stage(name).latest() or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    c = lat.get("computed") if lat.get("key") == st.key else None
+    if isinstance(c, dict) and c.get("seconds") is not None:
+        return {"computed_seconds": c["seconds"]}
+    return {}
+
+
+def key_flags(key: dict[str, Any]) -> list[str]:
+    """meta/key.json flags for the manifest. W3 seam S02: M4 already writes ``key:...`` flags, so only bare
+    ones get the prefix (the manifest used to show ``key:key:modulation``)."""
+    return [str(f) if str(f).startswith("key:") else f"key:{f}" for f in key.get("flags", []) or []]
+
+
 def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str]) -> dict[str, Any]:
     song = runner.s.song_dir
     src = _meta(song, "meta/source.json") or {}
@@ -165,7 +186,7 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
         if st.status == "failed":
             flags.append(f"failed:{name}")
     flags += [str(f) for f in (tempo.get("qa") or {}).get("flags", [])]
-    flags += [f"key:{f}" for f in key.get("flags", [])]
+    flags += key_flags(key)
 
     vocal_range = None
     if vr.get("present") and isinstance(vr.get("lowest"), dict) and isinstance(vr.get("highest"), dict):
@@ -342,6 +363,11 @@ def build_run(runner: "Runner") -> dict[str, Any]:
         spec = runner.specs[name]
         st = runner.states[name]
         if spec.trigger != "analyze" and st.status not in OK:
+            # W3 (M6b CR-8): on-demand stages that did not run are listed, with how to run them
+            stages[name] = {"status": "pending", "cache": "miss", "key": None, "seconds": None,
+                            "threads": max(1, runner.threads_for(spec)), "device": runner.device_class(spec),
+                            "env": spec.env, "variant": None, "fallbacks": [],
+                            "warnings": [st.reason or f"on demand: run `mvh {name}` on the song folder"]}
             continue
         rec = st.record or {}
         res = rec.get("result", {})
@@ -353,6 +379,9 @@ def build_run(runner: "Runner") -> dict[str, Any]:
             "cache": st.cache or "hit" if st.record else (st.cache or "miss"),
             "key": st.key,
             "seconds": round(st.seconds, 3) if st.seconds is not None else None,
+            # W3 seam S08 (D64): the part of `seconds` spent waiting for a machine-wide heavy slot
+            "wait_s": round(st.wait_s, 3) if st.wait_s is not None else None,
+            **_computed(runner, name, st),
             "threads": max(1, st.threads or runner.threads_for(spec)),
             "device": dev,
             "env": spec.env,

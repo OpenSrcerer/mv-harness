@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Reference reader/packer for curves/*.f32, curves/spectrum128.u8 and curves/index.json (PLAN §4.1).
 
 Layout rules (frozen):

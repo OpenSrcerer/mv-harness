@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Development harness (tests and builder runs): run the M6b stages in-process on a contract fixture folder.
 
 ``tests/contract/real-<slug>/`` only covers some upstream stages (no mood, cues, choreo, ...), so the runner cannot

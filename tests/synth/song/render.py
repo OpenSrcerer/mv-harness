@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Render the score into generator tracks (the stems) and collect the event truth.
 
 Tracks are stereo float64 [2, N_SAMPLES]. After a single global gain (mix sample peak -1 dBFS) every base track

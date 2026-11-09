@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Reference measurements for the fixture's physical curves (numpy/scipy/pyloudnorm; deterministic).
 
 These are *fixture-quality* measurements of the rendered audio, not the production algorithms: they give the

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """dynamics stage: synthetic ground truth (silence, stop, impacts, decay tail, loud/quiet parts and their role hints),
 robustness on a heavily limited master (SPIKE: the fixed-threshold prototype found 3 parts on Jeremy), the contract
 fixture's truth, contract outputs and edge cases."""
@@ -110,6 +109,7 @@ def test_parts_boundaries_levels_and_roles(which, request):
     assert any(abs(p["t"] + p["d"] - 46.0) <= 0.05 and p["t"] >= 30.0 for p in builds), builds
     assert lv["breakdown"]["role_hint"] == "breakdown"
     assert all(0.0 <= p["conf"] <= 1.0 for p in parts)
+    assert all(0.0 <= p["role_score"] <= 1.0 for p in parts)  # declared 0..1 (review m23: a build's raw score reaches 1.2)
 
 
 def test_limited_master_is_still_segmented(dsong, dsong_limited):

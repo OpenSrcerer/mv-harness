@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """spectral stage: run(ctx). The DSP lives in ``dsp.py`` (pure functions, unit-tested on synthetic signals)."""
 
 from __future__ import annotations
@@ -100,23 +99,12 @@ def run(ctx) -> StageResult:
             release_s=float(p["hit_release_s"]),
             median_ref_s=float(p["median_ref_s"]),
         )
-        click_ref: float | None = None
+        kick_ev: list[dsp.KickEvidence] = []
         if name == "kick":
-            glide_lp = dsp.glide_signal(mono, sr)
-            # the song's typical kick click: the 90th percentile click peak of the strongest kick-band events
-            kw = dict(x_min=float(p["event_x_min"]), ls_viz_min=float(p["kick_viz_step_db"]), ls_min=float(p["kick_step_db"]),
-                      own_ls=float(p["kick_own_step_db"]), own_excess=float(p["kick_own_excess_db"]),
-                      click_min_db=float(p["kick_click_db"]), refractory_s=float(p["kick_refractory_s"]),
-                      roll_s=float(p["kick_roll_s"]), glide=lambda t: dsp.kick_glide(glide_lp, t),
-                      glide_min=float(p["kick_glide_min"]), glide_hi=float(p["kick_glide_hi"]))
-            pre = dsp.select_kick_events(hr, envs["low"], envs["click"], accept_weak=lambda t: False, **kw)
-            pk = [dsp.click_peak_db(h.t, envs["click"]) for h in pre]
-            click_ref = float(np.percentile(pk, 90)) if len(pk) >= 3 else None
-            events = dsp.select_kick_events(
-                hr, envs["low"], envs["click"],
-                accept_weak=lambda t: dsp.kick_confidence(t, envs["low"], envs["click"], click_ref_db=click_ref) >= float(p["weak_kick_conf"]),
-                **kw,
-            )
+            kp = {k: float(p[f"kick_{k}"]) for k in dsp.KICK_DEFAULTS if f"kick_{k}" in p}
+            pairs = dsp.select_kick_events(hr, mono, sr, kp)
+            events = [h for h, _ in pairs]
+            kick_ev = [e for _, e in pairs]
         else:
             events = dsp.select_hit_events(
                 hr, scores[env_band], envs[env_band], x_min=float(p["event_x_min"]),
@@ -143,15 +131,19 @@ def run(ctx) -> StageResult:
                 }
             )
             if name == "kick":
-                items[-1]["kick_conf"] = dsp.kick_confidence(h.t, envs["low"], envs["click"], click_ref_db=click_ref)
+                items[-1]["kick_conf"] = kick_ev[len(items) - 1].conf()
         ctx.writer.events(
             f"hits.{name}",
             items,
             fields={
                 "env": {"unit": "0..1", "type": "number", "description": "hit envelope value at the hit (hits.<band> flash)"},
-                "rise_db": {"unit": "dB", "type": "number", "description": "onset score: dB step of the 400 Hz band (+ click) envelope"},
+                "rise_db": {"unit": "dB", "type": "number",
+                            "description": ("onset score: ripple-robust dB step of the 90-200 Hz band + half the 1.5-5 kHz click step"
+                                            if name == "kick" else "onset score: dB step of the 400 Hz band (+ click) envelope")},
                 **({"kick_conf": {"unit": "0..1", "type": "number",
-                                  "description": "drum-kick likeness (broadband click + decaying low band); bass notes read low"}}
+                                  "description": "drum-kick evidence: swept attack (burst, pitch drop, click), acoustic body "
+                                                 "(30-150 Hz onset decaying within 90 ms) or beater click on a low-band onset; "
+                                                 "bass notes, snares and vocals read low"}}
                    if name == "kick" else {}),
                 "viz": {"unit": None, "type": "boolean",
                         "description": "viz's causal one-hit-per-note logic registers this hit too"},
@@ -162,6 +154,7 @@ def run(ctx) -> StageResult:
             "n": len(items),
             "per_min": round(60.0 * len(items) / dur, 1),
             "viz_hits": int(sum(1 for h in events if h.viz_hit)),
+            **({"routes": {r: int(sum(1 for e in kick_ev if e.route == r)) for r in dsp.KICK_ROUTES}} if name == "kick" else {}),
             "lag_frames": shift,
         }
 
@@ -246,8 +239,11 @@ def run(ctx) -> StageResult:
         "offline non-causal port of viz/js/audio.js (centred 100 Hz frames, Web Audio Blackman, |X|/N, mono down-mix)",
         f"per-song viz gain {vv.gain:.4f} replaces the 6 s AGC (p99.5 of the per-frame band maximum -> 0.95)",
         f"hit reference: centred +-{float(p['median_ref_s']):g} s median of attack sizes; kick gate {gate_db:.1f} dB ({gate_mode})",
-        "hit events: viz attacks (v > 0.3, re-arm ignored) or weaker attacks (x >= event_x_min) with a crisp onset, "
-        "timed on 400 Hz zero-phase band envelopes (steepest dB rise); envelopes shifted by the median lag "
+        "mid/high hit events: viz attacks (v > 0.3, re-arm ignored) or weaker attacks (x >= event_x_min) with a crisp onset, "
+        "timed on 400 Hz zero-phase band envelopes (steepest dB rise); kick events: low-band onsets judged on kick evidence "
+        "(routes: swept attack = 90-250 Hz burst + pitch drop of the added 30-160 Hz energy or a 1.5-5 kHz click; sidechain duck; "
+        "acoustic body = 30-150 Hz onset decaying within 90 ms; clicky body over a bass; 808; roll), no refractory, faint "
+        "thumps judged against the local mix level; envelopes shifted by the median lag "
         f"(frames kick/mid/high = {shifts['kick']}/{shifts['mid']}/{shifts['high']}) and flashed at each onset",
         "band dBFS = 10 log10(mean square) of mid + side (a full-scale sine reads -3.01 dBFS); viz values use the mid only",
     ]

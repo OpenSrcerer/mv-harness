@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """stem_activity stage (PLAN §5 stem_activity; owner M3a).
 
 Per stem (the nine stems of ``separate_hq`` plus the DrumSep sub-stems that exist):

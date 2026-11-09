@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """``mvh meaning <song folder> [--draft agent|anthropic|off] [--overwrite-draft]`` (D35 module verb, PLAN §8).
 
 Re-merges the user's ``meaning/intent.md`` and the draft ``meaning/authored.json`` into meaning.json (re-anchoring

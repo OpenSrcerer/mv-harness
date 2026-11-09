@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Data bundle for the file:// read-only viewer (PLAN §9, M6a).
 
 The viewer is one HTML file that also works when opened straight from the disk. Browsers refuse ``fetch`` of

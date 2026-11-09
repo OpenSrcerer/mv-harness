@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Fixtures for the harmony tests. Tests marked ``real`` run real models (S-KEY ONNX, lv-chordia) inside a heavy slot."""
 from __future__ import annotations
 

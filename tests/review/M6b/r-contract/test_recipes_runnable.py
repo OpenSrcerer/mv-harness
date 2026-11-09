@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) F1: the Remotion recipe in skill/mv-harness/references/RECIPES.md does not load what it uses.
 
 A Remotion agent copies the recipe: ``load(staticFile('song/'), {include: [...]})``, then renders with

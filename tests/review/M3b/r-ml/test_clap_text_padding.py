@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings / evidence lines)
 """R-ML M3b (major): CLAP text prompts are embedded in a padded batch without an attention mask.
 
 The pinned Xenova export ``text_model_quantized.onnx`` has ONE input, ``input_ids`` (no ``attention_mask``).

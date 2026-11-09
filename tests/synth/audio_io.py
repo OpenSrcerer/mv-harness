@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Audio file helpers for the fixtures (deterministic; numpy + stdlib; ffmpeg only for encoders).
 
 * ``write_wav`` writes float32 (IEEE float, format 3), int16 or int24 PCM WAV with a minimal fixed header, so the

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Join lyric lines, voices and characters: ``events/singing.json`` and the ``singer`` column (D3, D5, D38).
 
 Voice -> character precedence: the user's intent (``characters.Cn.voices``) > the draft (authored.json

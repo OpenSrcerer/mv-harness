@@ -1,0 +1,25 @@
+# fixer-m5-r3 progress (W3 module fix round 1)
+- started: reading state; no prior progress.
+- DONE R3-1/R3-3/R3-4 (text.py: _section_word any-word, _plain_header unbracketed sections + 'Name:' markers, [Name:], _file_labelled rules) and R3-2 (asr._generic_suspect no_speech only with logprob < -0.7). Targeted review+unit text tests: 45 pass.
+- NEXT: S03 (G1 on covered span + outro lines), S07 (no ungated mouth when instrumental), decisions M5-D47.., real reruns, gate.
+- Copied integrator folders to out/_wip/fixer-m5-r3/<slug> (all 5).
+- Jeremy diagnosis: VAD-ASR hears nothing after 172 s (vocals to 285 s), so G1 recall is low; the outro is NOT in the ASR. Fix: M5-D50 gap retry (asr.uncovered_regions + transcribe_regions; core after VAD retry, only when a text src exists), M5-D51 G1 scoped to mutual spans (asr.g1_scope additive).
+- S07: lipsync suppresses ungated fallback when lyrics instrumental and < instrumental_fallback_min_s (8 s) (M5-D49).
+- Scratch: scratchpad/asr_dump.py, gap_proto.py, g1diag.py (stats only). Prototype gap retry on Jeremy running.
+- Review M5: 54 pass / 3 skip after fixes. Unit test file tests/unit/lyrics/test_r3_fixes.py (8 pass). ruff clean. Decisions M5-D47..D51 + D47b written.
+- Structure is stale in the copies (M2 params changed) -> runs use --only structure,identity,lyrics,voices,lipsync --force lyrics,voices,lipsync.
+- Background chain: sh out/_wip/fixer-m5-r3/chain.sh jeremy newton-vs-nye versatile megafauna synth > out/_wip/fixer-m5-r3/chain.log (per song logs out/_wip/fixer-m5-r3/<slug>.structure+...log). If interrupted, rerun chain for the songs without DONE.
+- lipsync unit test tests/unit/lipsync/test_instrumental_fallback.py (2 pass). Real cached lyrics: header parser changes affect 0 lines (counts).
+- Jeremy run 1 (gap retry + scoped G1): still D, G1 0.694 (scoped) / 0.692 raw; ASR 179 words covers 192/194 text words; gap retry 92.6 s -> 3 words: outro is wordless (SPIKE bench-words: 217-300 s wordless). Added M5-D52 tail warning. Re-transcribing jeremy (lang auto, threads 3) to scratch jeremy_asr2.json to diagnose G1.
+- G1 diag (scratch ASR from lead_vocals.WAV = stage input; flac is clipped and differs): 47 unmatched ASR words, 23 are near-miss spellings of the text word within 3 s. M5-D53 asr.canonicalise (ratio>=80, len>=4, +-3 s): jeremy 0.697->0.784, newton 0.851->0.870, wrong-text controls unchanged (0.064/0.042). Wired into core (asr_norm canonical for G1/G7/asr_ok; raw_f1 exact).
+- Runner path blocked: other modules' params/versions changed (spectral 1.1.0 etc) -> all upstream stale. Using scratch driver out/_wip/fixer-m5-r3/m5drive.py (job like Runner._job, cached integrator upstream, outputs <song>/_m5/<stage>). Background: sh out/_wip/fixer-m5-r3/drive_all.sh jeremy newton-vs-nye versatile megafauna synth (log drive_all.log, per song <slug>.drive.log).
+- Real review tests (-m real): 3 pass.
+- Jeremy drive: G1 0.7705 pass but G7 fell to 0.476 with canonical LCS pairs -> G7/asr_ok back to exact pairs (D53 revised). Restarted drive_all.sh for all 5 songs (task bg).
+- Gate running in bg: log docs/build/progress/fixer-m5-r3.gate.log
+- Jeremy final: grade D->B (G1 0.7705, G7 0.6202), voices 1, mouth unchanged, tail 75 s warning.
+- Newton final: B (G1 0.8644->0.8786, rest identical), voices 4, mouth identical.
+- Gate run 1: M5 unit dirs all 0, review PASS; FAIL from other modules' in-flight edits: contract unit test_deps_match_plan (vocals deps += lyrics, M3b), CONTRACT.md out of date (gen --check), ruff in src/mvh/stages/vocals/__init__.py. e2e/determinism pending.
+- Versatile final: instrumental, mouth frames>0.1 55 -> 0 (fallback suppressed, 0.7 s).
+- Megafauna: D (G1 0.571->0.667, G2 0.618 unchanged), voices 1, mouth identical. Synth: identical (B). All driver runs done.
+- Report written docs/build/reports/fixer-m5-r3.md (determinism pending).
+- Gate done: exit 1; fixture/review/validate/e2e/lib-node/determinism PASS (0/181 differ); M5 unit dirs pass; FAIL = contract unit (vocals deps, CONTRACT.md regen) + contract gen --check, both non-M5; ruff now clean. DONE, report final.

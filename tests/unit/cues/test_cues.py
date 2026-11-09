@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """cues on the synthetic song (fixture upstream = generator truth): tiers, D37 merging, lead-ins, references,
 pinned overrides, moments."""
 import json

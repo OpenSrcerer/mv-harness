@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """R-PLATFORM review of M6a: the ``mvh view`` server's POST validation and the safety of the user's files.
 
 Each test is the evidence of one finding in docs/build/reports/r-platform-m6a.md and FAILS until the server is fixed.

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Mood analysis core (numpy on top of the ONNX heads): 1 Hz valence/arousal/tag curves and section summaries.
 
 Scale: the emoMusic and DEAM heads output valence and arousal on a 1..9 scale; (x - 1) / 8 maps them to 0..1 (0.5 is the

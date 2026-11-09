@@ -61,3 +61,89 @@ New minor findings:
 |---|---|---|---|---|
 | r2-m1 | `instruments/__init__.py` CLAP block (`/ 0.01`) | Round-1 minor m1 is still there after the batching fix: the synth sub-type "share" is still a near one-hot per-second CLAP label. | Share of `inst.synth` > 0.3 frames where one sub-type holds > 90 %: synthetic song 0.849 (0.774 in round 1), Versatile 0.778. | As in m1: use a temperature matched to CLAP's spread (or z-score each prompt over time), and describe the channels as relative ranks. |
 | r2-m2 | `notes/__init__.py` floor branch / `piano_min_active_s` = 1.0 | In the pipeline, the new floor and its "active under the floor" warning can never fire: `stem_activity` sets `present` only for >= 2 s of activity (`min_present_s`) with conf >= 0.4, and notes skips a stem that is not present before it checks the floor. A short piano part that `stem_activity` misses (present false, present_energy true) is dropped with no warning, only a method string. | `stem_activity/core.py`: `present_energy = active_s >= min(min_present_s, 0.25 * duration)`, then `present = present_energy and conf >= min_conf`. `notes._stem_present` returns before the floor. | Warn in notes when `present_energy` is true but `present` is false for piano, guitar or bass. Alternatively, align the floor with `min_present_s` and drop the dead branch. |
+
+## Round 4 (reviewer r-ml-m3b-r4, W3)
+
+Fix verification, S04 (MEGAFAUNA: lyrics and singing have a singer, but vocals said none):
+
+- **Fixed in code, and not a test hack.** `vocals` now tracks the full `vocals` stem when lead_vocals' p95 is more than 20 dB below it
+  (`instruments/lead.py`, the same rule as lyrics). It reads `lyrics/lyrics.json`, and pitched frames inside aligned lines pass the
+  voice gate. Presence is also true when at least 4 pitched seconds fall inside at least 20 s of lines.
+- **Re-run on a copy of the integrator folder** (`out/_wip/r-ml-m3b-r4/megafauna`; stale upstream re-run with
+  `--only spectral..lyrics,vocals`):
+  - Result: `present` true, 6.96 voiced s, E3-E4, 10 phrases and 33 vocal notes (all three were 0 before).
+  - 6.89 of the 6.96 s lie inside lines, and 6.83 s of those lie inside aligned word spans. So the gated pitch follows the words,
+    not the synth intro: only 0.07 s lies outside lines.
+- **The integration test still fails as committed.** `tests/integration/M3b/test_real_vocal_presence.py` reads
+  `out/_wip/integrator/megafauna`, where vocals has not been re-run since 05:10. The integrator has to re-run vocals there.
+- **Regressions on real songs:** none outside vocals.
+  - jeremy: 194.0 → 196.3 voiced s, E3-C#5 tenor, 588 → 589 notes.
+  - newton-vs-nye: identical. The tagger's voice is 1.0 in every line, so no frame is admitted by lyrics alone.
+  - versatile: no lines. present stays false.
+  - MEGAFAUNA notes and instruments: counts identical, and `notes/notes.mid` is byte-identical to the integrator's.
+- **Tests:**
+  - tests/unit/{vocals,notes,instruments}: pass.
+  - tests/review/M3b/r-ml round-1/2 tests: 3 pass.
+  - `tests/unit/contract/test_catalog_dag.py::test_deps_match_plan` FAILS on `vocals`, because the new `lyrics` dependency is not
+    in PLAN_DEPS (see r4-m3).
+
+New majors (failing tests in tests/review/M3b/r-ml/, see the report):
+- **R-ML-M3b-r4-1:** lyric lines with no acoustic timing still gate voice. `_lyric_mask` ignores `timing_source`, `conf` and
+  `grade`, so interpolated or lrclib_line lines with conf 0 turn a synth lead into a singer.
+  Test: `test_vocals_lyric_gate_hallucination.py` (synth sawtooth gives present, 24.96 s, p2 57 / p98 69, 52 notes).
+- **R-ML-M3b-r4-2:** lyric-only frames are tallied as singing, which flips a rap lead to `singing` and runs the range statistics over
+  the rap. Test: `test_vocals_lyric_frames_flip_rap.py`. None of the 4 real songs triggers it today.
+
+New minor findings:
+
+| id | where | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| r4-m1 | `contract/catalog.py` CONSUMES["vocals"] (frozen; integrator) | vocals now also reads `file:lyrics/lyrics.json (lines t/d)`, `audio:vocals`, `curve:stem.vocals.active` and `file:meta/stems.json stems.vocals.present`. The catalogue lists only lead_vocals inputs. The decision file I-M3b-14 mentions only the lyrics file. | `vocals/__init__.py` L68, L103-L108, L145; catalog.py L789. | Add the four inputs to CONSUMES["vocals"] with the PLAN_DEPS change. |
+| r4-m2 | `vocals/__init__.py` STAGE.params | `lyric_min_voiced_s` (4) and `lyric_min_s` (20) are read with `prm.get(..., default)` but are not declared in STAGE.params. They are absent from the declared defaults and from the provenance params, so the human-correction surface does not show them. The I-M3b-14 text names them as params. | STAGE.params keys end at `lyric_pad_s`. | Declare both in STAGE.params. |
+| r4-m3 | `tests/unit/contract/test_catalog_dag.py` PLAN_DEPS (integrator) | Gate regression from the S04 fix: `test_deps_match_plan` fails on vocals. This is already routed in docs/contract/decisions/M3b.md. | pytest: 1 failed, 53 passed (unit vocals/notes/instruments + DAG). | Integrator: `"vocals": {..., "lyrics"}`. Also re-run vocals in out/_wip/integrator so the S04 test sees the fix. |
+| r4-m4 | `instruments/__init__.py` vocal style (SwiftF0 sustain on `lead_vocals`) | On MEGAFAUNA vocals now pitch-tracks the `vocals` stem, but the style tagger's pitch-sustain feature still runs on lead_vocals (-74 dBFS p95). That leaves no sustain evidence, so the style tally there is 7 s `speech`. vocal_range then reports style `speech` and basis "sung frames (rap/speech-dominant lead)" for a lead that lyrics, voices and meaning treat as sung. | Probe of out/_wip/r-ml-m3b-r4/megafauna: vocal_style secs {speech: 7.0}; vocal_range.style speech. | Use `lead.pick_lead_stem` in instruments' style block as well (same 20 dB rule). This needs an instruments re-run, which only invalidates instruments and vocals. |
+| r4-m5 | `vocals/__init__.py` stem rescue via the stem vote | On Versatile (lyrics instrumental, 0 lines) the stem vote triggers the vocals-stem rescue. vocal notes rise 16 → 27 and phrases 6 → 10 while `present` stays false. choreo (`notes.vocals`, `vocal_phrases`) and brief read those events whatever `present` says. | Probe of out/_wip/r-ml-m3b-r4/versatile: present false, 5.59 voiced s, 27 notes, 10 phrases. | Either take the rescue only with lyric lines, or flag the events (or leave them empty) when `present` is false. |
+| r4-obs | runner (not M3b) | Observation for R-PLATFORM: an `--only vocals` run refused because upstream was stale dropped all `vocal.*` channels from curves/index.json and curves/vocal.f32, while the vocals event and meta files stayed. | Copy of megafauna at 08:34. | Keep the curve files of stages that did not run. |
+
+## Round 5 (reviewer r-ml-m3b-r5, W3)
+
+Fix verification:
+- **R-ML-M3b-r4-2 (lyric-only frames flip a rap lead to singing): fixed, and the fix is real.** Untagged voiced frames
+  inside lines now take the tagger's dominant style, so a missed rap verse stays rap. `test_vocals_lyric_frames_flip_rap.py`
+  passes with MVH_REAL=1 (style rap, basis null). **But the fix regresses MEGAFAUNA** (new major R-ML-M3b-r5-2): the
+  inheritance also applies to "speech", which the r4 suggestion carved out.
+- **R-ML-M3b-r4-1 (lyric lines without acoustic support open the gate): only partly fixed.**
+  `test_vocals_lyric_gate_hallucination.py` passes, but only because it uses `timing_source` "interpolated" with conf 0.
+  - The `conf <= 0.02` part never fires on real data. `lyrics/core._word_conf` floors word confidence at 0.1, so every
+    line has conf >= ~0.06. Measured: every line on megafauna, newton-vs-nye and jeremy is "ctc", with conf 0.09-1.0.
+  - Forced alignment always places supplied text, so a supplied line is "ctc" or "stable_ts", never "interpolated".
+  - End-to-end evidence: `out/_wip/r-ml-m3b-r5/karaoke`, a 40 s voiceless synthetic song (clicks, bass, saw lead) analysed
+    with 8 user lines. Result: 7 ctc lines (conf 0.12-0.30, line grade D) plus 1 stable_ts line (conf 0.72), song grade D,
+    34.5 s of coverage. vocals logged "lyric coverage 34.5 s in 8 line(s) counted as voice evidence". It stayed
+    `present` false there only because the separator put the saw in "other".
+  - Re-reported as R-ML-M3b-r5-1 with the measured lines.
+
+Real-song reruns (copies of r4's folders; spectral..lyrics re-run because rhythm and lyrics were stale, then vocals):
+- **megafauna:** present true, 6.96 voiced s, vocal notes and phrases have the same counts as r4. **The range is now null**: r4 had
+  E3-E4, p2 52.1 / p98 67.0, alto, conf 0.44. Now spoken_pitch covers 6.96 s and style is speech. `notes/notes.mid`
+  is byte-identical.
+- **newton-vs-nye:** identical to r4 and to the integrator: 72.12 s, rap, range null, spoken_pitch 72.12 s, 259 notes,
+  `notes.mid` identical.
+- **Tests:** tests/unit/vocals 18 pass (6 real tests skip without MVH_REAL), and both r4 review tests pass with MVH_REAL=1.
+- **`tests/integration/M3b/test_real_vocal_presence.py`** still reads the stale integrator folder (vocals 05:10,
+  present false). On the r5 rerun `present` is true, so it would pass once the integrator re-runs lyrics and vocals.
+
+New majors (failing tests in tests/review/M3b/r-ml/, see docs/build/reports/r-ml-m3b-r5.md):
+- **R-ML-M3b-r5-1:** forced-aligned lines on a voiceless song still open the voice gate.
+  Test: `test_vocals_ctc_lines_on_voiceless_song.py`. Result: present, 27.1 s, p2 57 / p98 69, 58 notes.
+- **R-ML-M3b-r5-2:** the r4-2 fix makes untagged sung frames inherit a stray "speech" label, which erases MEGAFAUNA's range.
+  Test: `test_vocals_inherited_speech_drops_range.py`. Result: range null, spoken 23.2 s.
+
+New or still-open minor findings:
+
+| id | where | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| r5-m1 | `vocals/__init__.py` `_lyric_mask` L78 | The filter strings "user_line" and "none" are not in the contract's `timing_source` enum (catalog.py L559), so they are dead. The conf test is also dead (see r5-1). | catalog enum: user, lrclib_word, lrclib_line, ctc, whisper, stable_ts, interpolated. | Keep only enum values, and use a working signal (see r5-1). |
+| r4-m2 (still open) | `vocals/__init__.py` STAGE.params | `lyric_min_voiced_s` and `lyric_min_s` are still undeclared, so they are missing from the provenance params (checked in the karaoke run's done.json). | `provenance.params` ends at `lyric_pad_s`. | Declare them. |
+| r4-m4 (now consequential) | `instruments` vocal style on `lead_vocals` | The stray "speech" label that r5-2 inherits comes from CED and SwiftF0 run on MEGAFAUNA's near-silent lead_vocals. | vocal_style {speech: 7 s}; it covers 0.07 of 6.96 voiced s. | Use `lead.pick_lead_stem` in the style block too. |
+| r5-m2 | integrator folder | `out/_wip/integrator/megafauna` still holds the 05:10 vocals output, so the S04 integration test fails on stale data, not on code. | vocal_range present false, 0 voiced s; the r5 rerun gives present true. | Integrator: re-run lyrics and vocals. |

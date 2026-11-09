@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lipsync: the sustain-extended gate on synthetic envelopes, and the stage on the synthetic song's TRUTH lyrics
 and voice spans (copied from tests/contract/synth): per-voice channels, duet overlap, ungated fallback, Rhubarb
 visemes (when Rhubarb is installed) and g2p phonemes. No ML models; Rhubarb runs on synthetic TTS only."""

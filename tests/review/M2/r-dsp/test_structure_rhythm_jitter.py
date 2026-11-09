@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 round 3, finding F4-r3 (major): F4-r2 is fixed only for the fixture's exact (truth) rhythm. The structure
 stage's result flips on bar-time jitter of 1-2 frames (10-20 ms), well inside the rhythm tolerance (beats F1 at +-70 ms),
 so the full ``mvh analyze`` of the synthetic song still gets the sections wrong.

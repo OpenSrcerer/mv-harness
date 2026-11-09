@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """The harmony and mood stage declarations honour the frozen catalogue (deps, env, outputs) and name real model ids."""
 import json
 from pathlib import Path

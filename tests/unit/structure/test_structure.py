@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """structure on the synthetic song (upstream = the fixture's exact rhythm/allin1/harmony/dynamics) scored against
 the generator truth; DP, overrides and the degraded paths."""
 import numpy as np

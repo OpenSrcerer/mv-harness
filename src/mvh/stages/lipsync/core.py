@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lipsync orchestration (PLAN §5 lipsync, SPIKE, bench-words §7, CONTRACT D16).
 
 Must: ``vocal.mouth_open`` (100 Hz, 0..1, policy max) = the lead-vocal envelope (RMS, 10 ms attack / 60 ms release
@@ -168,6 +167,15 @@ def run(ctx) -> StageResult:  # noqa: C901
                 if v is not None:
                     fb_voice.setdefault(v, np.zeros(n, dtype=np.float32))[i:j] = 1.0
             i = j
+        # M5-D49: lyrics says instrumental (no lines, no voices): a vocal chop or sample is no singing character.
+        # The fallback stays only for a substantial wordless vocal (a vocalise), >= instrumental_fallback_min_s.
+        min_instr = float(p.get("instrumental_fallback_min_s", 8.0))
+        if fb_seconds and lyr.get("instrumental") and not words and fb_seconds < min_instr:
+            notes.append(f"ungated fallback suppressed: lyrics is instrumental and only {fb_seconds:.1f} s of "
+                         f"wordless vocals (< {min_instr:.0f} s)")
+            fb_gate[:] = 0.0
+            fb_voice = {}
+            fb_seconds = 0.0
         if fb_seconds:
             notes.append(f"ungated fallback over {fb_seconds:.1f} s of wordless vocals")
             fallbacks.append("lipsync:ungated_wordless")

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Transcription of lead_vocals (PLAN §5 lyrics 1.4, SPIKE):
 
 * default: faster-whisper large-v3, int8 on CPU, ``cpu_threads = ctx.threads``, numpy array in (never a path),
@@ -25,7 +24,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
-__all__ = ["transcribe", "filter_segments", "match_score", "ffmpeg_whisper", "asr_words"]
+__all__ = ["transcribe", "filter_segments", "match_score", "ffmpeg_whisper", "asr_words", "load_model",
+           "uncovered_regions", "transcribe_regions"]
 
 # credit strings: never sung, dropped unconditionally
 NONLYRIC = re.compile(r"^\s*[\(\[\*♪].*[\)\]\*♪]\s*$|subtitles?\s+(?:by|made)|amara\.org|"
@@ -38,29 +38,92 @@ NONLYRIC_GENERIC = re.compile(r"please\s+(?:like|share)|see\s+you\s+(?:in\s+the\
 NONLYRIC_SHORT = re.compile(r"\b(music|applause|instrumental|silence|laughter|outro|intro)\b", re.I)
 
 
-def transcribe(audio16k: np.ndarray, model_dir: Path | str, threads: int, *, language: str | None = None,
-               vad: bool = True, beam_size: int = 5) -> dict[str, Any]:
+def load_model(model_dir: Path | str, threads: int):
     from faster_whisper import WhisperModel
 
-    m = WhisperModel(str(model_dir), device="cpu", compute_type="int8", cpu_threads=max(1, int(threads)), num_workers=1)
+    return WhisperModel(str(model_dir), device="cpu", compute_type="int8", cpu_threads=max(1, int(threads)), num_workers=1)
+
+
+def _segments(segs_it, shift: float = 0.0) -> list[dict[str, Any]]:
+    segs = []
+    for s in segs_it:
+        segs.append({"start": float(s.start) + shift, "end": float(s.end) + shift, "text": s.text,
+                     "avg_logprob": float(s.avg_logprob), "no_speech_prob": float(s.no_speech_prob),
+                     "compression_ratio": float(s.compression_ratio),
+                     "words": [{"w": w.word, "start": float(w.start) + shift, "end": float(w.end) + shift,
+                                "p": float(w.probability)} for w in (s.words or [])]})
+    return segs
+
+
+def transcribe(audio16k: np.ndarray, model_dir: Path | str, threads: int, *, language: str | None = None,
+               vad: bool = True, beam_size: int = 5, model: Any = None) -> dict[str, Any]:
+    m = model if model is not None else load_model(model_dir, threads)
     kw: dict[str, Any] = dict(word_timestamps=True, condition_on_previous_text=False, beam_size=beam_size,
                               temperature=0.0, vad_filter=vad)
     segs_it, info = m.transcribe(np.ascontiguousarray(audio16k, dtype=np.float32), language=language, **kw)
-    segs = []
-    for s in segs_it:
-        segs.append({"start": float(s.start), "end": float(s.end), "text": s.text, "avg_logprob": float(s.avg_logprob),
-                     "no_speech_prob": float(s.no_speech_prob), "compression_ratio": float(s.compression_ratio),
-                     "words": [{"w": w.word, "start": float(w.start), "end": float(w.end), "p": float(w.probability)}
-                               for w in (s.words or [])]})
+    segs = _segments(segs_it)
     return {"engine": "faster-whisper large-v3 int8", "language": info.language,
             "language_prob": float(info.language_probability), "segments": segs, "vad": vad}
 
 
+def uncovered_regions(segs: Sequence[dict[str, Any]], active: np.ndarray, rate: float = 100.0, min_s: float = 6.0,
+                      pad_s: float = 0.5, bridge_s: float = 1.0) -> list[tuple[float, float]]:
+    """Spans of lead-vocal activity (>= ``min_s``) that no ASR segment covers (segments padded by ``pad_s``; active
+    runs closer than ``bridge_s`` are joined). Silero VAD can reject long sung passages (Jeremy: nothing after
+    172 s of 285 s of singing); these spans get a second, VAD-free pass (M5-D50)."""
+    act = np.asarray(active, dtype=np.float32) > 0.5
+    n = len(act)
+    if not n:
+        return []
+    cov = np.zeros(n, dtype=bool)
+    for s in segs:
+        a, b = int(max(0.0, s["start"] - pad_s) * rate), int((s["end"] + pad_s) * rate) + 1
+        cov[max(0, a):min(n, b)] = True
+    cand = act & ~cov
+    runs: list[list[int]] = []
+    i = 0
+    while i < n:
+        if not cand[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and cand[j]:
+            j += 1
+        if runs and i - runs[-1][1] <= bridge_s * rate and not cov[runs[-1][1]:i].any():
+            runs[-1][1] = j
+        else:
+            runs.append([i, j])
+        i = j
+    return [(a / rate, b / rate) for a, b in runs if (b - a) >= min_s * rate]
+
+
+def transcribe_regions(audio16k: np.ndarray, regions: Sequence[tuple[float, float]], model: Any, *,
+                       language: str | None, beam_size: int = 5, context_s: float = 1.0,
+                       sr: int = 16000) -> list[dict[str, Any]]:
+    """VAD-free transcription of each region (with ``context_s`` audio on both sides), times shifted back to the
+    song clock; segments whose middle lies outside the region are discarded (the context belongs to neighbours)."""
+    out: list[dict[str, Any]] = []
+    x = np.ascontiguousarray(audio16k, dtype=np.float32)
+    kw: dict[str, Any] = dict(word_timestamps=True, condition_on_previous_text=False, beam_size=beam_size,
+                              temperature=0.0, vad_filter=False)
+    for a, b in regions:
+        t0 = max(0.0, a - context_s)
+        t1 = min(len(x) / sr, b + context_s)
+        segs_it, _info = model.transcribe(x[int(t0 * sr):int(t1 * sr)], language=language, **kw)
+        for s in _segments(segs_it, shift=t0):
+            mid = 0.5 * (s["start"] + s["end"])
+            if a <= mid <= b:
+                out.append(s)
+    return out
+
+
 def _generic_suspect(s: dict[str, Any], active: np.ndarray | None, rate: float) -> bool:
-    """A segment with an ordinary-lyric-looking outro phrase is a hallucination only with a second signal: a
-    high no-speech probability, weak confidence, little vocal activity, or a place at the very start / end of the
-    audio. A confident segment in the middle of active vocals is sung text."""
-    if s["no_speech_prob"] > 0.4 or s["avg_logprob"] < -1.0:
+    """A segment with an ordinary-lyric-looking outro phrase is a hallucination only with a second signal: weak
+    confidence (alone, or a high no-speech probability together with a mediocre logprob), little vocal activity,
+    or a place at the very start / end of the audio. A confident segment in the middle of active vocals is sung
+    text. no_speech_prob alone is no signal: faster-whisper computes it once per 30 s window and singing raises it
+    (0.4-0.8 on confident sung segments of the real songs, M5-D47)."""
+    if s["avg_logprob"] < -1.0 or (s["no_speech_prob"] > 0.6 and s["avg_logprob"] < -0.7):
         return True
     ps = [x.get("p") for x in s["words"] if x.get("p") is not None]
     if ps and float(np.mean(ps)) < 0.6:
@@ -130,6 +193,43 @@ def asr_words(segs: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
             for x in norm_words(w["w"]):
                 out.append({"n": x, "start": w["start"], "end": w["end"], "p": w.get("p")})
     return out
+
+
+def canonicalise(aw: Sequence[dict[str, Any]], ref: Sequence[tuple[float, str]], *, window_s: float = 3.0,
+                 min_ratio: float = 80.0, min_len: int = 4) -> tuple[list[str], int]:
+    """ASR comparison words with near-misses snapped to the text (M5-D53): an ASR word of >= ``min_len`` letters
+    that is not in the text within ``window_s`` but is a close spelling of a text word there (rapidfuzz ratio >=
+    ``min_ratio``: 'spoken'/'spoke', 'colour'/'color', a sung vowel heard differently) counts as that word.
+    Returns (words, number snapped). Wrong-text controls (jeremy ASR vs newton text and back) do not move."""
+    from rapidfuzz import fuzz
+
+    times = np.asarray([t for t, _ in ref], dtype=np.float64)
+    order = np.argsort(times, kind="stable")
+    ts = times[order]
+    out: list[str] = []
+    n_snap = 0
+    for w in aw:
+        n = w["n"]
+        if len(n) < min_len or not len(ts):
+            out.append(n)
+            continue
+        a, b = np.searchsorted(ts, w["start"] - window_s), np.searchsorted(ts, w["start"] + window_s, side="right")
+        cands = sorted({ref[int(order[k])][1] for k in range(a, b)})
+        if n in cands:
+            out.append(n)
+            continue
+        best_sc, best = 0.0, None
+        for c in cands:
+            if len(c) >= min_len:
+                sc = fuzz.ratio(n, c)
+                if sc > best_sc:
+                    best_sc, best = sc, c
+        if best is not None and best_sc >= min_ratio:
+            out.append(best)
+            n_snap += 1
+        else:
+            out.append(n)
+    return out, n_snap
 
 
 def match_score(asr: Sequence[str], ref: Sequence[str]) -> dict[str, Any]:

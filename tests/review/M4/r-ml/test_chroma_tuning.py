@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4: the chroma tuning correction is applied at one third of its size.
 
 ``chroma._compute_chroma`` estimates the tuning with ``librosa.estimate_tuning(..., bins_per_octave=12)``, which

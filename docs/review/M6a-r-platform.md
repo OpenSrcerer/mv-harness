@@ -59,3 +59,66 @@ success path, but the new failure branch for Undo is wrong. That is the new majo
 Rechecked in round 3: the edit-mode synth page and the real-megafauna page load and play in Claude_Browser. The ANSI-intent folder loads in edit mode. All 65 tests
 in `tests/unit/viewer` and `tests/review/M6a` from rounds 1 and 2 pass. The Claude_Browser pane refused `file://` URLs in this session, so file:// mode was
 covered by the headless-Edge tests in `test_browser_viewer.py` (pass).
+
+## Round 4 (W3 verify, r-platform-m6a-r4)
+
+F-R3-UNDO-FAIL is fixed for real. `undo()` passes the entry it popped to `save()`, and the failure branch pushes back that
+entry. `undo()` returns at once while `st.saving` is set. I checked it against the real server, not only the CDP stub: on a
+served copy of the integrator's megafauna folder I made edits of 10, 20 and 30 ms and set `overrides.json` read-only. One
+Undo then got the real `503 could not write overrides.json (PermissionError)` after 13.2 s, and a second Undo sent 50 ms
+later was ignored. I cleared the flag, and Undo, Undo, Undo gave 0.02, 0.01 and null on disk. Two Ctrl+Z presses 5 ms
+apart now give one Undo, and the following ones step 0.02, 0.01, null without a 409.
+
+There is one new major (F-R4-VOICE-FLOOR). It is in the voices stage's reading of the viewer's voice mapping (seam S10 / D51).
+See the report and `test_r4_platform.py`.
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m14 | `edit.js` `st.saving` / `commit` / `undo` | The new "ignore Undo while saving" guard is one boolean, so the first save that returns clears it while a later save is still in flight. Make edit A, then edit B before A returns. If Undo is pressed after A returns but before B's 409 comes back, Undo pops B's history entry and B's failure branch then pops A's. The history is empty: the Undo button is disabled, edit A is on disk and cannot be undone, and edit B was never saved. No correction on disk is lost, but the undo stack is. This is the same family as m9. | Claude_Browser on served megafauna, with the second overrides POST delayed 800 ms. `setRhythm(0.01)` and `setRhythm(0.02)` are sent back to back, then Undo after A returns. Result: disk 0.01, Undo button `disabled: true`, and two more `Edit.undo()` calls leave disk at 0.01. | Serialise saves with one promise chain: `commit` and `undo` await the save in flight, then rebase on its result and etag. Alternatively, count the saves in flight instead of using a boolean. |
+| m15 | `edit.js` `undo` | An Undo or Ctrl+Z pressed while a save is in flight is dropped with no message. The user presses again and gets one fewer Undo than expected. | Same run: the second `Edit.undo()`, sent 50 ms after the first, returned at once and sent no POST. | Show a short toast ("still saving...") or queue the Undo. |
+| m6 (still open) | `intent_block._validate_section` | `POST /api/intent` with `t1: 1e999` still answers 200. The section disappears from the parsed state. | Claude_Browser, served megafauna: status 200, `intent.sections` = `[]` | `math.isfinite` on t0 and t1. |
+| m7 (still open) | `audio.js` | A `viewer.html` copied alone into a folder (here a Unicode path `ünï cødé ☃ solo`) logs two `ERR_FILE_NOT_FOUND` errors before it falls back to the inline preview. Playback then works. | `file_probe.py`, headless Edge on both real songs: ready, playing, `currentTime` 2.44 vs `V.t` 2.43 | as before |
+
+Rechecked in round 4 (no finding):
+- I rebuilt `viewer.html` with the current viewer code for the integrator's megafauna and newton-vs-nye folders. The runner
+  refused `--only viewer` because structure, lyrics and the other upstream stages are stale in the integrator's cache;
+  `out/_wip/r-platform-m6a-r4/build_real.py` calls the real stage on the folder instead. I served both folders with `mvh view`:
+  - all 11 lanes are present (sections, meaning, lyrics, beats, hits, bands, loud, instruments, notes, vocal, cues);
+  - there are no console errors and no lane errors;
+  - `A.el.currentTime` and `V.t` agree within 9 ms;
+  - newton-vs-nye shows 4 voices, with all 53 lines assigned.
+- From `file://` (headless Edge), both songs load, play and stay synced with no console errors when opened inside the song folder.
+- With `viewer.inline_lyrics=false` (D52 `--no-lyrics-to-agents`), I checked all 62 inlined files for newton-vs-nye
+  (`privacy_probe.py`). None contains a whole lyric line, and none contains more than 10 of the lyric's distinct long words.
+- I wrote a voice mapping with a Unicode name (V2 -> C1, V3 -> C2), and the voices stage's reader read it back.
+  The affected list is voices, lipsync, meaning, brief, viewer.
+- Every override key the viewer writes (rhythm x3, structure x2, lyrics x2, voices.lines, cues.pinned) is declared in a stage's
+  `override_keys` and read by that stage.
+
+## Round 5 (W3 verify, r-platform-m6a-r5)
+
+**F-R4-VOICE-FLOOR is not fixed.** `voices/intent.py` (`_merge_viewer_block`) and `voices/core.py` (`elif n_int:`) have not changed since round 4.
+The fixer's report (`docs/build/reports/fixer-m6a-r4.md`) defers the finding as a voices-stage change request and only re-applies the round-3 `edit.js` fix.
+`test_r4_platform.py` still fails 3 of 3 cases (the baseline passes): mapping V1 gives 1 voice, mapping V1 and V2 gives 2, and mapping V2 and V3 gives 3.
+
+There is one new **blocker**, F-R5-APPLIED-BOUNDARY, with failing tests in `test_r5_platform.py`.
+- The structure stage records its applied overrides as one provenance entry per edit (`{"key": "structure.boundaries", "value": {action, t, to_t}}`), and the runner stamps that list into `events/sections.json`.
+- `data.js` `appliedOverrides()` keeps the last value per key, which is an object, and `edit.js` `pendingBoundaries()` calls `.map` on it.
+- After the user moves, adds or removes a section boundary in the viewer and re-runs, `mvh view` shows only "The viewer could not load this song". From file://, the Sections lane errors on every draw.
+- I reproduced this on the W3 critic's real round trip (`out/_wip/critic-w3/rt-synth`, copied to `out/_wip/r-platform-m6a-r5/rt-synth`). In Claude_Browser the page showed the fatal screen with `TypeError: (appliedOverrides(...).structure.boundaries || []).map is not a function at pendingBoundaries ... refreshPanel ... initUI`.
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m16 | `server.py` (no `/favicon.ico`), `template.html` (no `<link rel=icon>`) | In served mode every page load logs two console errors, `Failed to load resource: 404 favicon.ico`. The page works; the errors are noise in console checks. File mode is clean. | Headless Edge (`cdp_viewer.mjs` playhead) on served jeremy and versatile: `consoleErrors` = 2 favicon 404s. In file:// mode: `[]`. | Add `<link rel="icon" href="data:,">` to the template, or answer 204 for `/favicon.ico`. |
+| m17 | `lanes.js` `drawPendingLabels` | Section-label overrides are drawn as pending (`● intro`) even after the structure stage applied them. Unlike boundaries, labels are not compared with the applied list. | rt-synth served: `V.ovr.structure.labels` [{t 4, intro}] is applied (`appliedOverrides('sections')` has it). `drawPendingLabels` draws every `V.ovr` label with no check against the applied list (code reading; the hidden pane did not draw the canvas). | Filter out the labels that `provenance.overrides_applied` lists, in the same way as boundaries once F-R5 is fixed. |
+| m6 (still open) | `intent_block._validate_section` | `POST /api/intent` with `t1: 1e999` answers 200 and the section disappears. | Claude_Browser on served jeremy (my copy): status 200, `sections` `{}` afterwards | `math.isfinite` on t0 and t1. |
+
+Rechecked in round 5 (no finding):
+- I copied jeremy and versatile from the integrator (`copy_song.py`, without `.cache` or `.wav`) and rebuilt `viewer.html` with the current code (15.9 MB and 11.0 MB).
+- Both songs show all 11 lanes in served edit mode, with no lane errors.
+- In headless Edge, served and file:// modes are ready and play, and `currentTime` and `V.t` agree within 10 ms. The file:// console is clean.
+- Versatile is instrumental, and the viewer correctly shows "no lyrics".
+- The Claude_Browser pane was hidden in this session, so `requestAnimationFrame` never fired there (`V.t` stuck at 0 while audio played). I measured sync in headless Edge instead.
+- A viewer block with Unicode names, ` / ` line joins, palette and do-not rules round-trips through the meaning stage's parser (current `meaning/intent.py`).
+- Every override key the viewer writes is still declared and read: rhythm x3, structure x2, lyrics x2, `voices.lines`, `cues.pinned`.
+- Of the stages, only structure and cues write their own `overrides_applied`. Lyrics and rhythm use the runner's per-key default, which the viewer handles.

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """Fitting separator I/O to the song's timebase (main env).
 
 Separators run at 44.1 kHz stereo. Stems must be sample-aligned with the mix, the same length and the same

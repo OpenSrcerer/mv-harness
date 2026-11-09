@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Thin adapters: raw W0 outputs in tests/.cache/real/<slug>/ -> contract-layout folders tests/contract/real-<slug>/.
 
 These folders give module builders REAL upstream inputs (stems, beats, sections, notes, lyrics, ...) for the stages

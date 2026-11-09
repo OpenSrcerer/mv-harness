@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Contract schemas: build (from catalog.py), load (from schema/), validate (main env only).
 
 Schema ids are ``mvh/<group>/<name>`` and live at ``src/mvh/contract/schema/<group>/<name>.schema.json``

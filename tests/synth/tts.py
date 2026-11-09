@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Windows SAPI TTS (voices David and Zira) and LPC "singing" resynthesis.
 
 Word clips

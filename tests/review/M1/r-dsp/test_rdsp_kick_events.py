@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long assertion messages)
 """R-DSP review (M1 spectral): hits.kick events against exact one-shot truth (PLAN §7: kick events F1 >= 0.95 at
 +-10 ms, event time = the one-shot's first sample) in the textures the builder's tests leave out: a bass note that
 starts WITH the kick, the contract fixture song itself, and kick-free material."""

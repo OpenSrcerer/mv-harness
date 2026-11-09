@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """singing.json and lines.tsv scored against the synthetic ground truth (PLAN §7: >= 90 % of lines correct after
 the voice -> character mapping; the synthetic duet must be exact)."""
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """voices on the synthetic song (two SAPI voices, call-and-response verse, duet chorus with the second voice on
 backing_vocals) through ECAPA, on the fixture's TRUTH lyrics: the estimate finds 2 voices, >= 90 % of the lead
 lines get the right voice (PLAN §7 gate for line attribution), the duet lines carry a backing span of the other

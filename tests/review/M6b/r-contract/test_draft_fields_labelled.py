@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) F2: draft claims are presented as the user's when a section mixes user and draft fields.
 
 PLAN §1/§8: a draft "fills only the gaps, is labelled as a draft". The meaning stage merges per field (meaning.json

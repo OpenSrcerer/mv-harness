@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """R-PLATFORM review helpers for M6a: build a served song folder from the synthetic fixture with the REAL viewer stage,
 start ``mvh view``'s server, and drive the page in a real headless browser (cdp_viewer.mjs).
 

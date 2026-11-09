@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Rhythm fusion core on synthetic activations (no models, fast)."""
 import numpy as np
 import pytest

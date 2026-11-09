@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 (major x2): word alignment on the synthetic song with a correct line-synced LRC.
 
 Input: the fixture's own ``_truth/lyrics_input.lrc`` with the A2 word tags removed, i.e. an LRC whose line

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Pure pitch logic of the vocals stage (no models)."""
 
 from __future__ import annotations

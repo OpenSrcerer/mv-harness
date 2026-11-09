@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b F5 and F6 (major): draft text reaches places the privacy and quote rules forbid.
 
 F5 (NF5, CONTRACT §1 "never ... error messages", D42): cites.check_claims reports a malformed citation id with

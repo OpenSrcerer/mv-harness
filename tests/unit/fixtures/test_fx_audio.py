@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """The fixture's audio agrees with its truth: stems sum to the mix, onsets sit where the truth says, f0 matches the notes."""
 
 import numpy as np

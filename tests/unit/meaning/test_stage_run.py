@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """The meaning stage through the runner's child entry point (Ctx, Writer, schema validation, done.json), the
 inputs-are-never-written rule, and the real-song runs (opt-in)."""
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """The separate_hq worker job (runs in the sep env: ``envs/sep/.venv-<variant>``; docs/spike/sep.md §4-§6).
 
 Lifted from ``envs/sep/tools/separate_song.py``. Called by ``mvh.worker`` as
@@ -15,6 +14,13 @@ other agents wait at most one model (``job["params"]["heavy_locks"]`` false disa
 configured without any re-levelling: ``normalization_threshold = 100.0`` set as an ATTRIBUTE after construction
 (the constructor rejects values above 1), ``amplification_threshold = 0.0``, float WAV output
 (``use_soundfile=True`` + float32 input), explicit model files from ``job["models"]``.
+
+DrumSep runs on the CPU by default (``params["drumsep_device"]``, CONTRACT D47): MDX23C is a convolution network,
+and on ROCm MIOpen picks its convolution kernels from the free GPU workspace, so the sub-stems change in the last
+bits (about 1e-8) whenever something else holds GPU memory, which breaks the NF1 determinism diff. The CPU path is
+bit-reproducible (measured: two runs identical, 1.45 x real time at 6 threads). The RoFormer models stay on the GPU:
+their run-to-run last-bit changes (atomic ``scatter_add_`` in the Mel mask sum, an auto-tuned SDPA kernel) are removed by
+``mvh.sep.determinism`` (R4-2). ``"auto"`` keeps the old GPU behaviour for DrumSep.
 
 Imports: stdlib + numpy at module level; torch and audio_separator inside ``run_job``.
 """
@@ -83,6 +89,8 @@ def _make_separator(model_dir: Path, out_dir: Path, overlap: int, segment_size: 
 def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     import importlib.metadata as md
 
+    if str(job.get("variant", "cpu")) == "rocm" and "ROCBLAS_USE_HIPBLASLT" not in os.environ:
+        os.environ["ROCBLAS_USE_HIPBLASLT"] = "0"   # before torch loads rocBLAS: bit-reproducible GEMMs (mvh.sep.determinism)
     import torch
 
     from mvh.io.wav import read_wav
@@ -95,6 +103,9 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     use_locks = bool(params.get("heavy_locks", True))
     norm_t = float(params.get("normalization_threshold", 100.0))
     amp_t = float(params.get("amplification_threshold", 0.0))
+    drumsep_device = str(params.get("drumsep_device", "cpu"))
+    if drumsep_device not in ("cpu", "auto"):
+        raise RuntimeError(f"drumsep_device must be 'cpu' or 'auto', got {drumsep_device!r}")
     out_dir = Path(out_dir)
     work = Path(job.get("scratch") or out_dir.parent) / "_work"
     if work.exists():
@@ -121,22 +132,38 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
         step_dir = work / key
         step_dir.mkdir(parents=True, exist_ok=True)
         slot = None
+        on_cpu = variant != "rocm" or (key == "drumsep" and drumsep_device == "cpu")
         if use_locks:
             from mvh.runner import locks
 
-            slot = locks.acquire(f"mvh:separate_hq:{variant}:{key}", gpu=(variant == "rocm"), poll=2.0)
+            slot = locks.acquire(f"mvh:separate_hq:{variant}:{key}", gpu=not on_cpu, poll=2.0)
         try:
             t0 = time.time()
+            if not on_cpu:
+                from mvh.sep.determinism import prefer_rocblas
+
+                prefer_rocblas()
             sep = _make_separator(ck.parent, step_dir, overlap, segment_size, threads, norm_t, amp_t)
+            if on_cpu:
+                # read by load_model() (common_params): the architecture puts the model and the data on this device
+                sep.torch_device = torch.device("cpu")
             sep.load_model(model_filename=ck.name)
             t1 = time.time()
-            sep.separate(str(inputs[inp]), custom_output_names=names)
-            if variant == "rocm":
+            if on_cpu:
+                sep.separate(str(inputs[inp]), custom_output_names=names)
+            else:
+                # atomic float scatter_add_ in the Mel-RoFormer mask sum and an auto-tuned SDPA kernel: run-to-run
+                # last-bit changes on a GPU (NF1)
+                from mvh.sep.determinism import deterministic_roformer
+
+                with deterministic_roformer():
+                    sep.separate(str(inputs[inp]), custom_output_names=names)
+            if not on_cpu:
                 torch.cuda.synchronize()
             t2 = time.time()
             devices[key] = str(getattr(sep, "torch_device", "?"))
             del sep
-            if variant == "rocm":
+            if not on_cpu:
                 torch.cuda.empty_cache()
         finally:
             if slot is not None:
@@ -170,7 +197,8 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             "timings": timings,
             "settings": {"normalization_threshold": norm_t, "amplification_threshold": amp_t, "overlap": overlap,
                          "segment_size": segment_size, "sample_rate": 44100, "output": "WAV float32 (use_soundfile)",
-                         "threads": threads},
+                         "threads": threads, "drumsep_device": drumsep_device,
+                         "deterministic_roformer": True},
         },
         "provenance": {"tools": [{"name": "audio-separator", "version": asv}, {"name": "torch", "version": torch.__version__}]},
     }

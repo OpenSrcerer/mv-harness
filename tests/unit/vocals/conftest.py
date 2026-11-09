@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """M3b unit-test setup (owner builder-m3b): markers, and the shared synthetic run of instruments -> notes -> vocals."""
 
 from __future__ import annotations

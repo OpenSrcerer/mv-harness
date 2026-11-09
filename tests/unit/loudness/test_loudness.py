@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """loudness stage: EBU Tech 3341 / 3342 conformance (PLAN §7: +-0.1 LU; LRA +-1 LU per Tech 3342), true peak, the
 ffmpeg ebur128 cross-check (+-0.5 LU), the centred curve convention, the RMS/peak/crest curves and the contract output."""
 

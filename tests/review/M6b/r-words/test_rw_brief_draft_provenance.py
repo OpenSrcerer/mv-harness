@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b F1 (major): brief.md presents an agent/LLM draft's claims as the user's once the user has answered
 anything at all.
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """identity: tag normalisation, the MusicBrainz rules (version tag retry, duration window, ranking, credits) on
 synthetic recorded HTTP, and the stage run offline (tags win, fallback identity:offline). No network."""
 

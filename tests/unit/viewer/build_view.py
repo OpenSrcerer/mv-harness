@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Build a viewer folder from a contract fixture (upstream = tests/contract/<fixture>/), for browser checks.
 
     python tests/unit/viewer/build_view.py synth|real-jeremy|... <out dir>

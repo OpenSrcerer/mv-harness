@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Music-theory helpers for the harmony stage: pitch-class names, Harte labels, chord templates, key profiles.
 
 numpy only (no model, no I/O) so every function is unit-testable on synthetic input.

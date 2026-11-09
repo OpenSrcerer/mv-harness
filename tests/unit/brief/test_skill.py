@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """skill/mv-harness: the generated CONTRACT copy is current, SKILL.md stays small, and every helper, events name and
 curve channel the skill and recipes mention exists (so a video agent never calls something that is not there)."""
 from __future__ import annotations

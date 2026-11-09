@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """demucs-onnx through the array route (docs/spike/main.md §2): our own ORT session + the library's
 ``_chunked_separate_single`` (private but stable in 0.3.4). Its public ``separate()`` reads paths through
 libsndfile, which fails on Versatile.flac and breaks the "never hand a file path to a model" rule.

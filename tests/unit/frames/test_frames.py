@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """frames export: parity with the reference frame rules (conventions.curve_frame) at every fps / frame0 / early /
 policy, never NaN, the file naming of CONTRACT §7, event columns, and the stage run on the synthetic song."""
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a round 2, finding F3 (re-opened): the mono fix is a cliff at side/mid = -30 dB; a near-mono master
 still inverts the lead / backing split silently.
 

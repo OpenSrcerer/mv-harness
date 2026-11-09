@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """drums stage (PLAN §5 drums, R8; owner M3a).
 
 Hits come from the MDX23C DrumSep sub-stems of ``separate_hq`` (kick, snare, toms, hihat, ride, crash) when they
@@ -31,7 +30,7 @@ STAGE = StageSpec(
     "drums",
     ('separate_hq', 'stem_activity'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("drums"),
     params={'path': 'auto', 'rise_db': 2.0, 'rel_gate_db': 30.0, 'abs_floor_db': -70.0, 'min_gap_ms': 30.0,
@@ -117,7 +116,7 @@ def run(ctx) -> StageResult:
             ch, cst = core.classify(drums_x, sr, prm)
             stats["classifier"] = cst["hits"]
         hits, st = core.drumsep_hits(subs, sr, prm, bleed_db=float(p["bleed_db"]), bleed_rel_db=float(p["bleed_rel_db"]),
-                                     cymbal_confirm=[h.t for h in ch if h.drum == "cymbal"], confirm_ms=float(p["confirm_ms"]))
+                                     cymbal_confirm=[h.t for h in ch if h.drum == "cymbal"], confirm_ms=float(p["confirm_ms"]), drums_mix=drums_x)
         stats["drumsep"] = st
         if ch:
             by: dict[str, np.ndarray] = {d: np.array(sorted(h.t for h in ch if h.drum == d)) for d in core.DRUMS}

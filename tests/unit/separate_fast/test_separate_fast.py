@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """separate_fast: the fitting helpers and invariants (fast), and the real demucs-onnx array route (``-m real``)."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """Separator invariants (SPIKE re-baseline, docs/spike/sep.md §8). numpy only.
 
 * ``residual_db(mix, parts)``  10 log10(|mix - sum(parts)|^2 / |mix|^2); gate <= -20 dB for the six SW stems.

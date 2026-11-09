@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Merge precedence (user > draft > audio facts), status, citations, orphans, the drafting bundle, privacy."""
 from __future__ import annotations
 

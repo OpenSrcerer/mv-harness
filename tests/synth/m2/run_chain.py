@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Run the M2 stages on a fixture folder without the runner (dev tool and real-song runs).
 
     python -m tests.synth.m2.run_chain <slug|synth> [--stages allin1,rhythm,structure,choreo,cues] [--threads 6]

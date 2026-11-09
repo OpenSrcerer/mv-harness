@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS review tests of M5 (identity, lyrics, voices, lipsync). Markers as in the M5 unit tests
 (tests/synth/m5/pytest_markers.py): ``models`` = synthetic inputs through real models in a heavy slot (default on,
 MVH_SKIP_MODELS=1 skips); ``real`` = real songs (opt-in). Only the synthetic fixture's invented lyrics appear here."""

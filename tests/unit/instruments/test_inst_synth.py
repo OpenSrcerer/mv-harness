@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """instruments on the synthetic song (real CED/CLAP inference, one shared run) and the CED recipe."""
 
 from __future__ import annotations

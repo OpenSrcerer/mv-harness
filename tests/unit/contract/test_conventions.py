@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """conventions.py against hand-computed values (independent of the golden generator)."""
 import math
 import random

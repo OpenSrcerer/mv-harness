@@ -125,3 +125,33 @@ tests/unit/contract pass).
   `sep:lead_backing_narrow`, fallback `lead_vocals:=vocals(narrow)`). `meta/separation.json.checks` gains
   `side_to_mid_db`, `lead_minus_backing_db` and `lead_share_frames` (`{seconds, clean_fraction, median_lead_minus_backing_db}`,
   the split's own per-second confidence). New params `separate_hq.lead_suspect_db`, `separate_hq.narrow_side_db`.
+- **M3a-R3-1 Cymbal rise floor 4 dB** (`drums.core.drumsep_hits`, `cymbal_rise_db` 8 -> 4): ride / crash strokes ring, so an
+  8th-note ride at 140-150 bpm rises only 5.5-6.5 dB over the previous stroke's ring and was lost at the old 8 dB floor.
+  Precision on separated stems stays with the existing ring, leak, bleed (`bleed_rise_db`) and strike rules.
+
+## Fixer round 4 (fixer-m3a-r4): additive changes and interpretations
+
+- **M3a-R4-1 Low-rise cymbal hits need an input event** (`drums.core.drumsep_hits`; new params `input_rise_db` 3.0,
+  `input_check_below_db` 8.0, `drums_mix`): the round-3 floor of 4 dB admitted ride / crash candidates that are DrumSep
+  artefacts (energy moving between sub-stems). A ride / crash candidate that rises less than 8 dB in its own sub-stem (the
+  hits the lowered floor admits) must also show a >= 3 dB 6-16 kHz rise (10 ms after the onset over the 25..3 ms before it)
+  in the DrumSep INPUT: the drums stem (the stage passes it as `drums_mix`), else the sum of the sub-stems. Rises of 8 dB and
+  more are unchanged. Dropped candidates are counted in `stats.drumsep.cymbal_noinput_dropped`. Eighth-note rides (6.4-6.5 dB
+  rise, a real event in the input) are kept.
+- **M3a-R4-2 Bit-reproducible RoFormer steps on ROCm** (`mvh.sep.determinism`, `hq_worker`): the Mel-RoFormer vocals and the
+  karaoke model (and so lead / backing / instrumental) changed in the last bits (1e-7) from process to process, with exactly
+  two outcomes per input. Causes found by hashing per-chunk model outputs of two processes: (1) the Mel mask sum is an atomic
+  float `scatter_add_` (replaced by the same sum as a 0/1 matrix product with a fixed accumulation order);
+  (2) SDPA picks the memory-efficient kernel for float32 on ROCm and its tiling differs between processes (forced to the
+  `math` backend, by patching audio-separator's `_sdpa_backends` for the duration of a step); (3) hipBLASLt picks its GEMM
+  algorithm from the free GPU workspace (`torch.backends.cuda.preferred_blas_library("cublas")`, i.e. rocBLAS, set before the
+  model loads). The CPU path (DrumSep, D47) is untouched. `meta/separation.json.worker.settings.deterministic_roformer`
+  records it. Measured on a 40 s clip: 8 of 8 runs identical, and identical with another process holding 90 % of the
+  free GPU memory in all but one of 4 runs (see the report).
+- **M3a-R4-3 Ride / crash hit at a kick / snare / tom stroke must decay like a cymbal** (`drums.core.drumsep_hits`, param
+  `coinc_decay_db` 9.0): a ride / crash-stem hit within +-6 ms of a kick / snare / tom stroke whose 4-16 kHz level drops by
+  more than 9 dB from its first 30 ms to the 30 ms starting 150 ms later is snare crack leaking into the stem (real ride /
+  crash strokes dropped 0.5-7.6 dB on the synthetic song, the leaks 10.6-14.5) and is dropped unless the classifier on the full
+  drum stem confirms a cymbal there. Counted in `stats.drumsep.cymbal_coinc_decay_dropped`. Real songs lose 0-5 of 24-190 cymbals.
+  Needed because the 48 kHz synthetic song's cymbal F1 (0.714 with a margin of one hit, round 2) dropped to 0.651 when the
+  RoFormer GEMMs changed (M3a-R4-2).

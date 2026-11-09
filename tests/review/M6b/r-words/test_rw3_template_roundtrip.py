@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS round 3 (r-words-m6b-r3), finding R3-1: the interview template drops the user's own answers.
 
 ``docs.yaml_template`` says "answers the user already gave are filled in, so the template can replace the free text

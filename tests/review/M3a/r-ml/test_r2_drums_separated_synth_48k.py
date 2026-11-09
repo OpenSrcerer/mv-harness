@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a round 2, finding N3: the F1 drum gates hold only for one exact separation output.
 
 The fix round meets PLAN §7 on the 44.1 kHz synthetic song run end to end (kick 1.000, snare 0.993, hat 0.918, tom

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """identity stage (PLAN §5 identity, SPIKE; owner M5).
 
 Reads the ffprobe tags that ingest recorded in ``meta/source.json`` and normalises them (title, artist, album,

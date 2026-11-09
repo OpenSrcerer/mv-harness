@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """HPSS + CQT chroma (harmony stage, PLAN §5).
 
 One constant-Q transform of the harmonic part gives three views, all on the same frame grid:

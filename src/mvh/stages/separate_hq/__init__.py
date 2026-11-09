@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """separate_hq stage (PLAN §3.1/§5, SPIKE, docs/spike/sep.md; owner M3a).
 
 Runs the audio-separator models in the sep worker (``ctx.worker``; variant rocm, then cpu; ``mvh.sep.hq_worker``):
@@ -46,7 +45,7 @@ STAGE = StageSpec(
                description="BS-RoFormer-SW's own vocals stem (cache only): an independent vote on vocal presence"),
     ),
     params={'normalization_threshold': 100.0, 'amplification_threshold': 0.0, 'variant_order': ['rocm', 'cpu', 'htdemucs'],
-            'overlap': 4, 'segment_size': 256, 'sum_gate_db': -20.0, 'lead_suspect_db': 3.0, 'narrow_side_db': -20.0},
+            'overlap': 4, 'segment_size': 256, 'drumsep_device': 'cpu', 'sum_gate_db': -20.0, 'lead_suspect_db': 3.0, 'narrow_side_db': -20.0},
     models=SEP_MODELS + (FALLBACK_MODEL,),
     gpu=True,
     module="M3a",
@@ -71,6 +70,7 @@ def _run_worker(ctx, x44: np.ndarray, skip_karaoke: bool = False) -> tuple[dict[
     wparams = {"overlap": int(p["overlap"]), "segment_size": int(p["segment_size"]), "heavy_locks": heavy,
                "normalization_threshold": float(p["normalization_threshold"]),
                "amplification_threshold": float(p["amplification_threshold"]),
+               "drumsep_device": str(p.get("drumsep_device", "cpu")),
                "variant_order": [v for v in p["variant_order"] if v in ("rocm", "cpu")]}
     models = list(SEP_MODELS)
     if skip_karaoke:

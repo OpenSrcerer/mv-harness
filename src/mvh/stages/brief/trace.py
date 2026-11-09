@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Traceability check for brief.md (CONTRACT §12: every number traces back to a file).
 
 Every decimal number in the brief must equal (at its printed precision) some numeric value in the song folder's

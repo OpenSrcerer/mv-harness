@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """A fixture-backed implementation of the stage Ctx for the M2 stages (tests and real-song runs).
 
 * Upstream stages read from a contract fixture folder (``tests/contract/synth`` or ``tests/contract/real-<slug>``):

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """R-PLATFORM review of M6a, ROUND 3 (r-platform-m6a-r3): findings left after the round-2 fixes.
 
 Each test is the evidence of one finding in docs/build/reports/r-platform-m6a-r3.md and FAILS until the viewer is fixed.

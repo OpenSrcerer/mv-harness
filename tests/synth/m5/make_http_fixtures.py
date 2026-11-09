@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Regenerate tests/fixtures/http/lrclib_synth.json from the synthetic song (invented lyrics only).
 
     uv run --frozen --no-sync python -m tests.synth.m5.make_http_fixtures

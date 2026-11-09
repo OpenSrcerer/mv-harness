@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """brief.md: CONTRACT §12 order and caps, traceability of every decimal, privacy, section zooms, overflow."""
 from __future__ import annotations
 

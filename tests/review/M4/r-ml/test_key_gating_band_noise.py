@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4 round 3: M1 (r2) is fixed for white noise, but lv-chordia's no-chord share is still not used as tonal evidence.
 
 The r2 fix counts ks/temperley/albrecht as one "profiles" source and caps conf at 0.25 when fewer than two sources have a

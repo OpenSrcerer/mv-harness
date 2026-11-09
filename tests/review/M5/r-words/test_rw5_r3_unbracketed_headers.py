@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 3 (major, new): unbracketed section headers in user-supplied / embedded plain-text lyrics become
 SUNG lyric lines.
 

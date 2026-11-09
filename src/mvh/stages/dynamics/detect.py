@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Dynamics event detectors (pure numpy/scipy): silences (Z), stops (X), impacts (I), decay tails (Y), plus the shared
 input series. All times in seconds; 100 Hz series have sample i centred at i / 100 s; the fine level envelope is
 200 Hz (5 ms RMS of the mix, centred).

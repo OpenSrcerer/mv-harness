@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """The real-song adapter folders (tests/contract/real-<slug>/, built from the W0 cache) are valid for the stages they cover.
 
 Skipped when the folders were not generated (they need tests/.cache/real/, which is gitignored). Never prints lyric text.

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """meaning stage (contract v1, owner M6b): PLAN §8, CONTRACT §7 (meaning files), D3, D5, D7, D38.
 
 Interview, drafting bundle (request.md, input.json, schema.json), merge of the user's intent and an agent/LLM draft

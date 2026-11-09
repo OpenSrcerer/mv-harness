@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 2, R2-6 (major): ``mvh frames`` reports success when the frames stage did not run but an
 earlier export is still on disk.
 

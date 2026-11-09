@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """allin1: layout helpers, the reader (real record and stub copies) and, opt-in (slow), the real 8-fold inference on
 the synthetic song's separate_fast stems."""
 import numpy as np

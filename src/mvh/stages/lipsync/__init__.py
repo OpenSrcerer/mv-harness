@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lipsync stage (PLAN §5 lipsync, SPIKE, CONTRACT D16; owner M5).
 
 ``vocal.mouth_open`` (always; max over voices) and ``vocal.mouth_open.<V>`` (>= 2 voices): the lead-vocal
@@ -17,6 +16,7 @@ STAGE = StageSpec(
     outputs=catalog_outputs("lipsync"),
     params={'attack_ms': 10, 'release_ms': 60, 'pad_s': 0.08, 'hold_within_db': 20.0, 'max_hold_s': 1.5,
             'ungated_fallback': True, 'fallback_below_p95_db': 25.0, 'fallback_within_db': 10.0, 'fallback_min_s': 0.5,
+            'instrumental_fallback_min_s': 8.0,
             'visemes': True, 'rhubarb_block_gap_s': 2.0, 'phonemes': True},
     params_by_profile={"draft": {"visemes": False}},
     models=("rhubarb_lip_sync", "nltk_g2p_data"),

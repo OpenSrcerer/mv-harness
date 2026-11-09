@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """instruments stage (contract v1, owner M3b).
 
 What it does (PLAN §5 instruments, docs/SPIKE.md):
@@ -29,7 +28,7 @@ STAGE = StageSpec(
     "instruments",
     ('ingest', 'separate_fast', 'separate_hq', 'stem_activity'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("instruments"),
     params={'window_s': 4.0, 'hop_s': 1.0, 'vocabulary': [], 'clap_window_s': 10.0, 'clap_step_s': 2.0,
@@ -155,16 +154,25 @@ def run(ctx) -> StageResult:
         curves.setdefault(f"inst.{k}", np.zeros(n, np.float32))
 
     # ---------------------------------------------------------------- vocal style
-    lead = ced.get("lead_vocals", ced.get("vocals"))
+    # the lead stem the vocals and lyrics stages use (r4-m4): the full vocals stem when the karaoke split left
+    # lead_vocals nearly silent (MEGAFAUNA), so the style is not tagged from a silent stem
+    from .lead import pick_lead_stem
+
+    try:
+        lead_name, y_lead = pick_lead_stem(ctx)
+    except Exception:  # noqa: BLE001
+        lead_name, y_lead = ("lead_vocals" if "lead_vocals" in ced else "vocals"), None
+    lead = ced.get(lead_name, ced.get("lead_vocals", ced.get("vocals")))
     if lead is not None and "vocals" in ced:  # windows where the karaoke split left the lead stem silent: use vocals
         lead = np.where(lead.max(axis=1, keepdims=True) > 0, lead, ced["vocals"])
+    if lead_name != "lead_vocals":
+        notes.append(f"vocal style tagged on the {lead_name} stem (lead_vocals is nearly silent)")
     voice_p = curves["inst.voice"].astype(np.float64)
     sustain = vsec = None
     try:
         from swift_f0 import SwiftF0
 
-        lead_name = "lead_vocals" if "lead_vocals" in ced else "vocals"
-        y = ctx.audio(lead_name, sr=16000, mono=True).samples[0]
+        y = y_lead if y_lead is not None else ctx.audio(lead_name, sr=16000, mono=True).samples[0]
         r = SwiftF0(threads=ctx.threads).detect(y, 16000, fmin=65.0, fmax=1400.0)
         hz = np.asarray(r.pitch_hz, np.float64)
         ok = (np.asarray(r.confidence) >= 0.9) & (hz > 0)

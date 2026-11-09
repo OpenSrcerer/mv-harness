@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Bar-synchronous features for the structure stage: timbre (MFCC), harmony (chroma), allin1 embeddings and label
 probabilities, energy (RMS, bass, kick/onset density, brightness), plus self-similarity and Foote novelty.
 
@@ -206,16 +205,24 @@ def bar_pattern(envs: list[np.ndarray], spans: list[tuple[int, int]], nslots: in
     """Per-bar rhythm-pattern fingerprint: each envelope (kick, percussive onset strength, hat-band flux) max-pooled
     into ``nslots`` slots per bar (proportional, so a 3/4 bar is still one pattern), scaled by the song's p99 and
     concatenated. Two bars with the same drum/onset pattern give the same vector whatever the pitched material does,
-    so a groove change (verse swing -> chorus ride + crash) is a boundary even when the harmony does not move."""
+    so a groove change (verse swing -> chorus ride + crash) is a boundary even when the harmony does not move.
+
+    The slots are CENTRED on the grid positions (slot q covers grid point q +- half a slot), not bounded by them: drum hits
+    sit on the grid, so with grid-aligned edges a downbeat estimated one frame late moved every hit into the previous slot
+    and two identical bars became orthogonal (F4-r3). Centred slots tolerate up to half a slot (a 32nd note) of
+    downbeat jitter."""
     rows = []
     scaled = [np.asarray(e, float) / max(1e-9, float(np.percentile(e, 99))) for e in envs]
+    top = scaled[0].shape[0] if scaled else 0
     for a, e in spans:
         e = max(e, a + nslots)
-        top = scaled[0].shape[0] - 1
-        edges = np.linspace(a, e, nslots + 1).astype(int)
+        w = (e - a) / nslots
+        lo = np.clip(np.floor(a + (np.arange(nslots) - 0.5) * w + 0.5).astype(int), 0, max(0, top - 1))
+        hi = np.clip(np.floor(a + (np.arange(nslots) + 0.5) * w + 0.5).astype(int), 1, top)
+        hi = np.maximum(hi, lo + 1)
         parts = []
         for env in scaled:
-            parts.append([float(env[min(edges[q], top):max(edges[q + 1], edges[q] + 1)].max()) for q in range(nslots)])
+            parts.append([float(env[lo[q]:hi[q]].max()) for q in range(nslots)])
         rows.append(np.concatenate(parts))
     X = np.asarray(rows, float)
     return np.clip(X, 0, 2.0)

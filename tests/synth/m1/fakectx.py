@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """A minimal in-process ``Ctx`` for the M1 stages: real ``StageWriter`` (declared outputs, schema validation, atomic
 writes into a temp folder) and upstream data handed in as arrays / item lists. Lets unit tests and the real-song
 harness run ``run(ctx)`` without the runner, the cache or other modules' stages."""

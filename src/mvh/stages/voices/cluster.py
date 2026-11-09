@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Clustering speaker embeddings into voices (SPIKE: agglomerative, cosine, average linkage; the eigengap of the
 normalised affinity Laplacian is only a LOWER bound for k; the user's character count wins).
 

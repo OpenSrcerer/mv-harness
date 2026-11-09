@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Lyric text: reading user files (encoding sniffing), parsing LRC / A2 / SRT / VTT / TXT / Lyricsfile, speaker
 labels, backing parentheses, explicit repeat markers, normalisation for alignment and matching.
 
@@ -69,40 +68,157 @@ def _ts(m_min: str, m_sec: str) -> float:
 
 # ------------------------------------------------------------------------------------------ labels / backing
 _LABELLED: contextvars.ContextVar[bool] = contextvars.ContextVar("mvh_lyrics_labelled", default=True)
+# lone 'Name:' marker lines accepted for the file being parsed (lower-cased names; see _scan_labels)
+_MARKERS: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar("mvh_lyrics_markers", default=frozenset())
 _STRIP_PREFIX = re.compile(r"^\s*(?:-\s*)?(?:text:\s*[\"']?)?(?:\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]\s*)*(?:<[^>]*>\s*)*")
 
 
 def _file_labelled(text: str) -> bool:
-    """True when inline 'Name: ...' prefixes of this lyric file are speaker labels: the same label recurs, or a
-    header names a speaker. A one-off 'Time: ...' in an unlabelled file is sung text, not a label."""
-    counts: dict[str, int] = {}
-    for raw in text.splitlines():
-        s = _STRIP_PREFIX.sub("", raw).strip().strip("\"'")
-        if not s:
+    """True when inline 'Name: ...' prefixes and bare '[Name]' headers of this lyric file are speaker labels
+    (see _scan_labels)."""
+    return _scan_labels(text)[0]
+
+
+def _scan_labels(text: str) -> tuple[bool, frozenset[str]]:
+    """(labelled, accepted lone markers) for one lyric file.
+
+    * explicit markers make a file labelled at once: a '[Verse 1: Newton]' / 'Verse 1: Newton' /
+      '[Verse 1 - Newton]' / 'Newton (Verse 1):' section header that names a speaker, or a '[Newton:]' header;
+    * a 'Newton:' line on its own is a speaker marker only as a set (M5-D47, M5-D54): >= 2 distinct names, and
+      either one of them recurs with DIFFERENT text after it, or every one is a strict name (capitalised words
+      and name particles, no pronoun / verb) in a file that is not written in Title Case. A sung line that ends
+      in a colon ('I said to John:', 'Tell Me Why:') therefore stays a lyric;
+    * an inline 'Name: ...' label must recur with DIFFERENT text after it (a chorus line written out twice that
+      starts with 'Time:' is a repeated lyric, not a change of speaker);
+    * bare '[Name]' headers need >= 2 distinct names, one of them recurring.
+    A one-off 'Time: ...' in an unlabelled file stays sung text."""
+    inline: dict[str, set[str]] = {}
+    inline_n: dict[str, int] = {}
+    bare: dict[str, int] = {}
+    lone: dict[str, set[str]] = {}
+    lone_n: dict[str, int] = {}
+    lone_names: dict[str, str] = {}
+    explicit = False
+    rows = [_WORD_TAG_ANY.sub("", _STRIP_PREFIX.sub("", raw)).strip().strip("\"'") for raw in text.splitlines()]
+    rows = [r for r in rows if r]
+    lyric_rows: list[str] = []
+    for i, s in enumerate(rows):
+        name = _lone_marker(s)
+        if name is not None:
+            key = name.lower()
+            nxt = next((line_key(r) for r in rows[i + 1:] if _lone_marker(r) is None), "")
+            lone.setdefault(key, set()).add(nxt)
+            lone_n[key] = lone_n.get(key, 0) + 1
+            lone_names[key] = name
             continue
         is_h, sp, sec, _rep = _header(s, bare=True)
         if is_h:
             if sp:
-                if sec is not None and ":" in s:  # '[Verse 1: Newton]' names a speaker explicitly
-                    return True
+                if sec is not None or s.rstrip("]}) ").endswith(":"):
+                    explicit = True
+                    continue
                 key = sp.strip().lower()
-                counts[key] = counts.get(key, 0) + 1  # bare '[Name]': needs a recurrence
+                bare[key] = bare.get(key, 0) + 1
             continue
+        lyric_rows.append(s)
         m = _LABEL_RE.match(s)
         if m:
             lab = m.group(1).strip().lower()
-            if len(lab) <= 30 and lab not in _LABEL_STOP and not lab.startswith(SECTION_WORDS):
-                counts[lab] = counts.get(lab, 0) + 1
-    return any(n >= 2 for n in counts.values())
+            if _label_ok(lab):
+                inline.setdefault(lab, set()).add(line_key(m.group(2)))
+                inline_n[lab] = inline_n.get(lab, 0) + 1
+    markers: frozenset[str] = frozenset()
+    if len(lone) >= 2:
+        # R5-1 (W3): only candidates that look like names are ever markers (no pronoun / verb; in a Title Case file a
+        # multi-word 'She Said:' is a lyric). One recurring candidate no longer makes the whole set markers.
+        tc = _title_case(lyric_rows)
+        ok = {k for k, n in lone_names.items() if _strict_name(n) and not (tc and len(n.split()) > 1)}
+        recurring = any(lone_n[k] >= 2 and len(lone[k]) >= 2 for k in ok)
+        strict = len(ok) == len(lone) and not tc
+        if len(ok) >= 2 and (recurring or strict):
+            markers = frozenset(ok)
+    if explicit or markers:
+        return True, markers
+    if any(inline_n[k] >= 2 and len(v) >= 2 for k, v in inline.items()):
+        return True, markers
+    return len(bare) >= 2 and any(n >= 2 for n in bare.values()), markers
+
+
+_WORD_TAG_ANY = re.compile(r"<[^>]*>")
+_NAME_PARTICLES = {"de", "da", "del", "della", "der", "den", "van", "von", "the", "of", "la", "le", "du", "di", "bin",
+                   "al", "el", "y", "&", "and", "+"}
+_NOT_NAME = {"i", "me", "my", "you", "your", "we", "us", "our", "he", "him", "his", "she", "her", "it", "its", "they",
+             "them", "their", "this", "that", "these", "those", "what", "why", "how", "when", "where", "who", "let",
+             "go", "tell", "said", "say", "says", "here", "there", "come", "take", "give", "get", "got", "never",
+             "always", "is", "are", "was", "were", "be", "do", "don't", "can't", "won't", "not", "to", "in", "on", "at",
+             "a", "an", "if", "for", "with", "again", "down", "up", "like", "love", "know", "want", "need", "see",
+             "look", "listen", "hear", "feel", "make", "keep", "one", "all", "every", "some"}
+
+
+def _strict_name(name: str) -> bool:
+    """A performer name rather than a lyric fragment: capitalised words or name particles, no pronoun or verb."""
+    words = [w.strip(".,!?") for w in name.split()]
+    if not words:
+        return False
+    for w in words:
+        low = w.lower()
+        if low in _NOT_NAME:
+            return False
+        if not (w[:1].isupper() or low in _NAME_PARTICLES or (w[:1].islower() and any(c.isupper() for c in w[1:]))):
+            return False
+    return True
+
+
+def _title_case(rows: list[str]) -> bool:
+    """A file written in Title Case (every word capitalised on most lines of >= 3 words)."""
+    n = tc = 0
+    for r in rows:
+        ws = [w for w in r.split() if w[:1].isalpha()]
+        if len(ws) < 3:
+            continue
+        n += 1
+        tc += all(w[:1].isupper() for w in ws)
+    return n > 0 and tc / n > 0.5
+
+
+def _lone_marker(text: str) -> str | None:
+    """The name of a 'Bill Nye:' / 'Bill Nye the Science Guy:' line on its own (a speaker-marker CANDIDATE; the
+    file decides, see _scan_labels). None for a section header or anything else."""
+    s = _strip_deco(text)
+    if not s.endswith(":") or s.startswith(("(", "[", "{")):
+        return None
+    head = s[:-1].strip()
+    if not head or ":" in head or _PLAIN_SEC_RE.match(head) or _section_word(head) is not None:
+        return None
+    if _REPEAT_RE.search(head) or head.lower() in _META_KEYS or "(" in head:
+        return None
+    return head if _is_name(head, 5) else None
+
+
+def _strip_deco(text: str) -> str:
+    """'*Chorus*' / '_Chorus_' / '**Bill Nye:**' -> the text without markdown emphasis."""
+    s = text.strip()
+    while len(s) > 2 and s[0] == s[-1] and s[0] in "*_":
+        s = s[1:-1].strip()
+    return s
+
+
+def _label_ok(lab: str) -> bool:
+    low = lab.strip().lower()
+    return (len(low) <= 30 and low not in _LABEL_STOP and low not in _META_KEYS and not low.startswith(SECTION_WORDS)
+            and _section_word(low) is None)
 
 
 def _labels_scoped(fn):
     @functools.wraps(fn)
     def wrapper(text, *a, **kw):
-        tok = _LABELLED.set(_file_labelled(text))
+        labelled, markers = _scan_labels(text)
+        tok = _LABELLED.set(labelled)
+        tok2 = _MARKERS.set(markers)
         try:
             return fn(text, *a, **kw)
         finally:
+            _MARKERS.reset(tok2)
             _LABELLED.reset(tok)
     return wrapper
 
@@ -118,37 +234,129 @@ def _label_split(text: str) -> tuple[str | None, str]:
     m = _LABEL_RE.match(text)
     if m:
         lab = m.group(1).strip()
-        if len(lab) <= 30 and lab.lower() not in _LABEL_STOP and not lab.lower().startswith(SECTION_WORDS):
+        if _label_ok(lab):
             return lab, m.group(2).strip()
     return None, text
 
 
+_SEC_SET = frozenset(SECTION_WORDS)
+_PREPOST = {"prechorus": "pre-chorus", "postchorus": "post-chorus", "prehook": "pre-hook", "posthook": "post-hook"}
+# a whole unbracketed line that is a section header: 'Verse 1', 'CHORUS', 'Pre Chorus', 'Final Chorus', 'Hook 2'
+_PLAIN_SEC_RE = re.compile(
+    r"^(?:(?:final|last|first|second|third|fourth|fifth|rap|double|half|extended|spoken|end|repeat(?:\s+the)?|"
+    r"\d{1,2}(?:st|nd|rd|th))\s+)?"
+    r"(pre[\s-]?chorus|post[\s-]?chorus|pre[\s-]?hook|verse|chorus|bridge|hook|intro|outro|refrain|interlude|breakdown|"
+    r"coda|instrumental)(?:\s*(?:\d{1,2}|[ivx]{1,4}|one|two|three|four|five))?"
+    r"(?:\s*[\(\[]?\s*(?:repeat|repeated|again|reprise)\s*[\)\]]?)?$", re.I)
+_PAREN_SEC_RE = re.compile(r"^(.+?)\s*[\(\[]([^()\[\]]+)[\)\]]$")
+_DASH_RE = re.compile(r"\s[-–—]\s")
+_NAME_WORD_RE = re.compile(r"^[\w'.\-&+,]+$")
+
+
+def _section_word(text: str) -> str | None:
+    """The section word of a header when ANY of its words is one ('[Final Chorus]', '[Rap Verse]', '[Pre Chorus]',
+    '[Verse1]'); 'pre chorus' / 'post chorus' are joined. None for a name."""
+    toks = [t.strip("-") for t in re.split(r"[^a-z\-]+", text.lower().replace("–", "-")) if t.strip("-")]
+    for i, t in enumerate(toks):
+        if t in ("pre", "post") and i + 1 < len(toks) and toks[i + 1] in ("chorus", "hook"):
+            return f"{t}-{toks[i + 1]}"
+        if t in _PREPOST:
+            return _PREPOST[t]
+        if t in _SEC_SET:
+            return t
+    return None
+
+
+def _is_name(text: str, max_words: int = 4) -> bool:
+    """A short capitalised performer name ('Bill Nye', 'Neil deGrasse Tyson', 'MC Ren & DJ Yella')."""
+    t = text.strip()
+    words = t.split()
+    if not (1 <= len(words) <= max_words) or len(t) > 40:
+        return False
+    if not (words[0][:1].isupper() and words[-1][:1].isupper()):
+        return False
+    if words[0].lower().strip(",.") in _LABEL_STOP or t.lower() in _META_KEYS:
+        return False
+    if {w.strip(".,!?").lower() for w in words} & _INSTR_WORDS:
+        return False
+    return all(_NAME_WORD_RE.match(w) for w in words)
+
+
+def _plain_header(text: str) -> tuple[bool, str | None, str | None, int]:
+    """An unbracketed header line: 'Verse 1:' / 'CHORUS' / '*Chorus*' / 'Chorus x2' / 'Chorus (repeat)' / '(Chorus)' /
+    '1st Verse:' / 'Verse 2: Newton' / 'Verse 2 - Newton' / 'Newton (Verse 2):' (sections, M5-D48, M5-D54) or a
+    'Bill Nye:' speaker marker alone on its line when the file accepted it (M5-D47, M5-D54). Never a line with
+    lyric text."""
+    s = _strip_deco(text)
+    paren = len(s) > 2 and s[0] == "(" and s[-1] == ")" and s.count("(") == 1
+    inner = s[1:-1].strip() if paren else s
+    rep = 1
+    rm = _REPEAT_RE.search(inner)
+    if rm and rm.start() > 0:
+        rep = int(next(g for g in rm.groups() if g))
+        inner = inner[: rm.start()].strip()
+    head, colon, tail = inner.partition(":")
+    head, tail = head.strip(), tail.strip()
+    if not colon:
+        dm = _DASH_RE.search(inner)
+        if dm and _PLAIN_SEC_RE.match(inner[: dm.start()].strip()):
+            head, tail = inner[: dm.start()].strip(), inner[dm.end():].strip()
+    if _PLAIN_SEC_RE.match(head):
+        sec = _section_word(head)
+        if not tail:
+            return True, None, sec, rep
+        if not paren and _is_name(tail, 5):
+            return True, tail, sec, rep
+        return False, None, None, 1
+    if colon and not tail and not paren:
+        pm = _PAREN_SEC_RE.match(head)
+        if pm and _PLAIN_SEC_RE.match(pm.group(2).strip()) and _is_name(pm.group(1), 5):
+            return True, pm.group(1).strip(), _section_word(pm.group(2)), rep   # 'Newton (Verse 1):'
+        if rep == 1:
+            name = _lone_marker(s)
+            if name is not None and name.lower() in _MARKERS.get():
+                return True, name, None, 1
+    return False, None, None, 1
+
+
 def _header(text: str, bare: bool = False) -> tuple[bool, str | None, str | None, int]:
-    """A '[Verse 1: Newton]' style header -> (is_header, speaker, section_word, repeat). Not a lyric line."""
+    """A section / speaker header -> (is_header, speaker, section_word, repeat). Not a lyric line.
+    Bracketed: '[Verse 1: Newton]', '[Final Chorus]', '[Newton:]', '[Newton]' (a speaker only in a labelled file).
+    Unbracketed: see _plain_header."""
     m = _HEADER_RE.match(text)
     if not m:
-        return False, None, None, 1
+        return _plain_header(text)
     inner = m.group(1).strip()
     rep = 1
     rm = _REPEAT_RE.search(inner)
     if rm:
         rep = int(next(g for g in rm.groups() if g))
         inner = inner[: rm.start()].strip()
-    sec = None
-    low = inner.lower()
-    for w in SECTION_WORDS:
-        if low.startswith(w):
-            sec = w
-            break
     speaker = None
+    dm = _DASH_RE.search(inner) if ":" not in inner else None
+    if dm and _section_word(inner[: dm.start()]) is not None:
+        inner = inner[: dm.start()].strip() + ": " + inner[dm.end():].strip()   # '[Verse 1 - Newton]'
     if ":" in inner:
-        head, tail = inner.split(":", 1)
-        speaker = tail.strip() or None
-        if head.strip().lower() in _META_KEYS:
-            speaker = None  # LRC ID / metadata tag
-        elif sec is None and head.strip().lower().startswith(SECTION_WORDS):
-            sec = head.strip().lower()
-    elif sec is None and 0 < len(inner.split()) <= 4:
+        head, tail = (x.strip() for x in inner.split(":", 1))
+        if head.lower() in _META_KEYS:
+            return True, None, None, rep  # LRC ID / metadata tag
+        hsec = _section_word(head)
+        sec = hsec
+        if hsec is not None:
+            twords = {w.strip(".,!?").lower() for w in tail.split()}
+            if tail and _section_word(tail) is None and not (twords & _INSTR_WORDS):
+                speaker = tail                        # '[Verse 1: Newton]' ('[Intro: Spoken]' names no one)
+        elif not tail:
+            words = {w.strip(".,!?").lower() for w in head.split()}
+            if 0 < len(head.split()) <= 5 and not (words & _INSTR_WORDS):
+                speaker = head                        # '[Bill Nye:]' (M5-D47)
+        elif _section_word(tail) is not None and _is_name(head, 5):
+            speaker, sec = head, _section_word(tail)  # '[Newton: Verse 1]'
+        else:
+            speaker = tail
+        return True, speaker, sec, rep
+    sec = _section_word(inner)
+    if sec is None and 0 < len(inner.split()) <= 4:
         words = {w.strip(".,!?").lower() for w in inner.split()}
         if not (words & _INSTR_WORDS) and (bare or _LABELLED.get()):
             speaker = inner
@@ -356,6 +564,16 @@ def parse_txt(text: str) -> dict[str, Any]:
             src = blocks.get(rm_repeat.group(1).lower())
             if src:
                 lines.extend(dict(x) for x in src)
+            continue
+        lone_rep = _REPEAT_RE.fullmatch(s)
+        if lone_rep:
+            # '(x2)' on its own line repeats the line before it (repeated-section expansion only ADDS more)
+            n = int(next(g for g in lone_rep.groups() if g))
+            if lines:
+                for _ in range(max(0, min(n, 16) - 1)):
+                    lines.append(dict(lines[-1]))
+                    if cur is not None:
+                        cur["lines"].append(dict(lines[-1]))
             continue
         is_h, sp, sec, rep = _header(s)
         if is_h:

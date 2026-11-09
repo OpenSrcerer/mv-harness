@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 2 (major, regression from the A2 fix): newton, the stress test, drops from grade B to C.
 
 The A2 fix (M5-D31) raised the emission context floor from 2 s to 6 s per side (``align.MIN_CTX_S``). The measured

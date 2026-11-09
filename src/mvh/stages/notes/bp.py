@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """basic-pitch (ICASSP 2022, ONNX ``nmp.onnx``) on numpy arrays (owner M3b).
 
 Recipe (docs/spike/main.md §2): the library's ``predict`` reads a PATH through librosa; we never hand it a path. Instead

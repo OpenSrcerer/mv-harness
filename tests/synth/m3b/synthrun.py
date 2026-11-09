@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Run instruments -> notes -> vocals once on the synthetic fixture and cache the outputs (owner builder-m3b).
 
 The cache key hashes the M3b stage sources and the fixture's .done.json, so the three unit-test folders (which the gate runs

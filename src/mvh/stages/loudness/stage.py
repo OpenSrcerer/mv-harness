@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """loudness stage: run(ctx). Measurements live in ``r128.py``."""
 
 from __future__ import annotations

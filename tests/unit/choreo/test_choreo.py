@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """choreo on the synthetic song with the fixture's exact upstream, scored against the generator truth
 (counts, accents formula, grooves, hit points, holds) plus the tables and the drum fallback."""
 import csv

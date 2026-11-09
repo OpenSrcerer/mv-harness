@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """brief stage (contract v1, owner M6b): brief.md, the LLM entry point (CONTRACT §12, PLAN §4.7).
 
 <= 4k tokens (target 2.5k; characters / 4), every number traceable to the file its block names, no lyric text.
@@ -12,7 +11,7 @@ STAGE = StageSpec(
     "brief",
     ANALYSIS_STAGES,
     "main",
-    "1.0.0",
+    "1.0.1",
     override_keys=(),
     outputs=catalog_outputs("brief"),
     params={'max_tokens': 4000, 'target_tokens': 2500},

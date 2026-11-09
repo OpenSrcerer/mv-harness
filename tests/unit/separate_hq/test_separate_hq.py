@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """separate_hq: the parent's stem assembly and invariants (with the worker replaced by the generator tracks), the
 htdemucs fallback, the worker job against a fake audio-separator (configuration traps), and the real worker on a
 short excerpt (``-m real``)."""
@@ -347,3 +346,59 @@ def test_a_clean_split_is_not_flagged(fake_worker, tmp_path):
         meta = json.load(fh)
     assert "sep:lead_backing_suspect" not in meta["flags"]
     assert meta["checks"]["lead_share_frames"]["clean_fraction"] > 0.5
+
+
+# ---------------------------------------------------------------- R4-2: bit-reproducible RoFormer steps
+def test_deterministic_scatter_add_restores_and_falls_back_on_cpu():
+    import torch
+
+    from mvh.sep.determinism import deterministic_scatter_add
+
+    orig = torch.Tensor.scatter_add_
+    idx = torch.tensor([0, 1, 1, 2]).view(1, 1, -1, 1).expand(1, 1, 4, 3).contiguous()
+    src = torch.randn(1, 1, 4, 3, dtype=torch.complex64)
+    ref = torch.zeros(1, 1, 3, 3, dtype=torch.complex64).scatter_add_(2, idx, src)
+    with deterministic_scatter_add():
+        assert torch.Tensor.scatter_add_ is not orig
+        got = torch.zeros(1, 1, 3, 3, dtype=torch.complex64).scatter_add_(2, idx, src)   # CPU: the original path
+    assert torch.Tensor.scatter_add_ is orig
+    assert torch.equal(ref, got)
+
+
+def test_fixed_order_mask_sum_equals_scatter_add():
+    """the matrix-product replacement gives the scatter_add_ sum (the CUDA-only branch, exercised on CPU tensors)"""
+    import torch
+
+    from mvh.sep import determinism
+
+    class _T(torch.Tensor):
+        pass
+
+    orig = torch.Tensor.scatter_add_
+    fn = determinism._det_scatter_add(orig)
+    rng = torch.Generator().manual_seed(0)
+    f_src, f_out = 40, 25
+    idx = torch.randint(0, f_out, (f_src,), generator=rng)
+    index = idx.view(1, 1, -1, 1).expand(2, 2, f_src, 7).contiguous()
+    src = torch.randn(2, 2, f_src, 7, dtype=torch.complex64, generator=rng)
+    ref = torch.zeros(2, 2, f_out, 7, dtype=torch.complex64).scatter_add_(2, index, src)
+    # is_cuda is False on CPU, so the wrapper falls back; call the fixed-order branch through a stub with is_cuda True
+    class _Stub:
+        def __init__(self, t):
+            self.t = t
+            self.is_cuda = True
+            self.shape = t.shape
+
+        def is_complex(self):
+            return True
+
+        def dim(self):
+            return 4
+
+        def add_(self, v):
+            self.t.add_(v)
+            return self.t
+
+    out = torch.zeros(2, 2, f_out, 7, dtype=torch.complex64)
+    got = fn(_Stub(out), 2, index, src)
+    assert torch.allclose(got, ref, atol=1e-5)

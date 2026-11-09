@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 round 3, finding F6-r3 (major, real song, opt-in -m real): after the F4-r2 fix, MEGAFAUNA's drop is cut
 short by 36.6 s.
 

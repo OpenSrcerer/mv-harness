@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """numpy port of the Essentia TensorflowPredictMusiCNN front end (16 kHz, n_fft 512, hop 256, 96 Slaney mel bands,
 log10(1 + 10000 x)), plus the patching used by the msd-musicnn (187 x 96) and discogs-effnet (128 x 96) models.
 Ported from docs/research/prototypes/lyrics-meaning/mood_onnx.py."""

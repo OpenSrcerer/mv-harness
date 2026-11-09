@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """dynamics stage (owner M1, PLAN §5 dynamics; SPIKE: adaptive thresholds plus bass and kick features).
 
 Loud and quiet parts (``events/dynamics.json``: silence, quiet, soft, medium, loud, peak by mean short-term LU vs the

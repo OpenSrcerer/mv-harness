@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Audio emotion words from the mood stage, and the lyric-vs-audio agreement flag (PLAN §8 sections.emotion).
 
 Arousal is more reliable than valence (PLAN §5 mood), so the audio word leans on arousal and the agreement

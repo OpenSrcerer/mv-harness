@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Run the three M1 stages in-process (FakeCtx) on one signal: spectral -> loudness -> dynamics.
 
     python -m tests.synth.m1.harness <canonical.wav | audio file> <bars.json | -> <out dir>

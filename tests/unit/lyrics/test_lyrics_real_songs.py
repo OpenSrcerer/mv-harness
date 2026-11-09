@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Real-song snapshots for the whole M5 chain (identity -> lyrics -> voices -> lipsync), opt-in (-m real or
 MVH_REAL_TESTS=1). Upstream = tests/contract/real-<slug>; LRCLIB answers are replayed from the W0 recordings in
 tests/.cache/real/<slug>/http (gitignored; the stage's request keys are rebuilt from them), MusicBrainz is not

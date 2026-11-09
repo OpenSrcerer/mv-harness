@@ -1,0 +1,11 @@
+# r-platform-m6a-r4 progress
+- started round 4 2026-11-09; verifying F-R3-UNDO-FAIL fix; then W3 regressions on integrator outputs
+- copied megafauna, newton-vs-nye from integrator (no sep caches) into out/_wip/r-platform-m6a-r4/
+- rebuilt viewer.html via build_real.py (runner refuses: structure stale); next: serve + Claude_Browser
+- NEW major F-R4-VOICE-FLOOR (viewer voice mapping -> voices exact k); test_r4_platform.py fails 2/3 (baseline passes). F-R3-UNDO-FAIL verified fixed (real 503 via read-only file on megafauna served; Ctrl+Z double ignored)
+- file:// headless on both real songs: ready, plays, synced; solo copy only m7 noise. privacy probe inline_lyrics=false: no lyric text inlined (newton). Servers bb4exqgu7/badw9uc8z running -> STOP before report
+- servers stopped (ports free), browser pane closed. minors: m14 overlapping-save undo history emptied (verified); m6 still open (1e999 200). gate running bg -> out/_wip/r-platform-m6a-r4/gate.log. next: review doc Round 4, report
+- review doc Round 4 appended
+- report drafted; waiting on gate (bg b61i2pyld)
+- gate: unit viewer 51 pass (contract unit fails: not M6a), review fails only on my r4 test, ruff fails only in notes stage, e2e PASS, lib-node PASS; determinism running
+- gate done (rc=1, non-M6a causes); report final. DONE pending structured output

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Chord timeline: lv-chordia decode (or the template + Viterbi fallback), snapped to beats, with chroma-based
 verification (confidence, bass pitch class) per segment."""
 from __future__ import annotations

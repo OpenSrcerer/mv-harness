@@ -1,0 +1,5 @@
+- 2026-11-09 start: root cause S04 = lead_vocals nearly silent (karaoke split) + voice gate rejects processed voice; edits: instruments/lead.py, vocals lyric gate + lyrics dep (CR for PLAN_DEPS). next: run megafauna instruments+vocals, then all songs, tests, gate
+- instruments edits reverted (would invalidate structure/lyrics cache); vocals: lyric gate + lyric-backed presence + vocals-stem pick (instruments/lead.py). running full megafauna analyze in out/_wip/fixer-m3b-r3/megafauna.full.log
+- running rest via out/_wip/fixer-m3b-r3/runrest.sh (logs <slug>.full.log); megafauna S04 verified OK on my copy (present true via lyric coverage, 10 phrases, 33 notes)
+- megafauna full run done: S04 verified on my copy (present true, 10 phrases, 33 notes). unit test tests/unit/vocals/test_lyric_presence.py added. decisions I-M3b-13/14 written. next: gate (log out/_wip/fixer-m3b-r3/gate.log), regress other songs
+- vocals stem rescue now requires lyric lines or stem vote (versatile regression guard). gate rerun: out/_wip/fixer-m3b-r3/gate.log

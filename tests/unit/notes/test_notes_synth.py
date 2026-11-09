@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """notes against synthetic ground truth (PLAN §7: monophonic bass note F1 >= 0.8)."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lyrics on the synthetic song through the real models (faster-whisper large-v3, MMS_FA), scored against the
 generator truth (tests/contract/synth/_truth/truth.json). PLAN §7: word alignment on TTS, median onset error
 < 80 ms. Three source paths: a plain-text user file (ASR anchors), synthetic LRCLIB with a +1.3 s version offset

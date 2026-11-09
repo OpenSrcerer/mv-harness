@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Minimal deterministic Standard MIDI File (format 1) writer. Stdlib only.
 
 Times are seconds on the song clock; they are converted to ticks with a tempo map given as

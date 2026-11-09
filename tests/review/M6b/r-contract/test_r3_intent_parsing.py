@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 3: intent.md parsing after the round-2 fixes (synthetic fixture only, invented lyrics).
 
 R3-1 (major, new): the interview template's own palette hint breaks the whole template. The template line is

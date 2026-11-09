@@ -1,0 +1,10 @@
+- started; read r4 progress + fixer-m4-r4
+- probe5.py (synthetic, real models) queued; copied integrator jeremy+megafauna (no stems) to out/_wip/r-ml-m4-r5/
+- probe5 done: synth vocals fixed (A minor .671 chroma_only); band/sine/square/saw-C/tts/pad still gated; sung_Fmin (S-KEY .668 F minor, KS F minor, temp/alb Db major) gated .3 no_tonal_evidence; atonal_seeds.py: 1/3 random 12-tone lines pass chroma part of carve-out -> probe6 with real models
+- probe6: atonal_s28_60s (random 12-tone, lv all N, S-KEY C minor p.238) -> C minor .666 chroma_only (REGRESSION candidate); vocals_shift3 -> C minor .3 no_tonal_evidence (S-KEY fifth G minor) -> R4-M1 partial; other shifts OK
+- wrote tests test_key_gating_atonal_line.py (R5-M1) + test_key_gating_a_cappella_fifth.py (R5-M2); verifying
+- fast variants of both new tests FAIL for stated reason (atonal conf .853 stub; fifth stub p .3 -> no_tonal_evidence)
+- review doc Round 5 appended (m19, m20, m18/m14/m17 open); waiting real-test log pytest_real_new.log + pytest_fast.log
+- real variants FAIL as stated (atonal .666; fifth no_tonal_evidence); R4 a-cappella + band-noise real tests PASS. waiting pytest_fast.log (full M4 review+unit incl real)
+- full pytest run hit pytest-timeout 600s waiting for heavy slot in tests/unit/harmony/test_keys.py (machine contention); 50 passed before; rerunning unit with --timeout=0
+- unit harmony/mood + review M4 (incl real, --timeout=0): 103 passed, only the 4 new R5 tests fail. report written; DONE

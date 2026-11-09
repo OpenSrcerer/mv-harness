@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://mv-harness.local/schema/events/pulse_regions.schema.json",
  "title": "mvh/events/pulse_regions",
- "x-contract-version": "1.0.0-rc.1",
+ "x-contract-version": "1.0.0-rc.2",
  "description": "regions with / without a perceptible beat, covering the whole song",
  "allOf": [
   {

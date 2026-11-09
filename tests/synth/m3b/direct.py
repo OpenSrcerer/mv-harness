@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Run the M3b stages directly (no runner) on the synth fixture or real-song overlays. Owner builder-m3b.
 
     uv run --frozen --no-sync python -m tests.synth.m3b.direct <stages,comma> <slug> [<slug> ...]

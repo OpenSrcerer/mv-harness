@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """frames/<fps>fps.csv (CONTRACT §7 tables, §2 frame rules, D19): one row per video frame.
 
 Columns: ``frame`` (n, frame0 included), ``t`` (= time_of(n)), then one column per curve channel sampled with the

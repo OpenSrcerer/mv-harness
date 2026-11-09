@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 finding F3 (major): sections shorter than 2 bars are emitted, against the frozen contract
 (``events/sections.json``: "segments shorter than 2 bars are merged"; PLAN §5 structure).
 

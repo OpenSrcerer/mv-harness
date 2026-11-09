@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings / evidence lines)
 """A minimal in-memory Ctx for running an M3b stage's ``run(ctx)`` on synthetic arrays (reviewer r-ml-m3b).
 
 Only what notes/vocals read is implemented: params, threads, audio(name, sr, mono) (resampled with soxr from the

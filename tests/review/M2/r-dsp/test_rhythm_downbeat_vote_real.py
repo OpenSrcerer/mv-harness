@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 finding F5 (major, real songs, opt-in -m real): the 2-of-3 downbeat vote counts madmom's downbeats
 unshifted although the stage itself detects (and flags) madmom's global one-beat phase error, so where the other
 trackers are weak the known-wrong tracker flips the bar phase through a spurious 3-beat bar.

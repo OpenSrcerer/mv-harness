@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lyrics orchestration (PLAN §5 lyrics, SPIKE, bench-words §2-5). Called by ``mvh.stages.lyrics.run``.
 
 Source cascade (PLAN R11 order): the user's ``--lyrics`` file > embedded tags (ingest's cache-only
@@ -223,8 +222,9 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             else:
                 h = ctx.model("faster_whisper_large_v3")
                 mdir = next(iter(h.files.values())).parent
+                wmodel = R.load_model(mdir, ctx.threads)
                 asr = R.transcribe(lead, mdir, ctx.threads, language=language, vad=bool(p.get("asr_vad", True)),
-                                   beam_size=int(p.get("asr_beam", 5)))
+                                   beam_size=int(p.get("asr_beam", 5)), model=wmodel)
                 models_used.append(h.id)
             kept, dropped = R.filter_segments(asr["segments"], act, 100.0, min_word_p=float(p.get("asr_min_seg_p", 0.25)))
             # M5-D19: Silero VAD can discard a heavily processed voice (MEGAFAUNA: 2 words over 111 active s).
@@ -234,7 +234,7 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             if (asr_engine == "faster_whisper" and asr.get("vad") and p.get("asr_vad_retry", True)
                     and active_s >= 10.0 and n_vad < float(p.get("asr_vad_retry_wps", 0.15)) * active_s):
                 asr2 = R.transcribe(lead, mdir, ctx.threads, language=language or asr.get("language"), vad=False,
-                                    beam_size=int(p.get("asr_beam", 5)))
+                                    beam_size=int(p.get("asr_beam", 5)), model=wmodel)
                 kept2, dropped2 = R.filter_segments(asr2["segments"], act, 100.0, min_word_p=float(p.get("asr_min_seg_p", 0.25)))
                 aw2 = R.asr_words(kept2)
                 p2 = float(np.mean([w["p"] for w in aw2])) if aw2 else 0.0
@@ -245,6 +245,29 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                     fallbacks.append("lyrics:asr_no_vad")
                     notes.append(f"VAD kept {n_vad} ASR words over {active_s:.0f} s of vocals: transcribed again without VAD")
                 asr["vad_retry"] = vad_retry
+            # M5-D50: Silero VAD can also reject one long sung passage (Jeremy: nothing after 172 s of a 285 s vocal).
+            # When a text exists, active lead-vocal spans >= asr_gap_min_s that no segment covers get a VAD-free
+            # pass (with 1 s context); the hallucination filter guards it. Evidence for G1, the ASR repair and the
+            # repeat expansion of an outro the text does not write out.
+            if (asr_engine == "faster_whisper" and asr.get("vad") and src is not None and p.get("asr_gap_retry", True)
+                    and not (asr.get("vad_retry") or {}).get("used")):
+                regions = R.uncovered_regions(asr["segments"], act, 100.0, min_s=float(p.get("asr_gap_min_s", 6.0)))
+                gap: dict[str, Any] = {"regions": len(regions), "seconds": round(sum(b - a for a, b in regions), 2),
+                                       "segments": 0, "kept": 0, "words": 0}
+                if regions:
+                    extra = R.transcribe_regions(lead, regions, wmodel, language=language or asr.get("language"),
+                                                 beam_size=int(p.get("asr_beam", 5)))
+                    kx, dx = R.filter_segments(extra, act, 100.0, min_word_p=float(p.get("asr_min_seg_p", 0.25)))
+                    asr["segments"] = sorted(asr["segments"] + extra, key=lambda z: (z["start"], z["end"]))
+                    kept = sorted(kept + kx, key=lambda z: (z["start"], z["end"]))
+                    for k_, v_ in dx.items():
+                        dropped[k_] = dropped.get(k_, 0) + v_
+                    dropped = dict(sorted(dropped.items()))
+                    gap.update(segments=len(extra), kept=len(kx), words=len(R.asr_words(kx)))
+                    if kx:
+                        notes.append(f"VAD skipped {gap['seconds']:.0f} s of active vocals in {len(regions)} span(s): "
+                                     f"a VAD-free pass there added {gap['words']} ASR words")
+                asr["gap_retry"] = gap
         except StageError:
             raise
         except Exception as e:  # noqa: BLE001  (ASR is evidence, not a requirement)
@@ -394,16 +417,34 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
     _apply_overrides(lines, ctx.overrides, warnings)
     lines = [x for x in lines if x["wt"]]
     lines.sort(key=lambda x: (round(x["wt"][0], 3), x["order"]))
+    _cap_line_tails(lines)
 
     # ---------------------------------------------------------------- 5. metrics, ids, groups, confidence
-    asr_norm = [w["n"] for w in aw]
+    asr_exact = [w["n"] for w in aw]
     ref = [(li, wi, n) for li, x in enumerate(lines) for wi, w in enumerate(x["words"]) for n in T.norm_words(w)[:1]]
     ref_norm = [n for _, _, n in ref]
-    ms = R.match_score(asr_norm, ref_norm) if (kind != "transcribed" and aw) else None
+    asr_norm, n_snap = asr_exact, 0
+    if kind != "transcribed" and aw and ref:
+        # M5-D53: near-miss spellings of the text word sung at the same place count as agreement
+        asr_norm, n_snap = R.canonicalise(aw, [(lines[li]["wt"][wi], n) for li, wi, n in ref])
+    ms = ms_raw = None
+    g1_scope: dict[str, Any] | None = None
+    if kind != "transcribed" and aw:
+        # M5-D51: G1 is judged where BOTH sides have evidence. ASR words outside the span the text covers (an outro
+        # without lines) and text words where the ASR heard nothing (VAD gaps) say nothing about a wrong text; the
+        # missing outro is handled by expansion / ASR-only lines, the deaf ASR by the gap retry.
+        ms_raw = R.match_score(asr_exact, ref_norm)
+        t_spans = _merge_spans([(x["wt"][0] - 1.0, max(t + d for t, d in zip(x["wt"], x["wd"])) + 1.0) for x in lines if x["wt"]])
+        a_spans = _merge_spans([(s0["start"] - 1.0, s0["end"] + 1.0) for s0 in kept])
+        a_in = [n for w, n in zip(aw, asr_norm) if _inside(w["start"], t_spans)]
+        r_in = [n for li, wi, n in ref if _inside(lines[li]["wt"][wi], a_spans)]
+        ms = R.match_score(a_in, r_in)
+        g1_scope = {"asr_words": len(a_in), "asr_words_total": len(asr_norm), "text_words": len(r_in),
+                    "text_words_total": len(ref_norm), "near_miss_words": n_snap, "raw_f1": ms_raw["f1"]}
     pairs = []
     matched_word: set[tuple[int, int]] = set()
     if aw and ref and kind != "transcribed":
-        for ia, ib in R.lcs_pairs(asr_norm, ref_norm):
+        for ia, ib in R.lcs_pairs(asr_exact, ref_norm):     # G7 / per-word check: exact words (calibrated)
             li, wi, _ = ref[ib]
             pairs.append((lines[li]["wt"][wi], aw[ia]["start"]))
             matched_word.add((li, wi))
@@ -422,7 +463,7 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                    "G4": round(hard, 4), "G5": round(g5, 4) if g5 is not None else None,
                    "offset_s": round(offset_detected, 3) if offset_detected is not None else None,
                    "G7": agree, "G8": lift, "transcribed": kind == "transcribed", "asr_mean_p": asr_mean_p,
-                   "asr_words": len(aw) if asr is not None else None}) if lines else None
+                   "asr_words": (g1_scope["asr_words"] if g1_scope else len(aw)) if asr is not None else None}) if lines else None
 
     tg_ids: dict[str, str] = {}
     keys = [T.line_key(x["text"]) for x in lines]
@@ -467,6 +508,16 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             "timing_source": x["timing_source"],
         })
     n_lines_out = len(out_lines)
+    # M5-D52: lead-vocal activity after the last line (Jeremy's 217-300 s outro is wordless singing, SPIKE
+    # bench-words §2): reported and flagged for review, never filled with invented lines.
+    if out_lines:
+        t_last = max(ln["t"] + ln["d"] for ln in out_lines)
+        tail_s = float(np.sum(act[min(len(act), int((t_last + 2.0) * 100)):] > 0.5)) / 100.0
+        align_info["vocals_after_last_line_s"] = round(tail_s, 2)
+        if tail_s >= float(p.get("tail_vocals_warn_s", 20.0)):
+            heard = sum(1 for w in aw if w["start"] > t_last + 2.0)
+            warnings.append(f"{tail_s:.0f} s of lead vocals after the last lyric line ({heard} ASR words there): wordless "
+                            f"singing or lines missing from the text; review the outro in the viewer")
     for ln in out_lines:
         if ln["n_words"] == 0:
             ln["first_word"] = None
@@ -489,7 +540,8 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                               "kept": len(kept), "words": len(aw), "dropped": dropped,
                               "vad": (asr or {}).get("vad"), "vad_retry": (asr or {}).get("vad_retry"),
                               "mean_word_p": round(asr_mean_p, 4) if asr_mean_p is not None else None,
-                              "precision": ms["precision"] if ms else None, "recall": ms["recall"] if ms else None},
+                              "precision": ms["precision"] if ms else None, "recall": ms["recall"] if ms else None,
+                              "g1_scope": g1_scope, "gap_retry": (asr or {}).get("gap_retry")},
         "alignment": {**align_info, "activity_source": act_src, "active_s": round(active_s, 2), "stem": stem_name},
         "lrclib": lrclib_info,
     }
@@ -516,6 +568,20 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
              {"name": "torchaudio", "version": _ver("torchaudio")}, {"name": "faster-whisper", "version": _ver("faster-whisper")}]
     return StageResult(status=status, summary=summary, warnings=warnings, fallbacks=fallbacks, confidence=conf,
                        provenance={"notes": notes, "tools": tools, "align_engine": (align_info.get("notes") or {}).get("engine")})
+
+
+def _merge_spans(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    out: list[list[float]] = []
+    for a, b in sorted(spans):
+        if out and a <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+
+def _inside(t: float, spans: list[tuple[float, float]]) -> bool:
+    return any(a <= t <= b for a, b in spans)
 
 
 def _ver(pkg: str) -> str:
@@ -857,6 +923,22 @@ def _stable_ts(lines: list[dict[str, Any]], lead: np.ndarray, model_dir: Path, t
 
 
 # ------------------------------------------------------------------------------------------ finalise
+def _cap_line_tails(lines: list[dict[str, Any]], gap: float = 0.01) -> int:
+    """W3C-5: a lead line's held last word ends before the next lead line's first word (dense rap: the sustain
+    extension ran up to 1.5 s into the next rapper's line, so two singers showed at every hand-off). Backing lines
+    may overlap the lead and are neither capped nor caps. Returns the number of lines capped."""
+    lead = [x for x in lines if not x.get("backing") and x["wt"]]
+    n = 0
+    for x, y in zip(lead, lead[1:]):
+        nxt = float(y["wt"][0])
+        t_last = float(x["wt"][-1])
+        end = t_last + float(x["wd"][-1])
+        if end > nxt - gap and nxt - gap > t_last:
+            x["wd"][-1] = max(0.02, nxt - gap - t_last)
+            n += 1
+    return n
+
+
 def _finalise_line(x: dict[str, Any], offset: float, env: np.ndarray, floor: float, kind: str, mode: str | None) -> None:
     k = len(x["words"])
     starts: list[float | None] = [None] * k

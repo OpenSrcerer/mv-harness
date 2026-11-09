@@ -19,7 +19,7 @@ const Edit = (() => {
     }
     delete out.schema; delete out.schema_version;
     if (!Object.keys(out).length) return out;
-    return Object.assign({ schema: 'mvh/overrides', schema_version: (V.bundle.info || {}).contract || '1.0.0-rc.1' }, out);
+    return Object.assign({ schema: 'mvh/overrides', schema_version: (V.bundle.info || {}).contract || '1.0.0-rc.2' }, out);
   };
   async function api(path, body, method) {
     let r;
@@ -43,7 +43,7 @@ const Edit = (() => {
     if (st.history.length > 60) st.history.shift();
     await save(doc, label);
   }
-  async function save(doc, label, isUndo) {
+  async function save(doc, label, popped) {
     const prev = V.ovr;
     V.ovr = doc;
     rebuildGrid();
@@ -58,7 +58,7 @@ const Edit = (() => {
       toast(`Saved: ${label}. ` + (st.affected.length ? 'Will re-run: ' + st.affected.map((a) => a.stage).join(', ') : 'No stage is affected.'), 'good', 5000);
     } else {
       V.ovr = prev; rebuildGrid(); requestDraw('all');
-      if (isUndo) st.history.push(J(clean(prev))); else st.history.pop();
+      if (popped != null) st.history.push(popped); else st.history.pop();
       st.error = (r.j && (r.j.errors || [r.j.error]).join('; ')) || ('HTTP ' + r.status);
       toast('Not saved: ' + st.error, 'bad', 7000);
       if (r.status === 409) {
@@ -68,9 +68,10 @@ const Edit = (() => {
     renderBar(); refreshPanel(); requestDraw('all');
   }
   async function undo() {
+    if (st.saving) return; // a second Undo must not go out with a stale etag
     const prev = st.history.pop();
     if (prev == null) { toast('Nothing to undo'); return; }
-    await save(JSON.parse(prev), 'undo', true);
+    await save(JSON.parse(prev), 'undo', prev);
     renderBar();
   }
   async function saveIntent(patch, label) {
@@ -100,7 +101,7 @@ const Edit = (() => {
     return J(o) === J(a) ? null : o;
   }
   function pendingBoundaries() {
-    const a = (appliedOverrides('sections')['structure.boundaries'] || []).map(J);
+    const a = [].concat(appliedOverrides('sections')['structure.boundaries'] || []).map(J);
     return (((ovr().structure || {}).boundaries) || []).filter((b) => !a.includes(J(b)));
   }
 

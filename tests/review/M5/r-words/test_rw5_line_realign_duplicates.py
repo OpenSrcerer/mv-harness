@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 (major): the per-line window constraint re-aligns a line onto audio its neighbour already holds.
 
 ``align.align_groups`` re-aligns a line alone in [expected - slack, next expected + slack] when its first word lands

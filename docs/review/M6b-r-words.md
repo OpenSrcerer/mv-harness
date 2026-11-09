@@ -48,3 +48,24 @@ R2-5/N6 (SKILL.md and RECIPES.md document `field_sources`), R2-6 (frames verb al
 | m14 | `src/mvh/stages/meaning/intent.py` `_parse_text` (no-heading summary) | A file with no headings whose lines are section notes is also taken whole as the user's summary, and the first note becomes the logline. | `parse_intent("Intro: slow drift.\nDrop: wide shots.\n")` -> logline `Intro: slow drift.`, summary both notes, plus the two section claims. | Exclude section-note lines (`_SEC_KEY` at line start) from the no-heading summary, like the `C1`/`L001`/palette lines. |
 | m15 | `intent.py` `_template_region` (no marker) | Without the `# mvh-intent` marker, one trailing user comment on a template key line (`tone: dark and slow   # my note`) makes the whole template free text: logline, tone and every other answer are lost (only the generic warning). | p6_minor.py: form `text`, logline None, tone None. | Check the `" #"` rule only on keys whose YAML value would actually lose text (compare the YAML value with the raw text before the comment), or keep the parse when the lost part follows two or more spaces. |
 | m16 | `skill/mv-harness/references/RECIPES.md` `isDraft` | The recipe treats every non-`user` field source as a draft, so harness facts (`characters_present: audio`, `emotion.audio`) are shown to agents as agent drafts (same root as m12). | RECIPES line `... !== 'user'`. | `=== 'draft'`, and present `audio` as a measured fact. |
+
+## Round 4 (reviewer r-words-m6b-r4, W3 verify)
+
+All 8 round-3 findings (R-CONTRACT R3-1..R3-5, R-WORDS R3-1..R3-3) are fixed. The fix is a real rewrite of the parser, not a set of test-specific hacks: intent.py now has one documented grammar (grammar v2), and docs.yaml_template writes every user claim back. Re-checked with variants outside the tests: hex values in flow lists without spaces, block lists at column 0 and indented, 3-digit hex, hex in section palettes, a broken YAML key next to good ones (the good ones are kept), and the hint comment kept after the answer. Round-3 minors m14 and m15 are also fixed. m16 is still open: RECIPES `isDraft` still uses `!== 'user'`.
+
+New majors R4-1..R4-3 have failing tests in tests/review/M6b/r-words/test_rw4_*.py. Minors:
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m17 | `intent.py` `_cut_comment` (one-space comment) | When the user deletes the `[]` and the spaces before the hint, the hint's example colour becomes a user colour. `palette: #c93523 # hex (#1b2a49) or colour words` gives palette `['#c93523', '#1b2a49']`. | p4.py `plain_hint_onespace`, fenced and unfenced. | Treat a comment whose text matches the template's own hint text as a comment whatever the spacing. Or move the hex example from the comment to the separate `# Hex colours ...` comment line. |
+| m18 | `src/mvh/stages/brief/build.py` (meaning block) | The user-sourced `notes` and `references` in meaning.json (new in W3) are not in brief.md, the LLM entry point. SKILL.md does not mention them either. Grammar v2 sends every user line it cannot classify to `notes`, so those words reach only meaning.md. | grep: brief/build.py has no `notes`/`references`; docs.py prints `## Notes (user)` only in meaning.md. | Add one brief line, e.g. "User notes: N (meaning/meaning.json notes)", plus references. Mention both in SKILL §3. |
+
+## Round 5 (reviewer r-words-m6b-r5, W3 verify)
+
+R4-1 and R4-3 are fixed, and the fixes are real grammar changes (grammar v3), not test hacks. For R4-1, key + bullet answers were checked for every map key with col-0 and indented bullets, one-key maps, nested maps, bold ids and colons inside names; the probe is `out/_wip/r-words-m6b-r5/q3.py`. For R4-3, the interviews of synth and all 4 real fixtures were checked: an untouched paste stays `pending`, and answers written under the question or on the question line, numbered or not, land in the right fields (`q4.py`). R4-2 is fixed only for the cases it named. Common variants still fall to notes with no warning, so they are reported again as R5-4. Minors m16, m17 and m18 are fixed.
+
+New majors R5-1..R5-4 have failing tests in `tests/review/M6b/r-words/test_rw5_*.py`. Minor:
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m19 | `intent.py` `_apply_yaml` line_singers / `_LINE_SINGER` | A per-line singer fix that names no character id (`L005: both`, `L005: everyone`, free text `L005: both of them`) is dropped silently, with no warning and nothing kept in notes. The interview's "Check the singer" question invites this kind of answer. | `q9.py`: `line_singers:\n- L005: both`, `line_singers:\n  L005: everyone` and `L005: both of them` all give line_singers `{}`, notes `[]`, warnings `[]`. | Warn ("L005: no character id (use C1+C2)") and keep the text in notes. Optionally map `both`/`all`/`everyone` to the characters of the voices on that line. |

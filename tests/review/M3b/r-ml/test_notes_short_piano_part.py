@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings / evidence lines)
 """R-ML M3b (major): a piano part that plays for less than 10 % of the song gets no notes at all.
 
 ``notes.run`` treats ``params.piano_min_active`` (0.10) as a fraction of the WHOLE song. Below it, ``_piano_gate``

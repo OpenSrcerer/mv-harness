@@ -83,3 +83,59 @@ Minor findings, round 3:
 | m17 | `kick_conf` (CONTRACT decision M1-S8) and `tests/unit/spectral::test_kick_events_with_sub_bass_line` | M1-S8 says sustained bass notes "read low" in `kick_conf`, and the unit test's docstring says `kick_conf` separates them. On the builder's four-on-the-floor groove(), the 12 bass-note onsets emitted as kicks have kick_conf 0.965-1.0 (median 1.0, the same as the true kicks). On the default groove the extras have median 0.948 against 1.0 for the true kicks, so the test's `median(tp) >= median(fp)` passes with almost no margin. | `kc.py`, `probe_groove2.py`. | Put the pitch drop (`kick_glide`) into `kick_conf`: kicks median 1.93, bass-note extras ≤ 1.29 on these signals. Make the test strict (`median(fp) <= 0.5`). |
 | m18 | `tests/unit/spectral::test_real_song_kick_counts` | The fixer widened the bar from ±10 % of the W0 viz reference to [-35 %, +10 %]. For Versatile, Jeremy and newton the kick-stem evidence supports the widening. For MEGAFAUNA, 164 of its 503 viz-registered kick-band hits are dropped, and its DrumSep stem cannot tell whether they are kicks: the share of attacks with a clear kick-stem attack is 0.35 for the dropped ones and 0.31 for the kept ones. A -35 % band would hide a future recall regression. | `out/_wip/r-dsp-m1-r3/real3.log`. | Replace the count band with a per-song kick-stem recall test (strict attacks, as in `test_jeremy_unambiguous_kicks_are_kept`) for Jeremy, newton and Versatile. Keep MEGAFAUNA count-only with a note. |
 | m19 | `docs/contract/decisions/M1.md` | m14 still stands. There are still two M1-S6 rows (the flash rule at line 16, and the kick-event rule rewritten by the fixer at line 59), outside the table. | Read the file. | Renumber the kick-event row (e.g. M1-S12) and move it into the spectral table. |
+
+## Round 4 (r-dsp-m1-r4, W3 verify after fixer-m1-r3)
+
+Probes are in `out/_wip/r-dsp-m1-r4/`. Blockers and majors are in `docs/build/reports/r-dsp-m1-r4.md`, each with a failing
+test in `tests/review/M1/r-dsp/test_rdsp_r4_kicks.py` (signals in `rdsp_r4_signals.py`).
+
+Fix status. The kick selector was redesigned (evidence routes, no refractory). The review suite and the M1 unit tests pass: 99 passed, 12 skipped.
+- **B1-R2, R3-B1, R2-M1, R2-M2: fixed.** The fixture song, the groove variants, the 16th riff, rock pairs (120-170 BPM),
+  16ths at 160-220 BPM (with and without a crash) and 22.05/48/96 kHz and mono inputs all score F1 0.99-1.0. The unit-test bar is
+  back at PLAN §7 (0.95).
+- **S06: not resolved** (re-raised as R4-M2). The claim that MEGAFAUNA's DrumSep kick stem is hat bleed holds only for its
+  low-velocity rows. The 165 strong rows (vel >= 0.5) are real. At the 131 that hits.kick misses, the htdemucs drums stem
+  rises 11.4 dB in 30-150 Hz while the bass stem falls 8 dB (sidechain ducking), so the mix stays flat.
+- Earlier minors: m16 is fixed (the docstring now matches the code), m17 is fixed (kick_conf uses the pitch drop), m18 is
+  fixed (the real test uses kick-stem recall). m19 is partly fixed: the superseded `M1-S6b` row still sits outside the table.
+
+Minor findings, round 4:
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m20 | `spectral/dsp.py:KickAnalysis.candidates` | A kick on the first sample of the file is never a candidate, because `find_peaks` skips array edges. A file that starts on a kick loses its first kick, and a 0.9 s single-kick file yields no event. | `probe_edges.py`: kicks at 0/1/2/3 s give 3/4, and 0 s is missed. `dbg_t0.py`: at t = 0 the evidence routes "sweep" (attack 45.6 dB), but no candidate exists before 0.52 s. | Pad the step functions (or prepend a silent sample) before `find_peaks`. |
+| m21 | `select_kick_events`, 16th rolls under a crash | With the fixture's longer kick, 16ths at 180 BPM under a crash every 2 s give F1 0.927 (R 0.865). The tight kick passes up to 220 BPM. | `probe_rolls.py` | Add this case to the unit roll cases and look at the misses' attack under the crash wash. |
+| m22 | `hits.kick` precision on rock snares (Jeremy) | 56 of 560 Jeremy hits.kick (10 %) have a silent DrumSep kick stem (median -54.7 dB, rise -5 dB) and a 20 dB snare-stem rise at -35 dB: snares emitted as kicks. Their kick_conf median is 0.61 (true kicks 0.78), so M1-S13's "cut on hits.kick with kick_conf >= 0.5" keeps them. This is better than before the fix (about 107 unmatched). | `jeremy_snare.py` | Put a snare test into the body route (a 150-250 Hz tone with broadband noise at the same onset and no 30-80 Hz rise), or raise M1-S13's cut to about 0.7 and document it. |
+| m23 | `dynamics/stage.py` role hints (`role_score`, declared unit 0..1) | The build score is `0.4a + 0.3b + 0.3c + 0.2`, which can reach 1.2. The integrator's outputs have newton 1.104 and Versatile 1.071 (`events/dynamics.json`, `meta/dynamics.json` role_hints). This predates the fix and validate does not catch it. | Shown by a direct read of the integrator outputs. `dyn_harness.py` reproduces newton 1.109. | Clip it with `min(1.0, ...)` as the drop branch does. |
+| m24 | `tests/integration/M1/test_real_kick_sources_agree.py` | It reads `out/_wip/integrator/megafauna`, whose hits.kick is still the pre-fix one (335 events). On the fixed output it still fails: 0.49 / 0.14. Only re-running the integrator will show the real state. | `s06.py` | Re-run the integrator's MEGAFAUNA after the M1 fix. Change the test to strong DrumSep kicks (vel >= 0.5) vs hits.kick, so hat bleed does not decide it. |
+
+## Round 5 (r-dsp-m1-r5, W3 verify after fixer-m1-r4)
+
+Probes are in `out/_wip/r-dsp-m1-r5/`. Blockers and majors are in `docs/build/reports/r-dsp-m1-r5.md`, each with a failing
+test in `tests/review/M1/r-dsp/test_rdsp_r5_kicks.py` (signals in `rdsp_r5_signals.py`). Suite before the new tests:
+review M1 + unit spectral/loudness/dynamics 117 passed, 12 skipped, 1 xfailed. The round-4 tests all pass.
+
+Fix status:
+- **R4-M1: not fixed beyond the tested point** (re-raised as R5-M1). The 808 route sits on its 1.2 pitch-drop threshold:
+  the same TR-808 mix scores 0.968 at 120 BPM, 0.809 at 100 BPM and 0.567 at 140 BPM. The acoustic kick at bass 0.7 (named in
+  the R4 evidence) scores 0.829. The click route needs a 15 dB click, which a quiet lead chord removes (R 0.58).
+- **R4-M2: not fixed** (re-raised as R5-M2). The duck route needs the same 15 dB click: with a quiet lead chord, 909 R 0.04.
+  On real songs the duck route fires once (MEGAFAUNA) and click 3 times (`manifest.json` hits.kick routes). MEGAFAUNA's
+  strong DrumSep kicks are still matched 0.22 (my rerun is byte-identical to the fixer's hits.kick). M1-S13 was revised
+  as suggested (cut on drum_hits vel >= 0.5 rows).
+- **R4-M3: half fixed** (re-raised as R5-M4). Sweep-route kicks (fixture, 909) in a -14 / -20 dB intro: 16 / 16. Kicks
+  with kick_conf < 0.7 (all 808 / click-route kicks) are still judged against the song-global median body: tr808 -20 dB
+  intro R 0.75, acoustic over bass -14 dB R 0.875; 1.0 with `kick_quiet_conf` 0.
+- New regression (R5-M3): the click route makes kicks of kick-free low onsets with a click-band transient.
+- Earlier minors: m20 fixed (kick at t = 0 found), m23 fixed (role_score <= 1 on all reruns), m21 fixed per the
+  fixer (roll route; not re-probed). m22 still open: Jeremy has 43 hits.kick whose stems show a snare and no kick
+  (`kick_prec.py`). m24 still open: the S06 test still reads the integrator's pre-fix MEGAFAUNA folder (fails 0.42).
+
+Minor findings, round 5:
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m25 | `spectral/dsp.py:kick_route` (`ev.gate < p["gate"]`) with the viz kick gate of `stage._kick_gate` | Kick events need the viz kick gate (absolute -46 dB for a normal master, PLAN's `max(-46, p95 - 30)`), so every kick of a section about 26 dB below the loud part is dropped, even with kick_conf 1.0. The viz envelope should keep the viz gate, but events do not need it now that faint thumps are judged against the local mix level. | `probe_vars.py quiet`: all designs 0 / 16 in a -26 dB intro. `dbg.py quiet:fixture:-26:0`: gate 0.07, attack 27.8 dB, glide 1.85, click 22 dB, conf 1.00. | Gate events on the relative criterion (p95 - 30, or the local level) and keep the absolute gate for the viz flash only. |
+| m26 | `dynamics/stage.py:role_hints` (breakdown) | The breakdown hint has no "energy comes back" condition, so an outro fade is a breakdown with score 1.0. Jeremy (rerun): 288.1 s (medium) and 306.4 s (quiet, 8 s before the final silence) are both "breakdown 1.0". | `out/_wip/r-dsp-m1-r5/jeremy/meta/dynamics.json` role_hints (identical in the fixer's output). | Require a later part with bass/kick back near the song's median (as the build branch requires a louder part after it), or lower the score when nothing follows. |
+| m27 | `hits.kick` precision on MEGAFAUNA (and so M1-S13's fallback) | Of MEGAFAUNA's 188 hits.kick, 36 sit on strong DrumSep kicks and about 36 on other kick-stem rises. About 116 sit where the stems show a snare (26), toms (20), bass (14), other (21) or nothing loud (35). Their kick_conf median is 0.74 (p10 0.58), so M1-S13's "plus hits.kick events with kick_conf >= 0.5 and no strong row within 30 ms" adds about 116 non-kicks to the cut timeline. Jeremy has 43 snares this way, Versatile 4. | `kick_prec.py` (stems 30-400 Hz rise >= 3 dB and level within 8 dB of the mix). | In M1-S13 / CR-M1-6, add hits.kick only where the kick stem itself rises (drum_hits rows of any vel, or a kick-stem check), and raise the conf cut to about 0.8. |
+| m28 | `tests/synth/m1/kicks.py` and every synthetic kick test | Every synthetic mix in the unit and review tests has an almost empty 1.5-5 kHz band before each kick, so the "click" evidence reads 20-60 dB, against 1-5 dB at MEGAFAUNA's kicks. Thresholds tuned on these signals (`duck_click_db`, `cb_click_db` 15 dB) never fire on real mixes. | `dbg.py` click column on any synthetic case; `mega_ev.py` click p10/50/90 -2.6 / 1.2 / 4.7 dB. | Add a sustained bright bed (`rdsp_r5_signals.with_bed`) to the unit-test mixes, and measure the click against the band's local level (a click-to-background ratio) rather than its level 50-10 ms before. |

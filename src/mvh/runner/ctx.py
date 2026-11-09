@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """The runner's implementation of the frozen stage interface (``spec.Ctx``, ``spec.Upstream``,
 ``spec.Writer``).
 

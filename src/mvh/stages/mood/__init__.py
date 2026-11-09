@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """mood stage (contract v1, owner M4).
 
 Essentia ONNX heads on a numpy mel front end: msd-musicnn embeddings -> emoMusic and DEAM (valence, arousal), and

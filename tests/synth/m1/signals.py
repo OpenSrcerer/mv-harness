@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Synthetic test signals for the M1 stages (spectral, loudness, dynamics) with exact ground truth.
 
 * ``groove``: kick / snare / hat one-shots (tests.synth.dsp) on a syncopated pattern with varying velocities, over an

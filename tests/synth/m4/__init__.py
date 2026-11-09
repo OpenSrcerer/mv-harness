@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Synthetic generators for the harmony and mood tests (module M4): chord progressions with exact chord/key truth, a
 modulating piece, and mood stimuli (calm pad, energetic beat, digital silence). Deterministic, float64, mono at 44.1 kHz."""
 from __future__ import annotations

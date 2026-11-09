@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """stem_activity: core definitions on synthetic signals, then the stage on the synthetic song (generator stems)."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 2 (major, regression from the C fix): the extended hallucination filter deletes sung lyrics.
 
 M5-D33 extended ``asr.NONLYRIC`` with YouTube-outro patterns that are matched with ``re.search`` anywhere in a

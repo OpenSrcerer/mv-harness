@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Collect the inlined preview data of viewer.html from the upstream caches (see bundle.py)."""
 from __future__ import annotations
 
@@ -184,7 +183,7 @@ def build_data(ctx: Any, bd: Any) -> dict[str, Any]:
             "fallbacks": fallbacks,
             "inline_lyrics": inline_lyrics,
             "cap_bytes": cap,
-            "contract": "1.0.0-rc.1",
+            "contract": "1.0.0-rc.2",
         },
     }
     return {

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Every ID in the synthetic fixture links: sections <-> phrases <-> bars <-> counts <-> lines <-> voices <-> characters <-> cues."""
 
 import csv

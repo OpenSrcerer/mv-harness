@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Schemas are valid and up to date; envelopes, curve files and the stub copy behave as specified."""
 import json
 import math

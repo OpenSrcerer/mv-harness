@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Launching the sep worker (PLAN §3.3 "Worker protocol", docs/spike/sep.md §6, CONTRACT D29).
 
 ``envs/sep/.venv-<variant>/Scripts/python.exe -X utf8 -m mvh.worker <stage> job.json`` with
@@ -180,6 +179,9 @@ def run_worker(
         from . import models as _models
 
         env["AUDIO_SEPARATOR_MODEL_DIR"] = str(_models.separator_dir())  # overrides model_file_dir; set, never inherit
+        if variant == "rocm":
+            # bit-reproducible rocBLAS GEMMs for every sep-env GPU stage (mvh.sep.determinism; W3 fixer-m3a-r4 CR)
+            env.setdefault("ROCBLAS_USE_HIPBLASLT", "0")
         for v in ("VIRTUAL_ENV", "PYTHONHOME", "UV_PROJECT_ENVIRONMENT"):
             env.pop(v, None)
         slot = locks.acquire(f"mvh:{stage}:{variant}", gpu=(variant == "rocm")) if hold_slot else None

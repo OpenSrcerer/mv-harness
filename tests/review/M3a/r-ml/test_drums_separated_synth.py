@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a, finding F1: the drum stage misses the PLAN §7 gates on the synthetic song when it runs on what
 the separators actually produce.
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Helpers for the viewer tests: a fake upstream that reads the synthetic song fixture (tests/contract/synth/)."""
 from __future__ import annotations
 

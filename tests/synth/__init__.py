@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Deterministic synthetic test signals and the synthetic multitrack song (PLAN §7.1, W1b fixtures).
 
 Modules

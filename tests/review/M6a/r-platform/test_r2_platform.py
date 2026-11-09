@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """R-PLATFORM review of M6a, ROUND 2 (r-platform-m6a-r2): new majors found after the round-1 fixes.
 
 Each test is the evidence of one finding in docs/build/reports/r-platform-m6a-r2.md and FAILS until the viewer is fixed.

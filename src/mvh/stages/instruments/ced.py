@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """CED-base (AudioSet, 527 labels) ONNX tagger on 16 kHz mono arrays (owner M3b; also used by the notes stage).
 
 Recipe (docs/SPIKE.md, docs/spike/bench-music.md §5): input ``waveform [B, samples]`` float32 at 16 kHz; the ONNX output is

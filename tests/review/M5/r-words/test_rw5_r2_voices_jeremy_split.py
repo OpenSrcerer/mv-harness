@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 2 (major): one singer (Jeremy) is now split into 4 voices.
 
 After the alignment fixes the lyrics line spans of Jeremy moved slightly (L033-L040 mostly); the voices stage, whose

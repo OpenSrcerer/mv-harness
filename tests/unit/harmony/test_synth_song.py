@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """The contract synthetic song (A minor, Am-F-C-G loop, exact chord truth) through the real models."""
 import sys
 from pathlib import Path

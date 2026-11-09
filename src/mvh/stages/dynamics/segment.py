@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Dynamics segmentation (loud and quiet parts) and the intensity composite (pure numpy/scipy).
 
 1. A 10 Hz feature matrix: short-term LU, bass and kick band dB, kick density, mid/high onset density, brightness

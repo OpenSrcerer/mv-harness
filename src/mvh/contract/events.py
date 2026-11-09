@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Reference reader/writer for the event-file envelope (PLAN §4.1 events/*.json). Stdlib only.
 
 Envelope: {schema, schema_version, name, kind: event|segment, fields{name: {unit, type}}, provenance, items[]}.

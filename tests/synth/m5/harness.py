@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """M5 in-process harness: run identity / lyrics / voices / lipsync through the runner's own child code
 (``mvh.runner.child.run_stage``: real StageCtx, StageWriter, schema validation, provenance, done.json) with
 upstream stages materialised from a contract fixture folder by the walking-skeleton copier (``run_stub``).

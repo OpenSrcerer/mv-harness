@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Regenerate the test fixtures deterministically.
 
     uv run --frozen --no-sync python -m tests.synth.build                 # synth folder (+ real-* adapters if the W0 cache exists)

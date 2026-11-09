@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Standard MIDI files with a tempo map from the beat grid (owner M3b; used by notes and vocals).
 
 The map makes MIDI time equal song time: tick 0 = the first sample of audio/mix.flac; every beat of events/beats.json

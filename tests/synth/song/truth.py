@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """Derived ground truth: beats/bars/counts/grooves/accents/hit points/holds/cues from the score and the rendered events.
 
 Everything here is a deterministic function of score.py and the Render (event times on the sample grid).
@@ -35,7 +34,8 @@ FORMULAS = {
     "accent": "per beat: max(kick vel, 0.9*snare vel, crash vel, 0.7*tom vel) of hits within +-30 ms, +0.15 if a lead word starts "
     "within +-60 ms, +0.10 if a phrase starts on the beat; clipped to 0..1; 0 for beats outside pulse regions",
     "syncopation": "weights w[16] = 5 (step 0), 4 (8), 3 (4, 12), 2 (even 8ths), 1 (odd 16ths); S = sum over onsets s (kick or snare) "
-    "with no onset at s+1 of max(0, w[s+1] - w[s]); syncopation = min(1, S / 12)",
+    "of w[j] - w[s], where j is the next step (the bar loops) with w[j] > w[s] and no onset lies in (s, j] (Longuet-Higgins/Lee); "
+    "syncopation = min(1, S / 12)",
     "swing": "programmed long/short 8th ratio of the bar (1.0 straight, 1.5 = 60:40)",
     "hit_point": "beats with >= 3 coinciding kinds among drum (kick/snare), cymbal (crash), impact, vocal_onset, chord (chord change on "
     "a downbeat), section (section start), plus the stop; strength = clip(0.3*accent + 0.1*n_kinds + 0.1*impact strength, 0, 1) "
@@ -168,9 +168,13 @@ def counts(acc: dict[int, float]) -> list[dict[str, Any]]:
 def syncopation(onsets: set[int]) -> float:
     s = 0
     for st in onsets:
-        nxt = (st + 1) % 16
-        if nxt not in onsets:
-            s += max(0, _W16[nxt] - _W16[st])
+        for d in range(1, 16):
+            j = (st + d) % 16
+            if j in onsets:
+                break
+            if _W16[j] > _W16[st]:
+                s += _W16[j] - _W16[st]
+                break
     return round(min(1.0, s / 12.0), 4)
 
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Scoring helpers for the M2 stages against the synthetic ground truth (tests/contract/synth/_truth/truth.json)."""
 from __future__ import annotations
 

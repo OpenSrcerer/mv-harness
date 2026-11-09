@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """The score of the synthetic song "Lanterns on the Tide": every musical fact here IS the ground truth.
 
 120 BPM, A minor, 56.5 s, 44.1 kHz stereo.

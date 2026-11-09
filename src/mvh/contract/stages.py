@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """The stage list of PLAN §3.2 (frozen names). Deps live in each stage's STAGE spec (mvh.stages.<name>)."""
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """Offline, non-causal port of the analysis in ``viz/js/audio.js`` (pure numpy/scipy; no I/O).
 
 What is ported **faithfully** (same constants, same formulas, same order of operations):
@@ -17,9 +16,10 @@ What is **offline** (PLAN §5 spectral; documented in provenance):
 * a per-song gain replaces the 6 s AGC: ``g = clamp(0.95 / max(p99.5(max_k raw_k), 0.2), 0.6, 3.5)``;
 * the hit reference is the centred +-8 s median of the attack sizes (instead of the causal running average), and the
   kick gate is relative: ``max(-46, p95(kick dB) - 30)``;
-* hit events are the viz hits (an attack whose envelope exceeded 0.3 while armed) refined on a 400 Hz zero-phase band
-  envelope (onset = the 50 % rise point); the hit envelopes are shifted earlier by the median detection lag so their
-  flash lands on the onset frame (contract flash rule);
+* mid/high hit events are the viz hits (an attack whose envelope exceeded 0.3 while armed) refined on a 400 Hz
+  zero-phase band envelope; kick events are low-band onsets judged on kick evidence (a swept attack or an acoustic body,
+  :func:`select_kick_events`); the hit envelopes are shifted earlier by the median detection lag so their flash lands on
+  the onset frame (contract flash rule);
 * the flux threshold is a centred mean (0.8 s, current frame excluded) instead of the trailing 48-frame history; onset
   times are refined on the same 400 Hz envelopes.
 """
@@ -741,205 +741,447 @@ def _window_max(a: np.ndarray, k: int, start: int) -> np.ndarray:
     return f[idx]
 
 
-def low_excess_db(low_db: np.ndarray, post_s: float = 0.06, pre_from_s: float = 0.0075, pre_to_s: float = 0.06,
-                  rate: int = ENV_RATE) -> np.ndarray:
-    """ex[j] = max(low[j+1 .. j+post]) - max(low[j-pre_to .. j-pre_from]): how far the low band's level after a step
-    exceeds the level it had in the 60..7 ms before. A kick's attack stands well above the previous level (its own
-    decaying tail or a held bass note); the recovery from a beating null of a bass note against a kick tail only
-    returns to the level it had before the null (excess ~ 0 or negative)."""
-    kp = max(1, int(round(post_s * rate)))
-    a, b = int(round(pre_from_s * rate)), int(round(pre_to_s * rate))
-    post = _window_max(low_db, kp, 1)
-    pre = _window_max(low_db, max(1, b - a + 1), -b)
-    return post - pre
+def max_step(edb: np.ndarray, k_post: int, k_pre: int) -> np.ndarray:
+    """Ripple-robust onset function: s[j] = mean(edb[j+1 .. j+k_post]) - max(edb[j-k_pre+1 .. j]).
+
+    Against the *maximum* of the level before (not its mean, as :func:`step_contrast`), the dips of beating partials (a
+    held bass note's harmonics, a kick tail against the bass) cannot make a step: only a level above every recent ripple
+    peak counts (the SuperFlux idea, along time)."""
+    n = edb.size
+    c = np.concatenate([[0.0], np.cumsum(edb)])
+    j = np.arange(n)
+    a, b = np.clip(j + 1, 0, n), np.clip(j + 1 + k_post, 0, n)
+    post = np.where(b > a, (c[b] - c[a]) / np.maximum(b - a, 1), edb)
+    return post - _window_max(edb, k_pre, -k_pre + 1)
 
 
+# ------------------------------------------------------------------------------------------------ kick events
+#: sample rate (Hz) of the decimated signal the narrow low-band kick envelopes are computed from
+KICK_LOW_FS = 3200
+#: kick evidence bands (Hz): the start of a kick's pitch sweep (its attack), the same a little higher, its body
+KICK_BANDS = {"attack": (90.0, 200.0), "attack_hi": (125.0, 250.0), "body": (30.0, 150.0)}
+#: beater click band (Hz): above the bass and guitar body, below the hats
+KICK_CLICK_BAND = (1500.0, 5000.0)
+#: band (Hz) of the pitch-drop meter (excludes snare tones and sung notes above 160 Hz)
+KICK_GLIDE_BAND = (30.0, 160.0)
 GLIDE_RATE = 2000
 
 
-def glide_signal(mono: np.ndarray, sr: int, rate: int = GLIDE_RATE, cutoff_hz: float = 250.0) -> np.ndarray:
-    """The mono mix low-passed at ``cutoff_hz`` (zero phase) and decimated to ``rate`` Hz: the input of ``kick_glide``."""
-    from math import gcd
-
+def low_band_envelopes(mono: np.ndarray, sr: int, bands: dict[str, tuple[float, float]], *, rate: int = ENV_RATE,
+                       fs: int = KICK_LOW_FS) -> dict[str, np.ndarray]:
+    """Zero-phase envelopes (dB) at ``rate`` Hz of narrow low bands: one polyphase decimation to ``fs`` Hz, a 4th-order
+    Butterworth band-pass applied forwards and backwards, the Hilbert magnitude, RMS over each 1 / rate window centred on
+    j / rate. (:func:`band_envelope` decimates per band to 4x the top edge, too coarse for a 400 Hz envelope below
+    ~150 Hz.)"""
     from scipy import signal
 
-    g = gcd(int(rate), int(sr))
-    y = signal.resample_poly(np.asarray(mono, dtype=np.float64), int(rate) // g, int(sr) // g)
-    return signal.sosfiltfilt(signal.butter(4, cutoff_hz, "lowpass", fs=rate, output="sos"), y)
+    x = np.asarray(mono, dtype=np.float64)
+    g = math.gcd(int(fs), int(sr))
+    y0 = signal.resample_poly(x, int(fs) // g, int(sr) // g) if fs != sr else x
+    n_out = int(math.ceil(x.size * rate / sr))
+    q = fs / rate
+    c = np.round(np.arange(n_out) * q).astype(np.int64)
+    h = int(round(q / 2))
+    out: dict[str, np.ndarray] = {}
+    for name, (lo, hi) in bands.items():
+        sos = signal.butter(4, [lo, hi], btype="bandpass", fs=fs, output="sos")
+        y = signal.sosfiltfilt(sos, y0)
+        m = signal.hilbert(y, N=_fast_len(y.size))[: y.size]
+        a2 = m.real**2 + m.imag**2
+        cs = np.concatenate([[0.0], np.cumsum(a2)])
+        a = np.clip(c - h, 0, a2.size)
+        b = np.clip(c + h, 0, a2.size)
+        out[name] = env_db(np.sqrt(np.maximum((cs[b] - cs[a]) / np.maximum(b - a, 1), 0.0)))
+    return out
 
 
-def _zero_cross_hz(y: np.ndarray, rate: int, a: float, b: float) -> float:
-    seg = y[max(0, int(round(a * rate))) : max(0, int(round(b * rate)))]
-    if seg.size < 8:
-        return float("nan")
-    s = np.signbit(seg)
-    return float(np.sum(s[1:] != s[:-1])) / 2.0 / (b - a)
+class GlideMeter:
+    """Pitch drop of the energy an onset adds to the low band (KICK_GLIDE_BAND).
+
+    The RMS frequency of a window is sqrt(P(y') / P(y)) / 2 pi (derivative power over power; for a sum of partials it is
+    their power-weighted RMS frequency). The meter subtracts the power that was already there before the onset (at most
+    ``share`` of each window's power, so a decaying background cannot be over-subtracted) and compares the RMS frequency
+    of the added energy 2-25 ms after the onset with that 40-75 ms after it: a kick drum's body sweeps down (ratio
+    ~1.5-2.5), a bass note holds its pitch (~1), whatever else (a held note, a kick tail) sounds underneath."""
+
+    def __init__(self, mono: np.ndarray, sr: int, band: tuple[float, float] = KICK_GLIDE_BAND, rate: int = GLIDE_RATE):
+        from scipy import signal
+
+        g = math.gcd(int(rate), int(sr))
+        y = signal.resample_poly(np.asarray(mono, dtype=np.float64), int(rate) // g, int(sr) // g)
+        y = signal.sosfiltfilt(signal.butter(4, list(band), "bandpass", fs=rate, output="sos"), y)
+        dy = np.gradient(y) * rate if y.size > 1 else np.zeros_like(y)
+        self._cy = np.concatenate([[0.0], np.cumsum(y * y)])
+        self._cd = np.concatenate([[0.0], np.cumsum(dy * dy)])
+        self.rate = int(rate)
+        self.n = y.size
+
+    def power(self, a: float, b: float) -> tuple[float, float]:
+        """Mean power of the band and of its derivative over [a, b) seconds (clipped to the signal)."""
+        i = max(0, min(self.n - 1, int(round(a * self.rate))))
+        j = max(i + 1, min(self.n, int(round(b * self.rate))))
+        if self.n == 0:
+            return 0.0, 0.0
+        return (self._cy[j] - self._cy[i]) / (j - i), (self._cd[j] - self._cd[i]) / (j - i)
+
+    def added_hz(self, t: float, w: tuple[float, float], pre: tuple[float, float], share: float = 0.5) -> float:
+        py0, pd0 = self.power(t + pre[0], t + pre[1])
+        py, pd = self.power(t + w[0], t + w[1])
+        lam = min(1.0, share * py / py0) if py0 > 0 else 0.0
+        ay, ad = py - lam * py0, pd - lam * pd0
+        return math.sqrt(ad / ay) / (2.0 * math.pi) if ay > 0 and ad > 0 else float("nan")
+
+    def glide(self, t: float, early: tuple[float, float] = (0.002, 0.025), late: tuple[float, float] = (0.040, 0.075),
+              pre: tuple[float, float] = (-0.030, -0.008), share: float = 0.5) -> tuple[float, float]:
+        """(ratio, f_early): RMS frequency of the added energy early over late (NaN when unmeasurable), and early (Hz).
+        ``share=0`` measures the whole band (no subtraction): under a sidechain duck the bass the kick replaces is gone,
+        so subtracting it would remove more than was there."""
+        f1 = self.added_hz(t, early, pre, share)
+        f2 = self.added_hz(t, late, pre, share)
+        return (f1 / f2 if f1 == f1 and f2 == f2 and f2 > 0 else float("nan")), f1
+
+    def added_db(self, t: float, post: tuple[float, float] = (0.0, 0.08), pre: tuple[float, float] = (-0.04, -0.003)) -> tuple[float, float]:
+        """(dB the band's power rises from before the onset to the 80 ms after it, that power in dBFS)."""
+        p0, _ = self.power(t + pre[0], t + pre[1])
+        p1, _ = self.power(t + post[0], t + post[1])
+        return 10.0 * math.log10(max(p1, 1e-20) / max(p0, 1e-20)), 10.0 * math.log10(max(p1, 1e-20))
 
 
-def _finite_ge(v: float, lim: float) -> bool:
-    return v == v and v >= lim
+@dataclass
+class KickEvidence:
+    """What the kick detector measured at one onset (dB unless noted)."""
+
+    attack: float  # sweep start: burst of the 90-200 / 125-250 Hz band above its level before and 55-85 ms after
+    glide: float  # pitch drop of the added low-band energy (ratio; NaN when unmeasurable)
+    f_early: float  # RMS frequency (Hz) of the added low-band energy 2-25 ms after the onset
+    click: float  # 1.5-5 kHz beater click above its level 50-10 ms before
+    low_ex: float  # <= 400 Hz level after the onset above its maximum 60-7 ms before
+    body_ex: float  # 30-150 Hz level (40 ms after) above its maximum 50-5 ms before
+    body_add: float  # 30-160 Hz power rise over the 80 ms after the onset
+    body_db: float  # that power, dBFS
+    decay: float  # 30-150 Hz peak (40 ms) minus its mean 60-90 ms after the onset
+    gate: float  # viz kick gate (0..1) over the 80 ms after the onset
+    glide_raw: float = float("nan")  # the same pitch drop measured on the whole 30-160 Hz band (nothing subtracted)
+    route: str = ""  # see KICK_ROUTES; "" = no kick
+
+    def conf(self) -> float:
+        """kick_conf (0..1): the strongest of the evidence combinations the routes use: sweep (attack, pitch drop,
+        click), body (body onset, fast decay), clicky body (beater click on a low-band onset); a bass-note onset, a snare
+        or a vocal reads low."""
+        def c01(v: float) -> float:
+            return float(np.clip(v, 0.0, 1.0))
+
+        g = self.glide if self.glide == self.glide else 1.0
+        gr = self.glide_raw if self.glide_raw == self.glide_raw else 1.0
+        s_att = c01((self.attack - 3.0) / 7.0)
+        s_gl = c01((g - 1.0) / 0.6)
+        s_glr = c01((max(g, gr) - 1.0) / 0.6)
+        s_cl = c01((self.click - 2.0) / 10.0)
+        s_body = c01((self.body_ex - 2.0) / 8.0)
+        s_dec = c01((self.decay - 2.0) / 10.0)
+        s_beater = c01((self.click - 6.0) / 20.0)
+        s_add = c01((self.body_add - 2.0) / 8.0)
+        sweep = 0.45 * s_att + 0.4 * s_gl + 0.15 * s_cl
+        duck = 0.45 * s_att + 0.4 * s_glr + 0.15 * s_cl
+        body = 0.35 * s_body + 0.35 * s_dec + 0.15 * s_att + 0.15 * s_gl
+        clicky = 0.35 * s_beater + 0.3 * s_body + 0.2 * s_att + 0.15 * s_add
+        return round(float(min(1.0, max(sweep, duck, body, clicky))), 3)
 
 
-def kick_glide(y: np.ndarray, t: float, rate: int = GLIDE_RATE) -> float:
-    """Pitch drop of the low band after an onset at ``t``: the zero-crossing frequency (Hz) of the 2..30 ms after it over
-    that of the 45..90 ms after it. A kick drum's body sweeps down (ratio ~ 1.5-2.5); a bass note holds its pitch (~ 1).
-    NaN when there is no signal to measure."""
-    f1 = _zero_cross_hz(y, rate, t + 0.002, t + 0.030)
-    f2 = _zero_cross_hz(y, rate, t + 0.045, t + 0.090)
-    if not (f1 > 0 and f2 > 0):
-        return float("nan")
-    return f1 / f2
+#: kick routes (KickEvidence.route): which evidence made the onset a kick
+KICK_ROUTES = ("sweep", "duck", "body", "click", "808", "roll")
 
 
-def select_kick_events(hr: HitResult, low_db: np.ndarray, click_db: np.ndarray, *, x_min: float = 0.3,
-                       ls_viz_min: float = 3.0, ls_min: float = 5.0, own_ls: float = 6.5, own_excess: float = 3.5,
-                       click_min_db: float = 15.0, refractory_s: float = 0.20, roll_s: float = 0.15,
-                       glide=None, glide_min: float = 1.4, glide_hi: float = 1.7, sweep_cs: float = 12.0, sweep_ls: float = 4.0,
-                       accept_weak=None,
-                       search_before_s: float = 0.075, search_after_s: float = 0.005, dedupe_s: float = 0.04,
-                       rate: int = ENV_RATE) -> list[HitEvent]:
-    """Kick events from the viz kick-band attacks, timed and vetted on the low (<= 400 Hz) band's own attack.
+#: default kick-selection parameters (the stage passes its params; see spectral/__init__.py)
+KICK_DEFAULTS: dict[str, float] = {
+    "gate": 0.5,  # the viz kick band must be above its gate within 80 ms of the onset
+    "body_min_db": 1.0,  # every kick adds low-band energy: max(low_ex, body_ex, body_add) >= this
+    "attack_db": 6.0,  # sweep route: attack >= this ...
+    "glide": 1.25,  # ... with a pitch drop >= this
+    "click_db": 6.0,  # ... or a beater click >= this with attack >= click_attack_db
+    "click_attack_db": 10.0,
+    "glide_strong": 1.6,  # ... or a strong pitch drop with attack >= attack_low_db (long 808-style kicks)
+    "attack_low_db": 4.5,
+    "body_ex_db": 6.5,  # body route (acoustic kicks: no sweep, click masked): body_ex >= this,
+    "body_add_db": 4.5,  # body_add >= this,
+    "body_decay_db": 8.0,  # decay >= this (a bass note sustains),
+    "body_low_ex_db": 1.5,  # low_ex >= this,
+    "body_f_hz": 68.0,  # and the added energy centred at >= this (a bass note's sub sits lower)
+    "duck_click_db": 15.0,  # duck route (sidechain-ducked bass: the low band does not rise): attack >= attack_low_db, this
+    #                         beater click and glide_strong on the added or the whole band
+    "cb_click_db": 15.0,  # clicky-body route (acoustic kick over a held bass note): beater click >= this,
+    "cb_attack_db": 3.5,  # attack >= this,
+    "cb_low_ex_db": 3.0,  # <= 400 Hz excess >= this,
+    "cb_body_ex_db": 4.5,  # 30-150 Hz onset >= this
+    "cb_body_add_db": 3.0,  # and 30-160 Hz power rise >= this
+    "s808_glide": 1.2,  # 808 route (long sine kick, little sweep, no click, over a bass): pitch drop >= this,
+    "s808_attack_db": 3.0,  # attack >= this,
+    "s808_body_ex_db": 5.5,  # 30-150 Hz onset >= this,
+    "s808_body_add_db": 5.0,  # 30-160 Hz power rise >= this
+    "s808_low_ex_db": 2.5,  # and <= 400 Hz excess >= this
+    "roll_attack_db": 12.0,  # roll route: a kick on the previous kick's tail (40-150 ms after an accepted kick) with this
+    "roll_glide": 1.1,  # burst and this pitch drop (the tail dilutes both the low-band rise and the pitch drop)
+    "roll_gap_min_s": 0.04,
+    "roll_gap_max_s": 0.15,
+    "rel_db": 12.0,  # body power relative to the local mix level >= the median kick's - rel_db (faint thumps: plosives)
+    "quiet_conf": 0.7,  # ... and an event > rel_db below the song's median kick body needs this kick_conf
+    "level_win_s": 1.5,  # local mix level: the quieter of the RMS levels 1.5 s before and after the onset
+    "nms_low_step_db": 2.0,  # onset priority: an own <= 400 Hz or 90-200 Hz step >= this first, then the onset score
+    "nms_s": 0.02,  # one onset per 20 ms (the highest priority)
+    "dedupe_s": 0.04,  # events closer than this keep the higher onset score
+    "fine_s": 0.005,  # the reported time: the steepest <= 400 Hz (+ click) step within +-5 ms of the onset
+    "pad_s": 0.1,  # silence prepended for the analysis, so a kick on the first sample has an onset
+}
 
-    ``ls`` is the low band's step (``step_contrast`` over 10 ms boxes) and ``ex`` its excess (``low_excess_db``): how far
-    the level after the step stands above the level before it. A kick has both; the beating of a bass note against a kick
-    tail, a hat or a cymbal in a kick's tail does not, and the click (>= 1 kHz) is not needed (it can be masked).
 
-    * every attack episode of the viz kick band (gated attack >= x_min) is timed on the low band's step: the broadband
-      click step only breaks ties among the steps that are at least half the largest low step in the window, so a hat
-      that precedes a kick cannot take its timing. Viz-strength attacks (v > 0.3) need ``ls >= ls_viz_min``, weaker ones
-      ``ls >= ls_min`` and ``accept_weak(t)`` (drum-kick likeness);
-    * a candidate within ``refractory_s`` after the previous event (a tail of that kick, where bass beating, hats and
-      cymbals live) must show the low band's own attack (``ls >= own_ls`` and ``ex >= own_excess``): it is a new kick,
-      not the ripple of the old one (8th-note kicks 200-230 ms apart each have it, whatever the cymbal wash does);
-    * pitch drop (``glide(t)`` = :func:`kick_glide`): a drum kick's body sweeps down, a bass note holds its pitch. A weak
-      hit without it is no kick; a click-less hit within the refractory is a kick when it has it; and in a song whose
-      events mostly show it (``glide_song``) every hit needs it. Songs whose mix hides the sweep are not judged by it;
-    * a low-band step with a drum click (>= ``sweep_cs``) and a strong pitch drop (``glide_hi``) is a kick wherever it sits;
-    * low-band steps without a viz attack (fast double-bass: the 46 ms kick band barely dips between kicks, so its attacks
-      fall under the viz floor) are kicks when the kick band is above its gate, they sit within ``roll_s`` of another kick,
-      and have the own attack and a coincident >= 1 kHz click step of >= ``click_min_db``.
-    The event's x / envelope value come from the matching episode, or are estimated from ``ls`` when there is none."""
-    from scipy.signal import find_peaks
+class KickAnalysis:
+    """Envelopes and onset functions for kick detection on the mono mix."""
 
-    ls = step_contrast(low_db, STEP_K["low"])
-    cs = step_contrast(click_db, STEP_K["click"])
-    score = ls + cs
-    ex = low_excess_db(low_db, rate=rate)
-    n = ls.size
-    kp = max(1, int(round(0.06 * rate)))
+    def __init__(self, mono: np.ndarray, sr: int):
+        self.low = env_db(band_envelope(mono, sr, None, 400.0))
+        self.click = env_db(band_envelope(mono, sr, *KICK_CLICK_BAND))
+        n = self.low.size
+        lb = low_band_envelopes(mono, sr, KICK_BANDS)
+        for k, v in lb.items():
+            setattr(self, k, np.pad(v, (0, max(0, n - v.size)), mode="edge")[:n] if v.size else np.full(n, DB_FLOOR))
+        self.n = n
+        self.ls = step_contrast(self.low, STEP_K["low"])
+        self.cs = step_contrast(self.click, STEP_K["click"])
+        self.as_ = step_contrast(self.attack, STEP_K["low"])
+        self.ax = max_step(self.attack, STEP_K["low"], 2 * STEP_K["low"])
+        #: onset score: the ripple-robust sweep-start step plus half the click step (dB)
+        self.score = self.ax + 0.5 * self.cs
+        self.glide = GlideMeter(mono, sr)
 
-    def jof(t: float) -> int:
-        return int(np.clip(int(round(t * rate - 0.5)), 0, n - 1))
+    def candidates(self, thr_ls: float = 2.5, thr_as: float = 3.0, thr_cs: float = 6.0) -> list[int]:
+        """Every 400 Hz sample where the low band, the sweep-start band or the click band steps up (a superset)."""
+        from scipy.signal import find_peaks
 
-    cands: list[HitEvent] = []
-    for ep in hr.episodes:
-        if ep.x < x_min:
-            continue
-        tp = ep.i_peak / RATE
-        r = refine_onset(score, low_db, tp - search_before_s, tp + search_after_s, gate=ls)
-        if r is None:
-            continue
-        t, t_peak, rise = r
-        j = jof(t)
-        strong = ep.v_free > 0.3
-        if ls[j] < (ls_viz_min if strong else ls_min):
-            continue
-        if not strong and accept_weak is not None and not accept_weak(t):
-            continue
-        v_ev = max(ep.v_free, ep.v_armed)
-        if v_ev <= 1e-4:
-            continue
-        cands.append(HitEvent(t, t_peak, ep.x, v_ev, rise, ep.i_peak, ep.viz_hit))
+        c: set[int] = set()
+        for s, th in ((self.ls, thr_ls), (self.as_, thr_as), (self.cs, thr_cs)):
+            pk, _ = find_peaks(s, height=th, distance=4)
+            c.update(int(j) for j in pk)
+        return sorted(c)
 
-    # low-band steps outside viz attacks
-    typical = max(float(np.median([h.rise_db for h in cands])) if cands else 10.0, 6.0)
-    eps_t = np.asarray([e.i_peak / RATE for e in hr.episodes])
-    pk, _ = find_peaks(ls, height=min(own_ls, sweep_ls), distance=max(1, int(round(0.02 * rate))))
-    have = np.asarray([h.t for h in cands])
-    for j in pk:
-        t = (j + 0.5) / rate
-        cs_j = cs[max(0, j - 4) : j + 5].max()
-        # a drum click and the pitch sweep of a kick body on a low-band step: a kick wherever it sits
-        sweep = glide is not None and cs_j >= sweep_cs and ls[j] >= sweep_ls and _finite_ge(glide(t), glide_hi)
-        if have.size and np.min(np.abs(have - t)) < dedupe_s:
-            continue
-        if not sweep:
-            if ls[j] < own_ls or ex[j] < own_excess or cs_j < click_min_db:
+    def refine(self, j: int, before: float = 0.02, after: float = 0.015) -> float:
+        t = (j + 0.5) / ENV_RATE
+        r = refine_onset(self.score, self.low, t - before, t + after)
+        return r[0] if r is not None else t
+
+    def j_of(self, t: float) -> int:
+        return int(np.clip(int(round(t * ENV_RATE - 0.5)), 0, max(self.n - 1, 0)))
+
+    def evidence(self, t: float, gate: float = 1.0) -> KickEvidence:
+        j = self.j_of(t)
+
+        def ms(x: float) -> int:
+            return int(round(x * ENV_RATE / 1000.0))
+
+        def wmax(a: np.ndarray, j0: int, j1: int) -> float:
+            j0, j1 = max(0, j0), min(a.size, j1)
+            return float(a[j0:j1].max()) if j1 > j0 else DB_FLOOR
+
+        def wmean(a: np.ndarray, j0: int, j1: int) -> float:
+            j0, j1 = max(0, j0), min(a.size, j1)
+            return float(a[j0:j1].mean()) if j1 > j0 else DB_FLOOR
+
+        att = []
+        for e in (self.attack, self.attack_hi):
+            pk = wmax(e, j + 1, j + ms(25) + 1)
+            att.append(pk - max(wmax(e, j - ms(50), j - ms(5) + 1), wmean(e, j + ms(55), j + ms(85))))
+        g, f1 = self.glide.glide(t)
+        g_raw, _ = self.glide.glide(t, share=0.0)
+        body_add, body_db = self.glide.added_db(t)
+        bpk = wmax(self.body, j, j + ms(40))
+        return KickEvidence(
+            glide_raw=g_raw,
+            attack=max(att),
+            glide=g,
+            f_early=f1,
+            click=wmax(self.click, j - 1, j + ms(15) + 1) - wmax(self.click, j - ms(50), j - ms(10) + 1),
+            low_ex=wmax(self.low, j + 1, j + ms(30) + 1) - wmax(self.low, j - ms(60), j - ms(7) + 1),
+            body_ex=wmax(self.body, j + 1, j + ms(40) + 1) - wmax(self.body, j - ms(50), j - ms(5) + 1),
+            body_add=body_add,
+            body_db=body_db,
+            decay=bpk - wmean(self.body, j + ms(60), j + ms(90)),
+            gate=gate,
+        )
+
+
+def kick_route(ev: KickEvidence, p: dict[str, float]) -> str:
+    """Which kind of kick the evidence shows, or "" (none). Each route is one physical signature; a bass-note onset
+    (no pitch drop, no beater click, no burst that dies within 85 ms) matches none of them.
+
+    * "sweep": the sweep-start burst with a pitch drop (or a click and a big burst), adding low-band energy: electronic
+      and most modern kicks.
+    * "duck": the same burst, a beater click and a strong pitch drop on the added or the whole band, while the low band
+      does not rise: a sidechain-ducked bass gives way to the kick (EDM).
+    * "body": a strong 30-150 Hz onset centred >= 68 Hz that decays >= 8 dB within 90 ms: an acoustic kick alone.
+    * "click": a beater click on a low-band onset with a burst: an acoustic kick over a held bass note (the bass keeps
+      the band from decaying, the click is what a bass note lacks).
+    * "808": a long sine kick (little sweep, no click): a moderate pitch drop of the added energy on a clear low-band
+      onset with a burst.
+    ("roll" is assigned by :func:`select_kick_events`.)"""
+    if ev.gate < p["gate"]:
+        return ""
+    g = ev.glide if ev.glide == ev.glide else 0.0
+    gr = ev.glide_raw if ev.glide_raw == ev.glide_raw else 0.0
+    adds = max(ev.low_ex, ev.body_ex, ev.body_add) >= p["body_min_db"]
+    if adds and ((ev.attack >= p["attack_db"] and (g >= p["glide"] or (ev.click >= p["click_db"] and ev.attack >= p["click_attack_db"])))
+                 or (ev.attack >= p["attack_low_db"] and g >= p["glide_strong"])):
+        return "sweep"
+    if ev.attack >= p["attack_low_db"] and ev.click >= p["duck_click_db"] and max(g, gr) >= p["glide_strong"]:
+        return "duck"
+    f1 = ev.f_early if ev.f_early == ev.f_early else 0.0
+    if (ev.body_ex >= p["body_ex_db"] and ev.body_add >= p["body_add_db"] and ev.decay >= p["body_decay_db"]
+            and ev.low_ex >= p["body_low_ex_db"] and f1 >= p["body_f_hz"]):
+        return "body"
+    if (ev.click >= p["cb_click_db"] and ev.attack >= p["cb_attack_db"] and ev.low_ex >= p["cb_low_ex_db"]
+            and ev.body_ex >= p["cb_body_ex_db"] and ev.body_add >= p["cb_body_add_db"]):
+        return "click"
+    if (g >= p["s808_glide"] and ev.attack >= p["s808_attack_db"] and ev.body_ex >= p["s808_body_ex_db"]
+            and ev.body_add >= p["s808_body_add_db"] and ev.low_ex >= p["s808_low_ex_db"]):
+        return "808"
+    return ""
+
+
+def _local_level_db(x: np.ndarray, sr: int, ts: np.ndarray, win_s: float) -> np.ndarray:
+    """dB RMS level of the mix around each time: the quieter of the ``win_s`` before and the ``win_s`` after (so a kick at
+    the edge of a quiet intro is measured against the intro, not against the loud part that follows)."""
+    c2 = np.concatenate([[0.0], np.cumsum(np.asarray(x, dtype=np.float64) ** 2)])
+    w = max(1, int(round(win_s * sr)))
+    out = np.empty(ts.size)
+    for k, t in enumerate(ts):
+        i = int(np.clip(round(t * sr), 0, x.size))
+        lv = []
+        if i > 0:
+            a = max(0, i - w)
+            lv.append((c2[i] - c2[a]) / (i - a))
+        if i < x.size:
+            b = min(x.size, i + w)
+            lv.append((c2[b] - c2[i]) / (b - i))
+        out[k] = 10.0 * math.log10(max(min(lv) if lv else 0.0, 1e-12))
+    return out
+
+
+def select_kick_events(hr: HitResult, mono: np.ndarray, sr: int, params: dict[str, float] | None = None,
+                       ka: KickAnalysis | None = None) -> list[tuple[HitEvent, KickEvidence]]:
+    """Kick-drum events, judged on physical evidence rather than on the viz kick-band envelope alone.
+
+    1. Candidates: every step of the <= 400 Hz band, of the 90-200 Hz band (where a kick's pitch sweep starts) and of
+       the 1.5-5 kHz click band, on the mix with ``pad_s`` of silence prepended (a kick on the first sample is an onset
+       too); each is timed on the onset score (the ripple-robust 90-200 Hz step plus half the click step) and only the
+       onset with the highest priority within ``nms_s`` is kept: first an onset with a low-band step of its own (<= 400 Hz
+       or 90-200 Hz step >= ``nms_low_step_db``; a hat click just before the kick cannot take its slot), then the score.
+    2. Evidence at each onset (:class:`KickEvidence`): the sweep-start burst, the pitch drop of the added low-band energy
+       and of the whole band (:class:`GlideMeter`), the beater click, the body onset and its decay, the viz kick gate.
+    3. A kick matches one physical signature (:func:`kick_route`): swept attack, sidechain duck, acoustic body, clicky
+       body over a bass, 808; then, repeatedly, "roll": a strong burst with some pitch drop 40-150 ms after an accepted
+       kick (the previous kick's tail dilutes its evidence). No refractory: a bass-note onset cannot suppress the kick
+       after it, and double kicks / 16th rolls need none.
+    4. Faint thumps are dropped: body power relative to the local mix level (:func:`_local_level_db`) more than
+       ``rel_db`` below the median kick's. Relative to the mix, not to the other kicks, so the kicks of a quiet intro, a
+       breakdown or a fade-out stay while a plosive that is faint against its surroundings goes. An event more than
+       ``rel_db`` below the song's median kick body must also show clear kick evidence (kick_conf >= ``quiet_conf``).
+    5. Reported time: the steepest <= 400 Hz (+ click) step within +-``fine_s`` of the onset. Events closer than
+       ``dedupe_s`` keep the higher onset score.
+    The event's x / envelope value come from the viz kick-band attack episode that peaks within -30..+120 ms of it (or are
+    estimated from its body step when viz saw none); ``viz`` is true when the viz attack episode its onset falls in
+    registered a hit (viz arms once per attack). ``rise_db`` is the onset score.
+    ``ka`` (optional) must have been built on the padded mix (``pad_s`` of zeros, then ``mono``)."""
+    p = {**KICK_DEFAULTS, **(params or {})}
+    mono = np.asarray(mono, dtype=np.float64)
+    npad = max(0, int(round(p["pad_s"] * sr)))
+    off = npad / sr
+    xm = np.concatenate([np.zeros(npad), mono]) if npad else mono
+    ka = ka or KickAnalysis(xm, sr)
+    ts = sorted({round(ka.refine(j), 6) for j in ka.candidates()})
+    sc = {t: float(ka.score[ka.j_of(t)]) for t in ts}
+    arr = np.asarray(ts)
+    kf = max(1, int(round(p["fine_s"] * ENV_RATE)))
+    # priority: an onset with a low-band step of its own first (a hat click just before the kick cannot take its slot),
+    # then the onset score
+    prio = {t: (max(float(ka.ls[ka.j_of(t)]), float(ka.ax[ka.j_of(t)])) >= p["nms_low_step_db"], sc[t]) for t in ts}
+    keep = []
+    for t in ts:
+        near = arr[np.abs(arr - t) <= p["nms_s"]]
+        if all(prio[t] >= prio[float(u)] for u in near):
+            keep.append(t)
+    evs: list[tuple[float, KickEvidence]] = []
+    for t in keep:
+        i0 = int(round((t - off) * RATE))
+        lo, hi = max(0, min(hr.gate.size - 1, i0)), max(0, min(hr.gate.size, i0 + 9))
+        g = float(hr.gate[lo:hi].max()) if hi > lo and i0 + 9 > 0 and i0 < hr.gate.size else 0.0
+        ev = ka.evidence(t, g)
+        ev.route = kick_route(ev, p)
+        evs.append((t, ev))
+    # rolls: each accepted kick may admit the next one on its tail
+    changed = True
+    while changed:
+        changed = False
+        acc_t = np.asarray([t for t, e in evs if e.route])
+        if not acc_t.size:
+            break
+        for t, ev in evs:
+            if ev.route or ev.gate < p["gate"]:
                 continue
-            if not (have.size and np.any(np.abs(have - t) < roll_s)):
-                continue  # a roll: only a step next to another kick (a lone step is a bass note with a hat on it)
-        if hr.gate.size and hr.gate[min(hr.gate.size - 1, int(round(t * RATE)))] < 0.5:
-            continue  # the viz kick band (35-100 Hz) is not above its gate: a piano note or a snare is no kick
-        jp = min(n - 1, j + 1 + int(np.argmax(low_db[j + 1 : j + 1 + kp]))) if j + 1 < n else j
+            g = ev.glide if ev.glide == ev.glide else 0.0
+            gap = t - acc_t
+            if (ev.attack >= p["roll_attack_db"] and g >= p["roll_glide"]
+                    and max(ev.low_ex, ev.body_ex, ev.body_add) >= p["body_min_db"]
+                    and bool(np.any((gap >= p["roll_gap_min_s"]) & (gap <= p["roll_gap_max_s"])))):
+                ev.route = "roll"
+                changed = True
+    acc = [(t, e) for t, e in evs if e.route]
+    if not acc:
+        return []
+    ta = np.asarray([t for t, _ in acc])
+    rel = np.asarray([e.body_db for _, e in acc]) - _local_level_db(xm, sr, ta, p["level_win_s"])
+    ref = float(np.median(rel))
+    gref = float(np.median([e.body_db for _, e in acc]))
+    sel = [(t, ev) for k, (t, ev) in enumerate(acc)
+           if rel[k] >= ref - p["rel_db"] and (ev.body_db >= gref - p["rel_db"] or ev.conf() >= p["quiet_conf"])]
+    fine = ka.ls + 0.5 * ka.cs
+    timed: list[tuple[float, float, KickEvidence]] = []
+    for t0, ev in sel:
+        # the reported onset: the steepest <= 400 Hz (+ click) step within +-fine_s of the sweep-start onset (the max-step
+        # onset function reads up to ~4 ms early on a smeared attack)
+        j0 = ka.j_of(t0)
+        a = max(0, j0 - kf)
+        j = a + int(np.argmax(fine[a : j0 + kf + 1]))
+        timed.append(((j + 0.5) / ENV_RATE, sc[t0], ev))
+    timed.sort(key=lambda z: z[0])
+    ded: list[tuple[float, float, KickEvidence]] = []
+    for z in timed:
+        if ded and z[0] - ded[-1][0] < p["dedupe_s"]:
+            if z[1] > ded[-1][1]:
+                ded[-1] = z
+            continue
+        ded.append(z)
+    eps_t = np.asarray([e.i_peak / RATE for e in hr.episodes])
+    viz_a = np.asarray([e.i_start / RATE for e in hr.episodes if e.viz_hit])
+    viz_b = np.asarray([e.i_end / RATE for e in hr.episodes if e.viz_hit])
+    typical = max(float(np.median([e.body_ex for _, _, e in ded])), 3.0)
+    kp = max(1, int(round(0.06 * ENV_RATE)))
+    out: list[tuple[HitEvent, KickEvidence]] = []
+    for tpad, rise, ev in ded:
+        j = ka.j_of(tpad)
+        jp = min(ka.n - 1, j + 1 + int(np.argmax(ka.low[j + 1 : j + 1 + kp]))) if j + 1 < ka.n else j
+        t = max(0.0, tpad - off)
+        t_peak = max(t, jp / ENV_RATE - off)
         m = np.where((eps_t >= t - 0.03) & (eps_t <= t + 0.12))[0] if eps_t.size else np.array([], int)
         if m.size:
             ep = hr.episodes[int(m[np.argmax([hr.episodes[i].x for i in m])])]
-            x, v, ip, viz = ep.x, max(ep.v_free, ep.v_armed), ep.i_peak, ep.viz_hit
+            x, v, ip = ep.x, max(ep.v_free, ep.v_armed), ep.i_peak
         else:
-            x, ip, viz = float(np.clip(ls[j] / typical, 0.3, 2.0)), int(round(jp / rate * RATE)), False
-            v = 0.0
+            x, v, ip = float(np.clip(ev.body_ex / typical, 0.3, 2.0)), 0.0, int(round(t_peak * RATE))
+        # viz registers this kick when the viz attack episode its onset falls in (-30 ms .. +60 ms) registered a hit
+        # (viz arms once per attack: a bass note that starts the attack 100 ms earlier takes the same hit)
+        viz = bool(np.any((viz_a <= t + 0.06) & (viz_b >= t - 0.03))) if viz_a.size else False
         if v <= 1e-4:
             v = float(smoothstep01((x - HIT_THRESHOLD) / (1.15 - HIT_THRESHOLD)))
-        cands.append(HitEvent(t, jp / rate, x, max(v, 0.05), float(score[j]), ip, viz))
-        have = np.append(have, t)
-    cands.sort(key=lambda h: h.t)
-    kept: list[HitEvent] = []
-    for h in cands:
-        j = jof(h.t)
-        if kept and h.t - kept[-1].t < dedupe_s:
-            if h.x > kept[-1].x:
-                kept[-1] = h
-            continue
-        gv = glide(h.t) if glide is not None else float("nan")
-        if gv == gv and h.v <= 0.3 and gv < glide_min:
-            continue  # a weak hit without the pitch drop of a kick body is a bass note
-        if kept and h.t - kept[-1].t < refractory_s and (ls[j] < own_ls or ex[j] < own_excess):
-            continue
-        kept.append(h)
-    return kept
-
-
-def click_peak_db(t: float, click_db: np.ndarray, rate: int = ENV_RATE) -> float:
-    """Peak of the >= 1 kHz envelope (dB) within -5 ms .. +20 ms of the onset ``t``."""
-    j = int(round(t * rate))
-    if j < 4 or j + 6 >= click_db.size:
-        return -200.0
-    return float(click_db[max(0, j - 2) : j + 8].max())
-
-
-def click_rise_db(t: float, click_db: np.ndarray, rate: int = ENV_RATE, ref_db: float | None = None,
-                  rel_db: float = 15.0) -> float:
-    """Broadband-click evidence at ``t`` (dB): the peak of the >= 1 kHz envelope around the onset minus its maximum over
-    the 50-10 ms before it (a hat or cymbal ringing on is not a new click). A drum attack stands out of that floor by tens of dB; bass beating, which leaves the
-    >= 1 kHz band as it was, by ~0. With ``ref_db`` (the song's typical kick-click peak) a click more than ``rel_db``
-    below it counts as none: stray ripple of the band is not a drum click even when the floor between hits is quieter."""
-    j = int(round(t * rate))
-    if j < 4 or j + 6 >= click_db.size:
-        return 0.0
-    pk = click_peak_db(t, click_db, rate)
-    if ref_db is not None and pk < ref_db - rel_db:
-        return 0.0
-    a = max(0, j - int(round(0.05 * rate)))
-    b = max(a + 1, j - int(round(0.01 * rate)))
-    return pk - float(np.max(click_db[a:b]))
-
-
-def kick_confidence(t: float, low_db: np.ndarray, click_db: np.ndarray, rate: int = ENV_RATE,
-                    click_ref_db: float | None = None) -> float:
-    """How drum-kick-like a kick-band hit is (0..1): half for a broadband click (the >= 1 kHz envelope stands >= 6 dB
-    above its level just before the onset, and not far below the song's typical kick click), half for a decaying low
-    band (the level 150-250 ms after the attack peak is >= 6 dB below it); a sustained bass note scores low on both.
-    808s decay slowly and may read ~0.5."""
-    j = int(round(t * rate))
-    if j < 4 or j + 6 >= low_db.size:
-        return 0.5
-    click = click_rise_db(t, click_db, rate, click_ref_db)
-    a = int(round(0.06 * rate))
-    pk = float(low_db[j : j + a].max())
-    t0, t1 = j + int(round(0.15 * rate)), j + int(round(0.25 * rate))
-    tail = float(low_db[t0:t1].mean()) if t1 <= low_db.size and t1 > t0 else pk - 12.0
-    c = 0.5 * float(np.clip((click - 2.0) / 4.0, 0.0, 1.0)) + 0.5 * float(np.clip((pk - tail - 2.0) / 4.0, 0.0, 1.0))
-    return round(c, 3)
+        out.append((HitEvent(t, t_peak, x, max(v, 0.05), rise, ip, viz), ev))
+    return out
 
 
 def aligned_envelopes(hr: HitResult, events: list[HitEvent], release_s: float = HIT_RELEASE,

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4: the S-KEY ONNX export's ``probs`` output is softmax(softmax(logits)), not a flat model.
 
 The pinned community export (musetric/skey-onnx @ 9d90d2a9) appends a second softmax to a head that already

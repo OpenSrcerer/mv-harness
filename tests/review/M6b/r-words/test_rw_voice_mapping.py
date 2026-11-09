@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b F2 (major): a voices-stage proposal attaches a voice to a user character that the user explicitly
 mapped to a DIFFERENT voice, merging two singers into one character.
 

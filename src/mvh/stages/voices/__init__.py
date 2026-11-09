@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """voices stage (PLAN §5 voices, SPIKE; owner M5).
 
 Speaker embeddings (SpeechBrain ECAPA, WeSpeaker ONNX fallback) per aligned lyric line and per word chunk of
@@ -13,7 +12,7 @@ STAGE = StageSpec(
     "voices",
     ('lyrics', 'separate_hq', 'stem_activity'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=('voices.lines',),
     outputs=catalog_outputs("voices"),
     params={'model': 'ecapa', 'min_item_s': 1.0, 'split_s': 8.0, 'chunk_s': 4.0, 'k_max': 8, 'same_voice_cos': 0.6,

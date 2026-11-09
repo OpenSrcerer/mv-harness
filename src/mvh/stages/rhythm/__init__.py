@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """rhythm stage (contract v1, owner M2): the beat grid every choreography agent dances to.
 
 Pipeline (PLAN §5 rhythm, amended by SPIKE "Rhythm"):

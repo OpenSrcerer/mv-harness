@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 (major): the Whisper hallucination filter keeps the best-known large-v3 hallucinations.
 
 ``asr.filter_segments`` matches ``thanks for watching``, ``subscribe``, ``amara.org`` and bracketed tags, but not

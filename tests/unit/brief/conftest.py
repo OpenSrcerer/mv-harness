@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """brief tests: synthetic fixture by default; real-song runs are marked ``real`` (-m real or MVH_REAL_TESTS=1)."""
 from __future__ import annotations
 

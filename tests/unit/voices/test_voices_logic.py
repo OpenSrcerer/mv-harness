@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """voices without models: intent.md parsing and the k estimate / clustering on synthetic embeddings."""
 
 from __future__ import annotations

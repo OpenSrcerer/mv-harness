@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lyrics sources: parsers (LRC + A2, SRT, VTT, TXT, Lyricsfile), encodings, labels, repeats; the LRCLIB cascade
 and ranking on synthetic recorded HTTP. Synthetic text only; fast (no models)."""
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Real-song fixture overlay for the M3b stages (owner builder-m3b).
 
 The real-song adapters (tests/contract/real-<slug>/) have no ``stem_activity`` outputs, but notes, vocals and

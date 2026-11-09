@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 2 (major): the ASR repair moves a correctly placed word onto the next line's audio.
 
 Finding D was fixed in ``align.align_groups`` (re-alignment clipped to the neighbouring lines), but

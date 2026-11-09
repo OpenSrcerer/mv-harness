@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS round 3 (r-words-m6b-r3), finding R3-2: hex colours typed into the interview template destroy the answer.
 
 The template line is ``palette: []   # hex (#1b2a49) or colour words (night blue)``. A user who types hex codes the

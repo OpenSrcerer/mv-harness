@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """``mvh meaning <folder> --draft anthropic``: draft the meaning gaps with the Claude API (PLAN §8.3).
 
 Opt-in only (the user runs the command; it needs ANTHROPIC_API_KEY or an ``ant auth login`` profile and the network).

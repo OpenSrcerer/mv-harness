@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 3 (major, R2-1 only partly fixed): section headers and repeated chorus lines still become
 speaker labels.
 

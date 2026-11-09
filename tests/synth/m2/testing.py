@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Shared pytest helpers for the M2 unit tests (tests/unit/{allin1,rhythm,structure,choreo,cues})."""
 from __future__ import annotations
 

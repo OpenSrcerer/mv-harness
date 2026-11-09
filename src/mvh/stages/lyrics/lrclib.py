@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """LRCLIB cascade (PLAN §5 lyrics 1.3, SPIKE ranking rule).
 
 Requests, sequential and 0.4 s apart with the identifying User-Agent (Retry-After honoured by the client):

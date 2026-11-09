@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """ID formats and links of the mv-harness output contract (PLAN §4.3).
 
 Frozen at contract v1. Stdlib only. The JS loader (lib/mvh.js) and the Python loader

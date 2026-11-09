@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Reference implementation of the time, frame and sampling rules (PLAN §4.2, §4.4, §4.5).
 
 This module is the *specification in code*. ``lib/mvh.js`` and ``lib/mvh_load.py`` must reproduce
@@ -569,9 +568,10 @@ def iter_frames(duration_s: float, fr) -> Iterable[int]:
 
 
 # --------------------------------------------------------------------------------------------- cues (D37)
-#: kind priority of a merged cue (the first kind present becomes ``kind``; the rest stay in ``kinds``)
-CUE_KIND_PRIORITY = ("drop", "build_start", "breakdown", "section", "stop", "silence", "impact", "phrase",
-                     "hit_point", "downbeat", "beat", "pinned")
+#: kind priority of a merged cue (the first kind present becomes ``kind``; the rest stay in ``kinds``).
+#: D49 (W3, CR M2-7): a user pin leads whatever it is merged with (amends D37, which ranked it last).
+CUE_KIND_PRIORITY = ("pinned", "drop", "build_start", "breakdown", "section", "stop", "silence", "impact", "phrase",
+                     "hit_point", "downbeat", "beat")
 
 
 def merge_cues(raw: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:

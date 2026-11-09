@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long data tables / docstrings in generated-fixture code)
 """A minimal in-memory Ctx/Writer to run the walking-skeleton stubs (mvh.contract.fixture.run_stub) without the runner.
 
 Used by tests/unit/fixtures to prove that every stage's stub copies successfully from a fixture folder. The real

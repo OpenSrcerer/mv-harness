@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Pure-numpy fusion of tagger and stem evidence into 1 Hz instrument curves and segments (owner M3b).
 
 No model code here, so the rules are unit-testable on synthetic evidence.

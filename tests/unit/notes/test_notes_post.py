@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Pure note post-processing and the MIDI tempo map (no models)."""
 
 from __future__ import annotations

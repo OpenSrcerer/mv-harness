@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """The runner (PLAN §3.3): plan the DAG, compute NF2 keys, schedule stage processes on a core budget, cache,
 publish, validate after every stage, finalize.
 
@@ -110,6 +109,7 @@ class StageState:
     pre_key: str | None = None
     cache: str | None = None  # hit | miss | forced
     seconds: float | None = None
+    wait_s: float | None = None  # W3 seam S08: time spent waiting for a heavy slot (part of seconds)
     threads: int = 0
     record: dict[str, Any] | None = None
     key_inputs: dict[str, Any] | None = None
@@ -219,6 +219,10 @@ class Runner:
             ki["ffmpeg"] = {"version": fi["version"], "buildconf": fi["buildconf"]}
         if spec.gpu:
             ki["device"] = self.device_class(spec)
+        from .child import _stubbed
+
+        if _stubbed(spec.name):
+            ki["stub"] = True  # test seam (MVH_STAGE_STUBS): a stub result never shares a key with a real one
         return ki
 
     # ------------------------------------------------------------------ selection
@@ -451,6 +455,7 @@ class Runner:
         try:
             if self.s.heavy_locks and spec.env == "main" and is_heavy(spec):
                 slot = locks.acquire(f"mvh:{self.s.slug}:{name}", gpu=False, threads=st.threads)
+            st.wait_s = time.time() - t0
             with open(self.cache.logs / f"{name}.log", "w", encoding="utf-8", newline="\n") as lf:
                 p = proc.popen(
                     [sys.executable, "-X", "utf8", "-m", "mvh.runner.child", job_path],
@@ -473,7 +478,9 @@ class Runner:
             st.record, st.key = rec, rec["key"]
             st.status = {"ok": "done"}.get(rec["status"], rec["status"])
             st.reason = ""
-            sc.set_latest({"key": rec["key"], "pre_key": st.pre_key, "key_inputs": st.key_inputs})
+            sc.set_latest({"key": rec["key"], "pre_key": st.pre_key, "key_inputs": st.key_inputs,
+                           # D64: what computing this entry cost, reported again on later cache hits
+                           "computed": {"seconds": round(st.seconds, 3), "wait_s": round(st.wait_s or 0.0, 3)}})
             sc.set_failed(None)
             sc.prune({final.name})
         else:
@@ -601,6 +608,9 @@ class Runner:
                         st.reason = "upstream not done: " + ", ".join(
                             f"{d} ({self.states[d].status})" for d in bad
                         )
+                        if n in tset:
+                            # W3 (M6b CR-8): never drop a selected stage silently (--only with a stale upstream)
+                            self.s.say(f"{n}: not run - {st.reason}")
                         remaining.remove(n)
                         progressed = True
                         continue

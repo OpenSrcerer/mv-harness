@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """identity internals: tag normalisation, chromaprint, AcoustID and MusicBrainz lookups (PLAN §5 identity, SPIKE).
 
 Pure functions over plain data plus an injected HTTP client (``mvh.runner.http.CachedHttp`` in the stage,

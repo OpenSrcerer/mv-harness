@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long formulas, tables and docstrings)
 """spectral stage: viz parity (the real viz/js/audio.js under Node), physical units, synthetic ground truth for the kick
 events (PLAN §7: F1 >= 0.95 at +-10 ms, event time = the one-shot's first sample), contract outputs and edge cases."""
 
@@ -13,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from tests.synth.m1.harness import run_m1
-from tests.synth.m1.markers import REAL_SONGS, real_available, real_dir
+from tests.synth.m1.markers import real_available, real_dir
 from tests.synth.m1.signals import f1, groove
 
 from mvh.contract import registry
@@ -156,22 +155,164 @@ def test_kick_events_f1_on_one_shots(kw, thr, tmp_path):
     assert abs(float(np.median(errs))) < 0.003 and float(np.percentile(np.abs(errs), 95)) < 0.006
 
 
-def test_kick_events_with_sub_bass_line(tmp_path):
-    """A sustained bass line in the kick band: kicks are still found (bass-note attacks are kick-band hits too, by viz
-    design; ``kick_conf`` separates them)."""
-    x, sr, truth = groove()
+@pytest.mark.parametrize("kw", [{}, {"seed": 3}, {"syncopated": False}, {"seed": 5}, {"bpm": 140.0}, {"dense": True}],
+                         ids=["default", "seed3", "four-on-the-floor", "seed5", "140bpm", "dense"])
+def test_kick_events_with_sub_bass_line(kw, tmp_path):
+    """A bass line in the kick band (sustained notes changing on the off-beats, 100-200 ms before or after many kicks):
+    bass-note onsets are no kicks and must not suppress the kick after them (PLAN §7 F1 >= 0.95), and kick_conf ranks
+    the kicks above anything else emitted."""
+    x, sr, truth = groove(**kw)
     r = run_m1(x, sr, tmp_path, stages=("spectral",))
     ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
     ref = [k["t"] for k in truth["kick"]]
     f, p, rc, _ = f1([it["t"] for it in ev], ref, 0.010)
-    # syncopated 16th kicks 121 ms apart that sit under a bass note on the same hat (the generator's 8th-note bass line)
-    # are indistinguishable from the bass-note onsets by band envelopes; hits.kick prefers not to double kicks on hats
-    # (review B1) and keeps recall >= 0.7 here
-    assert rc >= 0.7 and p >= 0.7, (f, p, rc)
+    assert f >= 0.95, (kw, f, p, rc)
     kicks = np.array(ref)
     tp = [it["kick_conf"] for it in ev if np.min(np.abs(kicks - it["t"])) <= 0.01]
     fp = [it["kick_conf"] for it in ev if np.min(np.abs(kicks - it["t"])) > 0.01]
     assert not fp or np.median(tp) >= np.median(fp)
+
+
+def _riff(bpm: float, kick_steps, bass_steps, staccato: float, hat_steps, bars: int = 8):
+    """Fixture kicks (tests.synth.dsp.kick, faded) over a bass riff (A1 A1 A2 A1 C2 A1 A2 G1 on 16ths) with closed hats."""
+    from tests.synth import dsp as sd
+    from tests.synth.m1.signals import _faded
+
+    sr = 44100
+    beat = 60.0 / bpm
+    s16 = beat / 4
+    x = np.zeros((2, int((0.5 + bars * 4 * beat + 1.0) * sr)))
+    ref = []
+    notes = [33, 33, 45, 33, 36, 33, 45, 31]
+    for b in range(bars):
+        t0 = 0.5 + b * 4 * beat
+        for s in kick_steps:
+            i = int(round((t0 + s * s16) * sr))
+            sd.place(x, sd.pan(_faded(sd.kick(0.95, sr), sr) * 0.9, 0.0), i)
+            ref.append(i / sr)
+        for s in bass_steps:
+            sd.place(x, sd.pan(sd.bass_note(notes[s % 8], s16 * staccato, 0.8, sr) * 0.5, 0.0), int(round((t0 + s * s16) * sr)))
+        for s in hat_steps:
+            sd.place(x, sd.pan(_faded(sd.hihat(0.6, False, sr, seed=4), sr) * 0.3, 0.3), int(round((t0 + s * s16) * sr)))
+    x += 10 ** (-70 / 20) * np.random.default_rng(1).standard_normal(x.shape)
+    return x * 10 ** (-1 / 20) / np.max(np.abs(x)), sr, ref
+
+
+def _roll(bpm: float, crash: bool):
+    """Metal double bass: a tight 70 ms-decay kick with a click on 16ths (6 bars), optionally under a crash every 2 s."""
+    from scipy import signal as ss
+    from tests.synth import dsp as sd
+
+    sr = 44100
+    step = 60.0 / bpm / 4
+    ref = [0.5 + i * step for i in range(96)]
+    n = int(0.3 * sr)
+    tt = np.arange(n) / sr
+    body = np.sin(2 * np.pi * np.cumsum(55.0 + 100.0 * np.exp(-tt / 0.02)) / sr) * np.exp(-tt / 0.07)
+    click = ss.sosfilt(ss.butter(4, 1500, "highpass", fs=sr, output="sos"), np.random.default_rng(3).standard_normal(n))
+    k = body + click * np.exp(-tt / 0.003) * 0.35
+    k = 0.9 * k / np.max(np.abs(k))
+    x = np.zeros((2, int((ref[-1] + 1.5) * sr)))
+    for t in ref:
+        sd.place(x, sd.pan(k, 0.0), int(round(t * sr)))
+    if crash:
+        t = 0.3
+        while t < x.shape[1] / sr - 1.0:
+            sd.place(x, sd.pan(sd.crash(1.0, 2.5, sr) * 0.5, 0.0), int(t * sr))
+            t += 2.0
+    x += 10 ** (-70 / 20) * np.random.default_rng(1).standard_normal(x.shape)
+    return x * 10 ** (-1 / 20) / np.max(np.abs(x)), sr, ref
+
+
+@pytest.mark.parametrize("case", ["riff16", "riff16-150bpm", "rock-140bpm", "rock-160bpm", "rock-180bpm",
+                                  "roll-180bpm", "roll-220bpm", "roll-170bpm-crash"])
+def test_kick_events_over_bass_riffs_and_in_rolls(case, tmp_path):
+    """Review R3-B1 / R2-M1 / R2-M2 textures: four-on-the-floor over a staccato 16th bass riff (the note one 16th before
+    the downbeat is no kick); rock 8th-kick pairs over a bass note held for two beats (the '&' kick rises only ~3 dB over
+    the bass); 16th double kicks up to 220 BPM and under a crash that masks the click. PLAN §7: F1 >= 0.95 at +-10 ms."""
+    if case.startswith("riff16"):
+        x, sr, ref = _riff(150.0 if "150" in case else 128.0, (0, 4, 8, 12), range(16), 0.8, range(16))
+    elif case.startswith("rock"):
+        x, sr, ref = _riff(float(case.split("-")[1][:3]), (0, 2, 8, 10), (0, 8), 7.6, range(0, 16, 2))
+    else:
+        x, sr, ref = _roll(float(case.split("-")[1][:3]), case.endswith("crash"))
+    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
+    f, p, rc, _ = f1([it["t"] for it in ev], ref, 0.010)
+    assert f >= 0.95, (case, f, p, rc, len(ev), len(ref))
+
+
+def _kick_case(case: str):
+    from tests.synth.m1 import kicks as K
+
+    db = 10 ** (-1 / 20)
+    if case.startswith("held-"):
+        return K.kicks_over_held_bass(case.split("-")[1])
+    if case.startswith("duck-"):
+        kind, bass = case.split("-")[1], float(case.split("-")[2])
+        return K.kicks_over_ducked_sub(kind, bass=bass)
+    if case == "quiet-intro":
+        return K.kicks_over_held_bass("fixture", bass=0.0, bars=12, gains=[db ** 16] * 4 + [1.0] * 8)
+    if case == "quiet-intro-bass":
+        return K.kicks_over_held_bass("fixture", bass=0.5, bars=12, gains=[db ** 16] * 4 + [1.0] * 8)
+    if case == "fade-out":
+        return K.kicks_over_held_bass("fixture", bass=0.0, bars=12, gains=[1.0] * 8 + [db ** (4 * k) for k in range(1, 5)])
+    if case == "fixture-roll-180bpm-crash":
+        return K.fixture_roll(180.0)
+    raise KeyError(case)
+
+
+@pytest.mark.parametrize("case", ["held-acoustic", "held-tr909", "held-fixture", "duck-fixture-0.8", "duck-fixture-1.0",
+                                  "duck-tr909-0.8", "quiet-intro", "quiet-intro-bass", "fade-out",
+                                  "fixture-roll-180bpm-crash"])
+def test_kick_designs_and_mix_situations(case, tmp_path):
+    """Review R4-M1/M2/M3 and m21, on signals independent of the review's (tests/synth/m1/kicks.py: other kick designs,
+    tempos and gains): an acoustic kick (no sweep, beater click) and a 909 over a bass note held for the bar; kicks over a
+    sub bass sidechain-ducked 92 % at each kick (the low band hardly rises); a 4-bar intro 16 dB down and a fade-out of
+    4 dB per bar (the faint-thump filter is relative to the local mix level); the contract song's long kick on 16ths at
+    180 BPM under a crash (roll route). PLAN §7: F1 >= 0.95 at +-10 ms."""
+    x, sr, ref = _kick_case(case)
+    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
+    f, p, rc, _ = f1([it["t"] for it in ev], ref, 0.010)
+    assert f >= 0.95, (case, f, p, rc, len(ev), len(ref))
+
+
+@pytest.mark.xfail(strict=True, reason="known limit: a clickless 808 starting at 82 Hz over a held bass is often anchored "
+                                       "~10 ms early (90-200 Hz band pre-ringing) or missed (pitch drop 1.15-1.2)")
+def test_clickless_808_over_a_held_bass_note(tmp_path):
+    """A second 808 design (82 -> 48 Hz, tau 18 ms, no click) over the held bass: F1 0.80 (the review's 808, 80 -> 50 Hz
+    at 120 BPM, passes). Without the bass: 1.0."""
+    from tests.synth.m1 import kicks as K
+
+    x, sr, ref = K.kicks_over_held_bass("tr808")
+    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
+    f, p, rc, _ = f1([it["t"] for it in ev], ref, 0.010)
+    assert f >= 0.95, (f, p, rc)
+
+
+def test_kick_on_the_first_sample(tmp_path):
+    """Review m20: a file that starts on a kick keeps that kick (the analysis pads silence in front)."""
+    from tests.synth.m1 import kicks as K
+
+    x, sr, ref = K.kick_at_start()
+    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    ts = [it["t"] for it in r["ctx"]["spectral"].written_events("hits.kick")["items"]]
+    f, p, rc, _ = f1(ts, ref, 0.010)
+    assert f == 1.0 and ts[0] < 0.01, ts
+
+
+def test_kick_routes_and_conf_are_reported(groove_run):
+    """Every kick carries a route from dsp.KICK_ROUTES (summarised in the stage's meta) and a 0..1 kick_conf."""
+    r, _, _, _ = groove_run
+    items = r["ctx"]["spectral"].written_events("hits.kick")["items"]
+    assert items and all(0.0 <= it["kick_conf"] <= 1.0 for it in items)
+    ev = dsp.KickEvidence(attack=8.0, glide=1.5, f_early=90.0, click=20.0, low_ex=6.0, body_ex=8.0, body_add=7.0,
+                          body_db=-10.0, decay=9.0, gate=1.0)
+    assert dsp.kick_route(ev, dsp.KICK_DEFAULTS) in dsp.KICK_ROUTES and 0.0 <= ev.conf() <= 1.0
+    ev.gate = 0.0
+    assert dsp.kick_route(ev, dsp.KICK_DEFAULTS) == ""
 
 
 # ------------------------------------------------------------------------------------------------ stage outputs
@@ -284,43 +425,52 @@ def test_digital_silence(tmp_path):
 # ------------------------------------------------------------------------------------------------ real songs
 @pytest.mark.real
 @pytest.mark.slow
-@pytest.mark.parametrize("slug", list(REAL_SONGS))
-def test_real_song_kick_counts(slug, tmp_path):
-    """The viz-strength kick hits match the W0 offline reference count within 10 % (bench-music §4)."""
+@pytest.mark.parametrize("slug", ["jeremy", "newton-vs-nye", "versatile"])
+def test_real_song_kick_events_follow_the_kick_stem(slug, tmp_path):
+    """hits.kick against the unambiguous onsets of the DrumSep kick sub-stem (rise >= 20 dB to within 6 dB of the stem's
+    top level, review helper): recall >= 0.93 at +-30 ms. (The helper's onsets sit ~20 ms before the true onset: a
+    zero-phase filter.) MEGAFAUNA is left out: its DrumSep kick stem is mostly 32nd-note hat bleed."""
+    import sys
+
     if not real_available(slug):
         pytest.skip("real fixture missing")
+    stem = real_dir(slug) / "stems" / "drums" / "kick.flac"
+    if not stem.is_file():
+        pytest.skip("no DrumSep kick stem")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review" / "M1" / "r-dsp"))
+    from rdsp_m1_support import kick_stem_attacks
+
     from mvh.io import audio as aio
 
     d = aio.decode(real_dir(slug) / "_intermediate" / "ingest" / "canonical.wav")
     r = run_m1(d.samples, d.sr, tmp_path, stages=("spectral",))
     items = r["ctx"]["spectral"].written_events("hits.kick")["items"]
-    ref = REAL_SONGS[slug][2]
-    n_viz = sum(1 for it in items if it["viz"])
-    # The viz reference count includes the bass-note and cymbal ripple that viz's one-hit-per-note logic registers; hits.kick
-    # (review B1 / R2-M1) drops the ones with no low-band attack of their own, so up to ~35 % fewer viz-flagged events is
-    # expected (megafauna's DrumSep stem, the only dense one, is unusable); never more than the reference + 10 %.
-    assert 0.65 * ref <= n_viz <= 1.1 * ref, (slug, n_viz, ref)
-    assert len(items) >= n_viz
+    ref = [t + 0.02 for t in kick_stem_attacks(stem)]
+    f, p, rc, _ = f1([it["t"] for it in items], ref, 0.030)
+    assert rc >= 0.93, (slug, f, p, rc, len(items), len(ref))
 
 
 # ------------------------------------------------------------------------------------------------ kick evidence helpers
-def test_kick_glide_tells_a_kick_sweep_from_a_held_bass_note():
+def test_glide_meter_tells_a_kick_sweep_from_a_bass_note_even_over_a_held_note():
     sr = 44100
-    t = np.arange(int(0.3 * sr)) / sr
-    kick = np.sin(2 * np.pi * np.cumsum(48.0 + 110.0 * np.exp(-t / 0.03)) / sr) * np.exp(-t / 0.2)
-    bass = np.sin(2 * np.pi * 55.0 * t) * np.exp(-t / 0.5)
-    g_kick = dsp.kick_glide(dsp.glide_signal(kick, sr), 0.0)
-    g_bass = dsp.kick_glide(dsp.glide_signal(bass, sr), 0.0)
-    assert g_kick >= 1.5 and 0.7 <= g_bass <= 1.2
-    assert np.isnan(dsp.kick_glide(np.zeros(100), 5.0))
+    t = np.arange(int(0.6 * sr)) / sr
+    on = t >= 0.3
+    tk = np.maximum(t - 0.3, 0.0)
+    kick = np.where(on, np.sin(2 * np.pi * np.cumsum(np.where(on, 48.0 + 110.0 * np.exp(-tk / 0.03), 0.0)) / sr) * np.exp(-tk / 0.2), 0.0)
+    bass = np.where(on, np.sin(2 * np.pi * 55.0 * t), 0.0)
+    held = 0.6 * np.sin(2 * np.pi * 55.0 * t + 0.4) + 0.3 * np.sin(2 * np.pi * 110.0 * t)
+    g_kick = dsp.GlideMeter(kick, sr).glide(0.3)[0]
+    g_bass = dsp.GlideMeter(bass, sr).glide(0.3)[0]
+    g_over = dsp.GlideMeter(kick + held, sr).glide(0.3)[0]
+    assert g_kick >= 1.5 and 0.8 <= g_bass <= 1.2 and g_over >= 1.4, (g_kick, g_bass, g_over)
+    assert np.isnan(dsp.GlideMeter(np.zeros(sr), sr).glide(0.5)[0])
 
 
-def test_low_excess_separates_an_attack_from_the_recovery_of_a_beating_null():
-    n = 400
-    lvl = np.full(n, -30.0)
+def test_max_step_ignores_the_recovery_of_a_beating_null():
+    lvl = np.full(400, -30.0)
     lvl[100:] = -10.0  # a kick: steps up from -30 to -10 dB
     lvl[250:256] = -35.0  # a beating null in the tail ...
     lvl[256:] = -10.0  # ... that recovers to where it was
-    ex = dsp.low_excess_db(lvl)
-    assert ex[99] > 15.0
-    assert ex[255] < 1.0
+    s = dsp.max_step(lvl, 4, 8)
+    assert s[99] > 15.0
+    assert np.max(s[250:260]) < 1.0

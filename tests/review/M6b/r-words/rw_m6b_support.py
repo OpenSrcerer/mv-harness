@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Shared helpers for the R-WORDS review tests of M6b (meaning, brief). Synthetic fixture only
 (tests/contract/synth, invented lyrics), so nothing here prints real lyric text."""
 from __future__ import annotations

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Scoring helpers for the M3b unit tests (owner builder-m3b)."""
 
 from __future__ import annotations

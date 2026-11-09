@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 import math
 import sys
 from pathlib import Path

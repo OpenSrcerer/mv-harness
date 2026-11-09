@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """choreo stage (contract v1, owner M2): the counts a choreographer and a dancing character move to.
 
 * **Eight-counts** (D13): counts restart at every phrase start (phrases restart at every section start), count 1 is
@@ -37,11 +36,12 @@ STAGE = StageSpec(
     "choreo",
     ('rhythm', 'structure', 'drums', 'spectral', 'vocals', 'harmony', 'dynamics'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("choreo"),
     params={'hit_window_s': 0.03, 'vocal_window_s': 0.06, 'min_hold_vocal_s': 0.7, 'hit_point_min_kinds': 3,
-            'groove_similarity': 0.85, 'accent_release_s': 0.12},
+            'groove_similarity': 0.75, 'groove_hat_weight': 0.25, 'groove_hat_min_vel': 0.3,
+            'groove_near_credit': 0.5, 'accent_release_s': 0.12},
     module="M2",
     description='Eight-counts per phrase/section with accents, grooves, hit points, holds, movement density; tables/*.csv.',
 )
@@ -60,13 +60,58 @@ def _opt(fn, default=None):
 
 
 def syncopation(pattern: dict[str, list[float]], n_steps: int = 16) -> float:
-    """S = sum over kick/snare onsets s with no onset at s+1 of max(0, w[s+1] - w[s]); min(1, S / 12)."""
+    """Longuet-Higgins/Lee style (W3C-2): for each kick/snare onset s, the next metrically stronger step j (the bar
+    loops) is a syncopation when no onset lies in (s, j]: S += w[j] - w[s]; min(1, S / 12). An '&' kick tied over the
+    next beat (kick on 2&, nothing on 3) scores; a straight beat scores 0."""
+    n_steps = max(1, min(16, int(n_steps)))
     on = [max(pattern["kick"][k], pattern["snare"][k]) > 0 for k in range(n_steps)]
+    return float(min(1.0, _lhl_sum(on, SYNC_W[:n_steps]) / 12.0))
+
+
+def _tol_f1(a: np.ndarray, b: np.ndarray, tol: int = 1, near: float = 0.5) -> float | None:
+    """F1 of two onset-step sets: an exact step counts 1, a step +-``tol`` away ``near`` (None when both are empty)."""
+    ia, ib = [int(i) for i in np.flatnonzero(a)], [int(i) for i in np.flatnonzero(b)]
+    if not ia and not ib:
+        return None
+    if not ia or not ib:
+        return 0.0
+    used: set[int] = set()
+    m = 0.0
+    for i in ia:
+        c = [j for j in ib if abs(j - i) <= tol and j not in used]
+        if c:
+            j = min(c, key=lambda j: (abs(j - i), j))
+            used.add(j)
+            m += 1.0 if j == i else near
+    return 2.0 * m / (len(ia) + len(ib))
+
+
+def groove_similarity(a: dict[str, np.ndarray], b: dict[str, np.ndarray], rw: dict[str, float], near: float = 0.5) -> float:
+    """Weighted mean over drum rows of the tolerant onset F1 (rows empty on both sides are skipped)."""
+    num = den = 0.0
+    for r in ROWS:
+        f = _tol_f1(a[r], b[r], 1, near)
+        if f is None:
+            continue
+        num += rw[r] * f
+        den += rw[r]
+    return num / den if den else 1.0
+
+
+def _lhl_sum(on: list[bool], w: list[int]) -> float:
+    n = len(on)
     s = 0.0
-    for k in range(n_steps - 1):
-        if on[k] and not on[k + 1]:
-            s += max(0, SYNC_W[k + 1] - SYNC_W[k])
-    return float(min(1.0, s / 12.0))
+    for k in range(n):
+        if not on[k]:
+            continue
+        for d in range(1, n):
+            j = (k + d) % n
+            if on[j]:
+                break           # the note does not reach a stronger position un-attacked
+            if w[j] > w[k]:
+                s += w[j] - w[k]
+                break
+    return s
 
 
 def own_drum_hits(mono: np.ndarray, sr: int) -> list[dict[str, Any]]:
@@ -289,12 +334,21 @@ def run(ctx) -> StageResult:  # noqa: C901
                 sw = 1.0
         groove_rows.append({"bar": b["bar"], "t": b["t"], "d": b["d"], "pattern": pat, "swing": sw,
                             "syncopation": round(syncopation(pat, min(16, nbeats * 4)), 4)})
-    # cluster bars by pattern. Clean hits (drums stage): cosine on velocity patterns + binary Jaccard against the
-    # cluster's first bar. Own-classifier hits (noisy): kick/snare-weighted cosine of +-1-step blurred patterns
-    # against the running cluster mean, so jitter and missed hats do not create one groove per bar.
+    # cluster bars by pattern. Clean hits (drums stage, W3C-1): per row, an onset-step F1 (exact step 1, +-1 step ``groove_near_credit``)
+    # against the cluster's majority pattern (steps present in >= half its bars), kick/snare weight 1, hat/perc
+    # ``groove_hat_weight`` (hats below ``groove_hat_min_vel`` ignored), so 16th-step jitter and scattered hats do not
+    # create one groove per bar while a 8th-vs-16th snare roll stays a different groove. Own-classifier hits (noisy):
+    # kick/snare-weighted cosine of +-1-step blurred patterns against the running cluster mean.
     noisy = "drums:own_hpss" in fallbacks
-    sim_thr = float(p.get("groove_similarity_noisy", 0.72) if noisy else p.get("groove_similarity", 0.85))
+    sim_thr = float(p.get("groove_similarity_noisy", 0.72) if noisy else p.get("groove_similarity", 0.75))
     rw = {"kick": 1.0, "snare": 1.0, "hat": 0.5, "perc": 0.4}
+    hw = float(p.get("groove_hat_weight", 0.25))
+    rw_clean = {"kick": 1.0, "snare": 1.0, "hat": hw, "perc": hw}
+    hat_min = float(p.get("groove_hat_min_vel", 0.3))
+    near_credit = float(p.get("groove_near_credit", 0.5))
+
+    def onsets(pat):
+        return {r: np.asarray(pat[r], float) >= (hat_min if r in ("hat", "perc") else 1e-9) for r in ROWS}
 
     def blur(v16):
         v16 = np.asarray(v16, float)
@@ -302,8 +356,7 @@ def run(ctx) -> StageResult:  # noqa: C901
 
     protos: list[dict[str, Any]] = []
     for g in groove_rows:
-        v = np.concatenate([np.asarray(g["pattern"][r]) for r in ROWS])
-        vb = v > 0
+        on = onsets(g["pattern"])
         vbl = np.concatenate([rw[r] * blur(g["pattern"][r]) for r in ROWS])
         best, bs = None, sim_thr
         for pr in protos:
@@ -311,18 +364,18 @@ def run(ctx) -> StageResult:  # noqa: C901
                 u = pr["blur_sum"] / len(pr["members"])
                 s = float(vbl @ u / (np.linalg.norm(vbl) * np.linalg.norm(u) + 1e-12))
             else:
-                u = pr["vec"]
-                cos = float(v @ u / (np.linalg.norm(v) * np.linalg.norm(u) + 1e-12))
-                jac = float((vb & pr["bin"]).sum() / max(1, (vb | pr["bin"]).sum()))
-                s = 0.5 * cos + 0.5 * jac
+                n_m = len(pr["members"])
+                s = groove_similarity(on, {r: pr["on_sum"][r] / n_m >= 0.5 for r in ROWS}, rw_clean, near_credit)
             if s >= bs:
                 best, bs = pr, s
         if best is None:
-            best = {"id": make_id("groove", len(protos) + 1), "vec": v.copy(), "bin": vb.copy(), "members": [],
-                    "blur_sum": np.zeros_like(vbl)}
+            best = {"id": make_id("groove", len(protos) + 1), "members": [], "blur_sum": np.zeros_like(vbl),
+                    "on_sum": {r: np.zeros(16) for r in ROWS}}
             protos.append(best)
         best["members"].append(g)
         best["blur_sum"] = best["blur_sum"] + vbl
+        for r in ROWS:
+            best["on_sum"][r] = best["on_sum"][r] + on[r]
         g["groove_id"] = best["id"]
     groove_meta = []
     for pr in protos:

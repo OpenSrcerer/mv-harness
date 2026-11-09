@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """mvh view server: security, static serving, atomic validated writes, affected stages, idle timeout."""
 from __future__ import annotations
 

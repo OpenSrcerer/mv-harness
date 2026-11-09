@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """Fixtures for the R-ML review tests of M3b (notes, vocals, instruments). Owner: reviewer r-ml-m3b.
 
 Synthetic inputs only. Real models (basic-pitch, CED, CLAP, RMVPE) run inside a machine-wide heavy slot

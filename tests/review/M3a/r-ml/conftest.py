@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """Fixtures for the R-ML review tests of M3a (separate_fast, separate_hq, stem_activity, drums).
 
 ``synth_e2e`` is the synthetic song run end to end through the REAL separation chain (``mvh analyze ... --only

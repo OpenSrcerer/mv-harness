@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Note post-processing shared by the notes and vocals stages (owner M3b): monophonic reduction, activity masking,
 velocities from the stem level, note names and per-source statistics. Pure numpy."""
 

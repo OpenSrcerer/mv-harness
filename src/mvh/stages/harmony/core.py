@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Harmony analysis core: pure functions over arrays (no ctx), so tests drive it with synthetic input."""
 from __future__ import annotations
 
@@ -116,6 +115,7 @@ def analyse_key(y22: np.ndarray, cf: ChromaFrames, chord_items: Sequence[Mapping
         csum = aggregate(cf, t0, t1)
         for n, v in K.profile_evidence(csum).items():
             setattr(ev, n, v)
+        ev.extra["chroma_peak"] = K.chroma_peak(csum)
         ev.chords = K.chord_evidence(chord_items, t0, t1)
         ev.bass = K.bass_evidence(cf, t0, t1)
         ev.phrase = K.phrase_evidence(chord_items, bars or [], t0, t1)
@@ -144,7 +144,7 @@ def analyse_key(y22: np.ndarray, cf: ChromaFrames, chord_items: Sequence[Mapping
         pc, mode = T.parse_key_label(str(forced))
         gkey = T.key_index(pc, mode)
         flags.append("key:overridden")
-    conf, cinfo = K.global_confidence(gkey, g, win_top, gscore)
+    conf, cinfo = K.global_confidence(gkey, g, win_top, gscore, K.no_chord_share_in(chord_items, 0.0, duration))
     flags += cinfo["flags"]
     if forced:
         conf = 1.0
@@ -174,7 +174,7 @@ def analyse_key(y22: np.ndarray, cf: ChromaFrames, chord_items: Sequence[Mapping
             rev = evidence(a, b)
             rs = K.ensemble(rev)
             inside = [t for t, (wa, wb) in zip(win_top, grid) if wa >= a - 1e-6 and wb <= b + 1e-6]
-            rconf, rinfo = K.global_confidence(k, rev, inside, rs)
+            rconf, rinfo = K.global_confidence(k, rev, inside, rs, K.no_chord_share_in(chord_items, a, b))
             if forced:
                 rconf = 1.0
         pc, mode = T.key_from_index(k)

@@ -98,6 +98,33 @@ def _unique_slug(slug: str, song: Path) -> str:
     return slug
 
 
+def _install_intent(src: Path, song_dir: Path) -> int:
+    """``--intent f``: copy the user's file to ``<song>/meaning/intent.md``.
+
+    CONTRACT §1: analyze never overwrites the user's intent.md, so an existing different file is an error."""
+    from mvh.io import atomic
+
+    if not src.is_file():
+        _err(f"no such intent file: {src}")
+        return 2
+    data = src.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        _err(f"{src.name} is not UTF-8 text")
+        return 2
+    dst = song_dir / "meaning" / "intent.md"
+    if dst.is_file():
+        if dst.read_bytes() == data:
+            return 0
+        _err(f"{dst} exists and differs from {src.name}; edit it in place (or remove it) "
+             "instead of passing --intent")
+        return 2
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    atomic.write_text(dst, text)
+    return 0
+
+
 def cmd_analyze(a: argparse.Namespace) -> int:
     from mvh.contract.ids import SLUG_RE, slugify
     from mvh.runner import run as rr
@@ -122,17 +149,39 @@ def cmd_analyze(a: argparse.Namespace) -> int:
     if not SLUG_RE.match(slug):
         _err(f"bad slug {slug!r} (lower-case letters, digits, '-')")
         return 2
-    params_ext: dict[str, str] = {}
+    # D52 (W3, M6b CR-2): a re-run keeps the earlier run's --lyrics file and --param values;
+    # new ones win per key.
+    prev_run = rr.load_run_settings(song_dir)
+    params_ext: dict[str, str] = {
+        k: v for k, v in (prev_run.get("params_ext") or {}).items() if k != "input" and isinstance(v, str)
+    }
     if a.lyrics:
-        params_ext["lyrics"] = str(Path(a.lyrics).resolve())
+        if a.lyrics == "-":
+            params_ext.pop("lyrics", None)
+        else:
+            params_ext["lyrics"] = str(Path(a.lyrics).resolve())
     force: tuple[str, ...] | bool = False
     if a.force is not None:
         force = True if a.force == "all" else (_csv(a.force) or True)
     try:
-        cli_params = _parse_params(a.param)
+        new_params = _parse_params(a.param)
     except ValueError as e:
         _err(str(e))
         return 2
+    cli_params: dict[str, dict[str, Any]] = {
+        k: dict(v) for k, v in (prev_run.get("cli_params") or {}).items() if isinstance(v, dict)
+    }
+    if a.meaning_draft:
+        cli_params.setdefault("meaning", {})["draft"] = a.meaning_draft
+    if a.no_lyrics_to_agents:
+        cli_params.setdefault("meaning", {})["lyrics_to_agents"] = False
+        cli_params.setdefault("viewer", {})["inline_lyrics"] = False
+    for stage, kv in new_params.items():
+        cli_params.setdefault(stage, {}).update(kv)
+    if a.intent:
+        rc = _install_intent(Path(a.intent), song_dir)
+        if rc:
+            return rc
     heavy = not a.no_heavy_locks and os.environ.get("MVH_HEAVY_LOCKS", "1") != "0"
     s = rr.Settings(
         song=song_file,
@@ -154,6 +203,16 @@ def cmd_analyze(a: argparse.Namespace) -> int:
     except ValueError as e:
         _err(str(e))
         return 2
+    if a.meaning_draft == "anthropic" and not res["failed"]:
+        # PLAN §8: the API drafts the gaps into meaning/authored.json, then meaning/brief/viewer re-merge it
+        from mvh.stages.meaning.cli import cmd_meaning
+
+        rc = cmd_meaning(argparse.Namespace(folder=str(song_dir), draft="anthropic", overwrite_draft=False,
+                                            no_lyrics_to_agents=a.no_lyrics_to_agents, threads=a.threads))
+        if rc:
+            res["warnings"] = list(res["warnings"]) + [
+                f"--meaning-draft anthropic did not complete (exit {rc})"
+            ]
     line = {
         "manifest": res["manifest"],
         "brief": res["brief"],
@@ -328,8 +387,24 @@ def build_parser(with_stage_verbs: bool = True) -> argparse.ArgumentParser:
     an.add_argument(
         "--cores", type=int, default=8, help="core budget shared by concurrent stages (default 8)"
     )
-    an.add_argument("--lyrics", help="user lyrics file (.lrc/.srt/.vtt/.txt)")
-    an.add_argument("--param", action="append", help="stage.key=JSON value (repeatable)")
+    an.add_argument(
+        "--lyrics", help="user lyrics file (.lrc/.srt/.vtt/.txt); kept for re-runs ('-' forgets it)"
+    )
+    an.add_argument(
+        "--intent", help="copy this file to <song>/meaning/intent.md (never replaces a different one)"
+    )
+    an.add_argument(
+        "--meaning-draft",
+        choices=("agent", "anthropic", "off"),
+        default=None,
+        help="agent (default): request.md for your agent; anthropic: draft the gaps with the Claude API; off",
+    )
+    an.add_argument(
+        "--no-lyrics-to-agents",
+        action="store_true",
+        help="keep lyric text out of lines.tsv, drafts, the brief and viewer.html (kept for re-runs)",
+    )
+    an.add_argument("--param", action="append", help="stage.key=JSON value (repeatable; kept for re-runs)")
     an.add_argument("--no-heavy-locks", action="store_true", help="do not take machine-wide heavy slots")
     an.set_defaults(func=cmd_analyze)
 

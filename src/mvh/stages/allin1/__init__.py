@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """allin1 stage (contract v1, owner M2): all-in-one-infer ``harmonix-all`` (8 folds) on the separate_fast stems.
 
 Recipe (docs/spike/main.md §2, SPIKE "Tool recipes"): all-in-one-infer 3.1.0 has no ``AllInOneSession``; we call

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Rhythm fusion core (pure numpy; no model imports): tempo arbitration, beat tracking on a fused activation,
 sub-frame refinement and transient snapping, pulse regions and the virtual grid, the 2-of-3 downbeat vote with a
 meter HMM over beats, tempo segments and per-segment feel.

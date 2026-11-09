@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b round 2: intent.md parsing findings that the round-1 fixes did not close (or reopened).
 
 N1 (F4 reopened, major): the fix comments out the harness's voice proposals and skips empty character entries, but

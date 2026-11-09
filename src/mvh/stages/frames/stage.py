@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """frames stage run(ctx): see the package docstring."""
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 round 2 (major, finding B not fixed): one-off "Word: ..." lines still become speaker labels.
 
 The fix (M5-D32) treats inline ``Name:`` prefixes as labels only in a "labelled" file: a label recurs or a header

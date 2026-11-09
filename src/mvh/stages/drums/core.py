@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """drums core: onset detection on one-shot signals, the DrumSep path, the classifier path, envelopes.
 
 numpy + scipy.signal only; every function is pure and unit-tested on synthetic signals.
@@ -270,14 +269,15 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
                  bleed_db: float = 18.0, bleed_rel_db: float = 12.0, bleed_window_ms: float = 8.0,
                  bleed_rise_db: float = 10.0, dull_db: float = 12.0, hat_dup_ms: float = 15.0,
                  hat_dup_decay_db: float = 6.0, strike_rise_db: float = 6.0,
-                 cymbal_rise_db: float = 8.0, merge_cymbal_ms: float = 30.0,
+                 cymbal_rise_db: float = 4.0, merge_cymbal_ms: float = 30.0,
                  merge_cymbal_db: float = 10.0, air_rise_db: float = 1.5, air_dup_ms: float = 15.0,
                  preecho_db: float = -15.0, click_rise_db: float = 12.0, cym_bright_rel_db: float = 7.5,
                  cym_decay_db: float = 6.0, snare_bleed_bright_rel_db: float = 18.5,
                  merge_cymbal_any_ms: float = 15.0, cym_gate_db: float = 12.0, tom_gate_db: float = 20.0, kit_window_s: float = 0.75,
                  cym_loose_db: float = 28.0, cym_abs_gate_db: float = 8.0, hat_dup_ring_db: float = 8.0, hat_dup_ring_conf_db: float = 12.5, ring_min_db: float = 14.0, ring_decay_db: float = 13.0,
                  ride_twin_db: float = 6.0, hat_leak_db: float = 10.0, cymbal_confirm: Sequence[float] = (),
-                 confirm_ms: float = 15.0) -> tuple[list[Hit], dict[str, Any]]:
+                 confirm_ms: float = 15.0, input_rise_db: float = 3.0, input_check_below_db: float = 8.0,
+                 drums_mix: np.ndarray | None = None, coinc_decay_db: float = 9.0) -> tuple[list[Hit], dict[str, Any]]:
     """Hits from DrumSep sub-stems ({'kick': x, 'snare': x, ...}). Returns (hits, stats).
 
     Hi-hat stem candidates come from the full-band detector and from a low-threshold 8-16 kHz detector
@@ -304,7 +304,13 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
     Kick and snare strokes are large transients (>= 7 dB rise on every true hit, clean or separated); a kick/snare
     candidate rising less than ``strike_rise_db`` is a separator artefact (a second bump of the same hit 50-200 ms
     later, bass leaking into the kick stem) and is dropped.
-    Ride and crash stems ring (washes, sustained bells): their rise floor is ``cymbal_rise_db``."""
+    Ride and crash stems ring (washes, sustained bells): their rise floor is ``cymbal_rise_db``. A ride / crash
+    candidate that rises less than ``input_check_below_db`` (the floor before round 3) in its own stem must also be an
+    event in the DrumSep INPUT (``drums_mix``, else the sum of the sub-stems): a >= ``input_rise_db`` 6-16 kHz rise there.
+    A stroke DrumSep puts in a sub-stem is a stroke in its input; a low-rise "onset" with nothing in the input is energy
+    moving between sub-stems. A ride / crash-stem hit at the instant of a snare / tom stroke (+-6 ms) must also decay
+    like a cymbal (the 4-16 kHz drop from its first 30 ms to the 30 ms starting 150 ms later is at most ``coinc_decay_db``)
+    unless the classifier on the full drum stem confirms it: a snare crack leaking into the stem dies out faster."""
     import dataclasses
 
     per: dict[str, list[Hit]] = {}
@@ -397,6 +403,9 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
     stroke_s = np.array(sorted(x.sample for sub_ in ("kick", "snare", "toms") for x in per.get(sub_, [])), dtype=np.int64)
     stroke_l = {x.sample: x.level_db for sub_ in ("kick", "snare", "toms") for x in per.get(sub_, [])}
     snare_s = np.array(sorted(x.sample for x in per.get("snare", [])), dtype=np.int64)
+    # the coincidence-decay rule targets snare crack leaking into a cymbal stem: only snare / tom strokes trigger it
+    # (R5-1: a ride stroke on a kick is a real ride and must not be judged by the synthetic ride's decay)
+    leak_s = np.array(sorted(x.sample for sub_ in ("snare", "toms") for x in per.get(sub_, [])), dtype=np.int64)
     co_w = int(0.006 * sr)
     co_x = max(1, int(round(bleed_window_ms * sr / 1000.0)))
     co_a = int(0.060 * sr)
@@ -408,9 +417,30 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
         a, b = np.searchsorted(arr, sample - co_w), np.searchsorted(arr, sample + co_w, side="right")
         return max((stroke_l[int(q)] for q in arr[a:b]), default=FLOOR_DB)
 
+    hf_in: tuple[np.ndarray, int] | None = None
+
+    def input_event(t: float) -> bool:
+        nonlocal hf_in
+        if hf_in is None:
+            mix = drums_mix if drums_mix is not None else _sum_subs(subs)
+            hf_in = _hf_envelope_db(mix, sr)
+        hf, bs = hf_in
+        k = int(round(t * sr)) // bs
+        if k >= hf.shape[0] or k < 26:
+            return True   # no context to judge
+        return float(hf[k:k + 10].mean() - hf[max(0, k - 25):k - 3].mean()) >= input_rise_db
+
     for sub, hs in per.items():
         dropped = 0
         for h in hs:
+            if SUBSTEM_DRUM[sub] == "cymbal" and h.rise_db < input_check_below_db and not input_event(h.t):
+                stats["cymbal_noinput_dropped"] = stats.get("cymbal_noinput_dropped", 0) + 1
+                continue
+            if sub in ("ride", "crash") and stroke_level(h.sample, leak_s) > FLOOR_DB and not confirmed(h):
+                r_ = ring.get(h.sample)
+                if r_ is not None and r_[1] > coinc_decay_db:
+                    stats["cymbal_coinc_decay_dropped"] = stats.get("cymbal_coinc_decay_dropped", 0) + 1
+                    continue
             if SUBSTEM_DRUM[sub] == "cymbal":
                 hat_now = max((x.level_db for x in per.get("hihat", []) if abs(x.sample - h.sample) <= co_x),
                               default=FLOOR_DB)
@@ -790,6 +820,25 @@ def match_f1(est: Sequence[float], ref: Sequence[float], tol: float) -> tuple[fl
     rc = tp / len(r) if r else (1.0 if not e else 0.0)
     f = 2 * p * rc / (p + rc) if p + rc > 0 else 0.0
     return f, p, rc, tp
+
+
+def _sum_subs(subs: Mapping[str, np.ndarray]) -> np.ndarray:
+    """Mono sum of the drum sub-stems (an estimate of the DrumSep input)."""
+    ms = [_mono(v) for k, v in subs.items() if k in SUBSTEM_DRUM]
+    n = min(m.shape[0] for m in ms)
+    return np.sum([m[:n] for m in ms], axis=0)
+
+
+def _hf_envelope_db(x: np.ndarray, sr: int) -> tuple[np.ndarray, int]:
+    """6-16 kHz energy in 1 ms bins (dB) and the bin size in samples."""
+    from scipy import signal
+
+    nyq = sr / 2.0
+    y = signal.sosfiltfilt(signal.butter(4, [6000.0 / nyq, min(16000.0, 0.95 * nyq) / nyq], btype="bandpass", output="sos"),
+                           _mono(x))
+    bs = max(1, int(round(sr / 1000.0)))
+    e = (y[: y.size // bs * bs] ** 2).reshape(-1, bs).mean(axis=1)
+    return 10.0 * np.log10(e + 1e-14), bs
 
 
 def _ring(x: np.ndarray, sr: int, s: int) -> tuple[float, float]:

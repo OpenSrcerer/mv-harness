@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Lyric exports derived from the canonical lyrics.json lines/words: LRC with A2 word tags, WebVTT with inline
 word timestamps (and <v speaker> when a speaker hint exists), SRT (line level) and ASS karaoke (\\k tags)."""
 

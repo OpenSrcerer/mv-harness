@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M6b round 2: draft text still presented as the user's (residuals of round-1 F1 / r-contract F2).
 
 N5 (major): meaning.singing.build_characters fills a user character's missing ``name`` / ``description`` from the

@@ -1,0 +1,1 @@
+- r4: tonal-without-chords carve-out in keys.global_confidence (TONAL_PEAK), unit tests; fast tests pass; gate running (out/_wip/fixer-m4-r4/gate.log)

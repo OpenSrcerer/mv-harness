@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) F3: the interview's YAML template, copied as its first line says, loses the user's answers.
 
 interview.md ends with "## Template (copy into meaning/intent.md)" and a ```yaml block whose first line is

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-DSP M2 finding F1 (major): a user-pinned cue (override ``cues.pinned``) is snapped onto the beat grid and then
 merged (D37) with the tier-4 beat reference at the same time. ``pinned`` is the lowest-priority kind in
 CUE_KIND_PRIORITY, so the merged cue gets ``kind: beat``; the cues stage then nulls strength and lead_in for every

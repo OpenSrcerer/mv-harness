@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a round 3, finding R3-1: a ride played in 8th notes at an ordinary tempo loses most of its strokes,
 on CLEAN sub-stems.
 

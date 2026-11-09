@@ -96,3 +96,22 @@ The W3 integrator folds the additive items into `catalog.py` / CONTRACT.md.
   `vocals.present`, `vocals.style`, `instruments.vocabulary`) so the viewer's edit mode can set them.
 - **CR-M3b-4 vocal_range additive fields** (`basis`, `spoken_pitch`, `style`) and the `description` override for the CLAP
   `inst.*` channels: fold into catalog.py (minor bump).
+
+## W3 round 1 (fixer-m3b-r3): seam S04, MEGAFAUNA's singer
+
+- **I-M3b-13 (lead-stem pick).** The karaoke split sent MEGAFAUNA's whole voice to backing (lead_vocals -74 dBFS p95 against
+  -19 for vocals). vocals now tracks the full `vocals` stem when lead_vocals' p95 envelope is more than `vocals.lead_gap_db`
+  (20) below it, the same rule as lyrics (`instruments/lead.py`). Provenance fallback `vocals:vocals_stem` plus a warning;
+  the activity gate then reads `stem.vocals.active`.
+- **I-M3b-14 (lyric coverage, CR-M3b-1).** `lyrics` is now a dep of `vocals` (no cycle: lyrics reads no vocals output).
+  Pitched frames inside an aligned lyric line (padded `vocals.lyric_pad_s` = 0.15 s) pass the voice gate even where the
+  tagger says synth/no voice, and when the tagger gave them no style they count as sung. Presence is also true when
+  >= `vocals.lyric_min_voiced_s` (4) pitched seconds lie in >= `vocals.lyric_min_s` (20) seconds of lines; the range
+  statistics then need those 4 s (confidence stays low). Without lyrics (unreadable, instrumental) behaviour is the W2 one.
+  Frames outside lines still need the tagger voice, so MEGAFAUNA's synth leads (1-33 s) stay rejected.
+- **Needs the integrator:** `tests/unit/contract/test_catalog_dag.py::PLAN_DEPS["vocals"]` gains `"lyrics"` and the
+  catalogue's `consumed_by` for vocals may list `file:lyrics/lyrics.json (lines)` (frozen files, not edited here).
+
+## I-M3b-15 (round 4): which lyric lines count as voice evidence
+- vocals._lyric_mask ignores lines whose timing has no acoustic support: timing_source "interpolated" or "lrclib_line", or line conf <= 0.02. Lines from ctc/whisper/stable_ts/lrclib_word/user stay evidence (MEGAFAUNA's ctc lines have conf 0.14-0.4 and still count).
+- Voiced frames inside an aligned line that the tagger left unlabelled take the song's dominant TAGGED style (a missed rap verse stays rap); they count as sung only when the tagger labelled nothing at all. They are no longer added to the "singing" seconds.

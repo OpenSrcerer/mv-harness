@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """loudness stage (owner M1, PLAN §5 loudness).
 
 EBU R128 on the canonical mix: centred momentary (0.4 s) and short-term (3 s) LUFS curves (pyloudnorm K-weighting),

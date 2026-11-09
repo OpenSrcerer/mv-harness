@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 (major): an LRCLIB entry flagged ``instrumental`` silences a sung song.
 
 1. Ranking: ``lrclib.rank`` sorts accepted candidates by (synced first, word sync, |Δdur|); "usable" counts an

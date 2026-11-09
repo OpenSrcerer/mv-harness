@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Key estimation: an ensemble of independent evidence sources, a sticky Viterbi over windows for key regions, and a
 confidence derived from agreement. The S-KEY export is softmax(softmax(.)); the real probability is recovered and gates/weights its vote.
 
@@ -100,6 +99,13 @@ class SKey:
 
 
 # ------------------------------------------------------------------------------------------ evidence builders
+def chroma_peak(chroma_sum: np.ndarray) -> float | None:
+    """Peak/mean of a long-term chroma (12,): ~1 for a flat distribution, 2.5-3.5 for a tonal one."""
+    c = np.asarray(chroma_sum, np.float64).reshape(-1)
+    m = float(c.mean()) if c.size else 0.0
+    return float(c.max() / m) if m > 1e-12 else None
+
+
 def profile_evidence(chroma_sum: np.ndarray) -> dict[str, np.ndarray]:
     return {n: T.profile_scores(chroma_sum, maj, mnr) for n, (maj, mnr) in T.PROFILES.items()}
 
@@ -236,7 +242,25 @@ def agreement_label(winners: Mapping[str, int], ref: int) -> str:
     return "disagree"
 
 
-def global_confidence(winner: int, evidence: Evidence, window_top: Sequence[int], score: np.ndarray) -> tuple[float, dict[str, Any]]:
+NO_TONAL_SHARE = 0.9        # lv-chordia no-chord share at/above which the span has no tonal evidence
+TONAL_PEAK = 0.55           # mean top profile correlation (ks/temperley/albrecht) that proves a peaky, tonal chroma without chords
+# R5-M1: profile correlations z-score the chroma, so they cannot see a FLAT distribution. The long-term chroma's
+# peak/mean ratio can: band noise ~2.4, random 12-tone lines 1.4-1.7, tonal a-cappella stems 2.6-3.2
+CHROMA_PEAK_MIN = 2.2
+SKEY_CONFIRM_PMAX = 0.35    # S-KEY confirms a chord-less key only with at least this top probability
+CHROMA_ONLY_CAP = 0.8       # a key from chroma alone (no chords) is never reported above this
+CHROMA_ONLY_UNCONFIRMED_CAP = 0.5   # ... nor above this when S-KEY votes a neighbour key or abstains (R5-M2)
+CHORD_SOURCE_FLOOR = 0.25   # chords/phrase count as an independent source only above this chord-covered share
+
+
+def no_chord_share_in(chords: Sequence[Mapping[str, Any]], t0: float, t1: float) -> float:
+    """Share of [t0, t1) not covered by a real chord (items with root_pc None are the N segments)."""
+    span = max(t1 - t0, 1e-9)
+    covered = sum(max(0.0, min(float(c["t"]) + float(c["d"]), t1) - max(float(c["t"]), t0)) for c in chords if c.get("root_pc") is not None)
+    return float(np.clip(1.0 - covered / span, 0.0, 1.0))
+
+
+def global_confidence(winner: int, evidence: Evidence, window_top: Sequence[int], score: np.ndarray, no_chord_share: float = 0.0) -> tuple[float, dict[str, Any]]:
     """Confidence from (a) the fraction of windows whose ensemble winner equals the global one, (b) the credit each
     method's own top-1 earns against the ensemble winner (exact 1, relative .55, parallel/fifth .3), (c) the ensemble
     margin to the runner-up. S-KEY's recovered probability only gates/weights its vote."""
@@ -253,7 +277,37 @@ def global_confidence(winner: int, evidence: Evidence, window_top: Sequence[int]
     flags: list[str] = []
     # ks/temperley/albrecht correlate the same chroma: together they are ONE source of evidence
     sources = {("profiles" if n in ("ks", "temperley", "albrecht") else n) for n in winners}
-    if len(sources) < 2:
+    prof = [float(np.max(evidence.methods()[n])) for n in ("ks", "temperley", "albrecht") if n in meth]
+    prof_peak = float(np.mean(prof)) if prof else 0.0
+    prof_agree = len(prof) == 3 and all(T.key_relation(winners[n], winner) in ("exact", "relative") for n in ("ks", "temperley", "albrecht") if n in winners)
+    sk_rel = T.key_relation(winners["skey"], winner) if "skey" in winners else None
+    sk_p = float(np.max(evidence.skey_probs)) if evidence.skey_probs is not None else 0.0
+    skey_ok = sk_rel == "exact" and sk_p >= SKEY_CONFIRM_PMAX
+    cpk = evidence.extra.get("chroma_peak") if evidence.extra else None
+    peaked = cpk is None or float(cpk) >= CHROMA_PEAK_MIN
+    # a-cappella / solo-voice / choral material has no CHORDS but a clearly peaked, unanimous chroma: that is a key.
+    # Band noise, drones, risers and atonal lines give a flat chroma distribution or split profiles, so they stay gated
+    chroma_key = no_chord_share >= NO_TONAL_SHARE and prof_peak >= TONAL_PEAK and prof_agree and peaked
+    tonal_without_chords = chroma_key and skey_ok
+    unconfirmed = chroma_key and not skey_ok and sk_rel in (None, "exact", "relative", "fifth")
+    if no_chord_share >= NO_TONAL_SHARE and not (tonal_without_chords or unconfirmed):
+        # the dedicated chord model hears no harmony here (noise, drone, riser, ambient pad) and the chroma is not peaked:
+        # whatever S-KEY or the profiles hallucinate on it is not a key
+        conf = min(conf, 0.3)
+        flags += ["key:no_tonal_evidence", "key:low_confidence"]
+    elif tonal_without_chords:
+        sources -= {"chords", "phrase"}
+        sources.add("skey")
+        conf = min(conf, CHROMA_ONLY_CAP)
+        flags.append("key:chroma_only")
+    elif unconfirmed:
+        # a peaked, unanimous chroma with S-KEY on a neighbour key (its usual error) or abstaining: a key, at low confidence
+        sources = {"profiles", "chroma_peak"}
+        conf = min(conf, CHROMA_ONLY_UNCONFIRMED_CAP)
+        flags += ["key:chroma_only", "key:low_confidence"]   # (the fifth / relative ambiguity flag is added by core)
+    elif (1.0 - no_chord_share) < CHORD_SOURCE_FLOOR:
+        sources -= {"chords", "phrase"}
+    if len(sources) < 2 and "key:no_tonal_evidence" not in flags:
         # one source alone agrees with itself trivially: no independent evidence, no confident key
         conf = min(conf, 0.25)
         flags += ["key:no_tonal_evidence", "key:low_confidence"]

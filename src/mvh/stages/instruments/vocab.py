@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """The instrument vocabulary of the instruments stage (owner M3b).
 
 Each slug is evidenced by CED (AudioSet) labels measured on the mix and on its candidate stems, and, for the stems the

@@ -43,7 +43,7 @@ __all__ = [
 SLOTS = ("heavy-0.lock", "heavy-1.lock")
 GPU_LOCK = "gpu.lock"
 STALE_AFTER_S = 3 * 3600
-POLL_S = 15.0
+POLL_S = 2.0   # W3 (M3a CR): 15 s waiters starved behind 2 s re-acquirers (separate_fast waited 31 min)
 MAX_THREADS = 6
 
 

@@ -22,6 +22,8 @@ SRC = Path(__file__).resolve().parents[3] / "src"
 @pytest.fixture
 def fx(monkeypatch, skeleton, no_heavy_locks):
     monkeypatch.setenv("MVH_FIXTURE_DIR", str(skeleton))
+    # W3: every stage is real now; the runtime tests keep running the walking skeleton through the child's stub seam
+    monkeypatch.setenv("MVH_STAGE_STUBS", "all-but-ingest")
     return skeleton
 
 
@@ -64,7 +66,8 @@ def test_walking_skeleton_cache_and_determinism(tmp_path, tone48, fx):
     # --force: everything re-runs, the folder is byte-identical (NF1)
     rr.analyze(_settings(tone48, song_dir, force=True))
     run2 = json.loads((song_dir / "run.json").read_text(encoding="utf-8"))
-    assert {s["cache"] for s in run2["stages"].values()} == {"forced"}
+    assert {s["cache"] for n, s in run2["stages"].items() if n != "frames"} == {"forced"}
+    assert run2["stages"]["frames"]["status"] == "pending"   # D55: on-demand stages are listed, not run
     assert _snap(song_dir) == snap1
 
     # mvh status: all done, frames pending
@@ -106,6 +109,7 @@ def test_only_from_and_failures(tmp_path, tone48, skeleton, monkeypatch, no_heav
     fx = tmp_path / "fx"
     shutil.copytree(skeleton, fx)
     monkeypatch.setenv("MVH_FIXTURE_DIR", str(fx))
+    monkeypatch.setenv("MVH_STAGE_STUBS", "all-but-ingest")
     song_dir = tmp_path / "song"
     # --only without cached deps: nothing runs
     r = rr.Runner(_settings(tone48, song_dir, only=("loudness",)))
@@ -140,7 +144,7 @@ def test_only_from_and_failures(tmp_path, tone48, skeleton, monkeypatch, no_heav
 def test_cli_real_run_without_utf8_env(tmp_path, tone48, skeleton):
     """PLAN §7.4: a real CLI run on 'tëst ♪ 曲.flac' in a folder with spaces, no PYTHONUTF8/IOENCODING."""
     env = {k: v for k, v in os.environ.items() if k not in ("PYTHONUTF8", "PYTHONIOENCODING")}
-    env.update(MVH_FIXTURE_DIR=str(skeleton), MVH_HEAVY_LOCKS="0", PYTHONPATH=str(SRC))
+    env.update(MVH_FIXTURE_DIR=str(skeleton), MVH_HEAVY_LOCKS="0", PYTHONPATH=str(SRC), MVH_STAGE_STUBS="all-but-ingest")
     out = tmp_path / "out dir with spaces ü" / "tëst"
     r = subprocess.run(
         [sys.executable, "-m", "mvh.cli", "analyze", str(tone48), "--out", str(out), "--slug", "test-song"],

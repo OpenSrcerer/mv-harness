@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """stem_activity core (numpy only; pure functions, unit-tested on synthetic signals).
 
 Definitions (PLAN §5 stem_activity, CONTRACT ``stem.{stem}.*`` channels, docs/contract/decisions/M3a.md):

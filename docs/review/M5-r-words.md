@@ -65,3 +65,42 @@ Checked and fine this round: no lyric text in any log, record, warning or non-ly
 (scan of every file except `lyrics/*` and the cache-only `_http/` bodies: 0 hits); user TXT on synth grade A, line-only
 LRC grade A with offset 0.02 s; versatile instrumental (source none, voices skipped, lipsync ungated 0.68 s);
 megafauna transcribed on the vocals stem with grade D and every voice span flagged for review.
+
+## Round 4 (r-words-m5-r4, W3 verify)
+
+Re-review after the W3 fix round (fixer-m5-r3, M5-D47..D53). Verified by running code: the 17 round-3 review tests
+pass, and the fixes are general rather than test-shaped (probes `out/_wip/r-words-m5-r4/scripts/probe_text*.py`:
+`[Final Chorus]`, `[Pre Chorus]`, `[Name:]`, `Name:` and `NAME:` lines, `Verse 2: Name`, `CHORUS`, `Chorus x2`,
+`(Chorus)` behave; `Chorus of angels ...` stays a lyric). R3-2: `_generic_suspect` no longer fires on
+`no_speech_prob` alone. S07: versatile `vocal.mouth_open` max 0.0 (was 55 frames > 0.1). S03: G1 is scoped to mutual
+spans (M5-D51) with near-miss snapping (M5-D53); jeremy grades B with G1 0.7705, close to the W0 raw value of 0.762.
+The cached W0 VAD whisper pass has 0 words after 218 s, and the VAD-free gap retry keeps 3 words in 92 s. So the outro
+is mostly wordless, and the M5-D52 warning is the honest outcome. One new major: R4-1, a regression of the R3-3 fix in
+which sung lines that end in `Word:` are deleted as speaker markers (`test_rw5_r4_colon_lyric_lines.py`). No real
+lyric text appears here.
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| r4-m1 | `lyrics/text.py::_plain_header` / `_header` (long tail of R3-3/R3-4) | Several header and marker variants are still read as SUNG lines or lose the speaker: `*Chorus*`, `Chorus (repeat)`, `1st Verse:` / `2nd Verse:`, `Isaac Newton (Verse 1):`, and a 5-word `Bill Nye the Science Guy:` become lyric lines. `[Verse 1 - Isaac Newton]` (hyphen) gives speaker None. `(x2)` on its own line after a block becomes a backing lyric line `(x2)` (this predates the fix). No warning is raised when an aligned line consists only of section and repeat words. | `probe_text.py` / `probe_text2.py` (synthetic text): line counts and hints printed per case. | Strip `*`/`_` decorations, accept `(repeat)` and ordinal prefixes in `_PLAIN_SEC_RE`, split `-` like `:` in bracketed headers, treat a lone `(xN)` line as a repeat of the previous block or line, and warn when an aligned line has only section and repeat words. |
+| r4-m2 | `voices/core.py` (`n_source = "hints"`), `lyrics/text.py` joint labels | A joint label (`[Chorus: Ann & Bob]`, `Both`, `All`) is a separate hint, so a Genius-style duet gives 3 hints and voices forces k = 3: the joint lines become their own voice. This predates the W3 round. | `parse_txt` of a 2-singer text gives hints `['Ann', 'Ann & Bob', 'Bob']`; voices `k = len(hints)`. | Split joint hints on `&` / `and` / `,` / `+`. k counts the single names, and a joint line is assigned to the nearest single-name centroid and flagged as a multi-singer line (or proposed as `line_singers`). |
+| r4-m3 | `tests/integration/M5/test_real_lyrics_grade.py::test_real_jeremy_sung_outro_is_not_wordless` | The second S03 test (`sung_after < 20`) cannot pass under M5-D52, which flags the outro and does not invent lines. The integration tests also read the integrator's pre-fix run (`out/_wip/integrator/<slug>`), so the S03 and S07 tests still fail until the integrator re-runs M5. | M5-D52; cached W0 VAD whisper has 0 words after 218 s, and the M5-D50 gap retry keeps 3 words. | The integrator re-runs M5 on the real songs and changes the second S03 test to accept the `vocals_after_last_line_s` warning. |
+| r4-m4 | `lyrics/asr.py::canonicalise` (M5-D53) | G1 now counts near-miss spellings (ratio >= 80 within ±3 s) as agreement. Lyric changes between versions (`loving`/`living`, `spoken`/`spoke`) therefore count as agreement, while the 0.70 threshold was measured on the exact F1. The wrong-text controls (0.064 / 0.042) are far below the threshold, so no wrong text passes today. Only a partly different version (a live or alternate take) moves closer to passing. | Code; `asr.g1_scope.raw_f1` keeps the exact value (jeremy 0.6917, scoped and snapped 0.7705). | Report `raw_f1` next to G1 in the brief, and add a partial-version control (for example the text with every 5th line replaced) to the M5 unit tests. |
+| r4-m5 | round-3 / round-2 minors | r3-m1 (the last word's sustain hold runs past the next line's start), r2-m1 and r2-m2 are not addressed in this round. | Code read of `core.py::_finalise_line` and `run`. | W4 / next M5 round. |
+
+## Round 5 (r-words-m5-r5, W3 verify)
+
+Re-review after fixer-m5-r4 (M5-D54, M5-D55; D56 withdrawn). R4-1 is only partly fixed: `test_rw5_r4_colon_lyric_lines.py`
+passes, but the `recurring` branch of `text._scan_labels` accepts every lone `Name:` candidate in the file without the
+pronoun / verb check or the Title Case guard, so the same deletion happens as soon as one quote-introducing line is
+sung twice (major R5-1, `test_rw5_r5_recurring_colon_lines.py`). New major R5-2: `voices` raises `ValueError` when a
+speaker hint (or a joint hint's singer) occurs only on lines shorter than `min_item_s`, as a battle announcer's short
+shout does (`test_rw5_r5_short_hint_crash.py`). Probes: `out/_wip/r-words-m5-r5/scripts/probe_*.py` (synthetic text
+only). No real lyric text appears here.
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| r5-m1 | `voices/core.py::hint_parts` (M5-D55) | The joint split runs on every `,` / `and` / `&` / `+`, so one act's name becomes several singers: `Tyler, The Creator` -> `Tyler`, `The Creator`; `Earth, Wind & Fire` -> 3; `Florence and the Machine` -> 2. With a fake embedder, a `Tyler, The Creator` + `Bob` song still gives 2 voices (label order luck), but the Tyler voice loses its `hint` (None in meta), and if the phantom name takes a label of its own k grows by one. | `probe_joint.py` | Split only when every part is itself a name seen as a solo hint elsewhere in the file (or a credited artist); otherwise keep the hint whole. |
+| r5-m2 | `lyrics/text.py::_scan_labels` strict branch | `All:` / `Him:` / `Her:` are in `_NOT_NAME`, so a short duet whose `Ann:` / `Bob:` / `All:` markers occur once each (no recurrence) keeps all three marker lines as SUNG lyric lines (8/8 kept, no hints), and they are aligned as words. Conversely `Dear John:` / `Dear Mary:` letter lines in a sentence-case file are accepted as markers. | `probe_markers.py` (`duet_ann_bob_all_once`, `duet_him_her_once`, `sc_dear_letters`) | Treat the joint words (`All`, `Both`, `Everyone`) and the duet pronoun labels (`He`/`She`/`Him`/`Her`) as label-compatible single-word candidates; require a credited artist / intent character for non-recurring multi-word names. |
+| r5-m3 | `lyrics/text.py::parse_txt` lone `(x2)` | `(x2)` on its own line after a block repeats only the block's last line: `[Chorus] a b (x2)` gives `a b b` (Genius usage is usually the block, `a b a b`). Before round 4 it was a backing lyric line `(x2)`; both are wrong, the new one silently adds a wrong-text line that alignment must place. | `probe_x2.py` | When the lone `(xN)` closes a bracketed block (blank line or next header follows), repeat the block; repeat the line only when it follows a line inside running text. Or emit a warning and do nothing. |
+| r5-m4 | `tests/integration/M5/*` (r4-m3 still open) | The S03 (both) and S07 integration tests still read `out/_wip/integrator/<slug>` written 05:10 (before the M5 W3 fixes) and fail; the S03 part-2 test (`sung_after < 20`) cannot pass under M5-D52. | `pytest tests/integration/M5`: 3 failed, 2 passed. | Integrator re-runs M5 on the real songs; change S03 part 2 to accept the `vocals_after_last_line_s` warning. |
+| r5-m5 | round-2/3 minors | r3-m1 (sustain hold past the next line start; D56 withdrawn), r2-m1, r2-m2 remain open. | fixer-m5-r4 report; code read. | Next M5 round (voices item windows from word starts first). |

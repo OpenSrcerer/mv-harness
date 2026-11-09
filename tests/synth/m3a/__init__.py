@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """M3a test helpers: run one stage in-process (``mvh.runner.child.run_stage``) against fixture-shaped upstream folders.
 
 ``fixture_upstreams(fx)`` turns a contract fixture folder (tests/contract/synth or real-<slug>) into the upstream

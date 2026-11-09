@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """Golden-vector cases for the loaders (PLAN §7 helper parity / golden vectors).
 
     python -m mvh.contract.golden            # write docs/contract/golden-vectors.json

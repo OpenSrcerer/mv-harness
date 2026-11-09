@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a round 2, finding N1: the F1 fix's cymbal gate deletes every ride / crash of a softer passage.
 
 ``drums.core.drumsep_hits`` (fix round) drops a ride / crash hit more than ``cym_gate_db`` = 12 dB under the 2nd

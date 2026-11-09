@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML review M3a, finding F2 (rounds 1-2), updated in round 3 to the behaviour the fix round chose.
 
 The classifier path (no DrumSep sub-stems: the htdemucs fallback) cannot deliver hat and cymbal at the PLAN §7 gates

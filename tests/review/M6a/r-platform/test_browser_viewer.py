@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """R-PLATFORM review of M6a, real-browser checks (headless Edge/Chrome over the DevTools protocol, see cdp_viewer.mjs).
 
 Each test is the evidence of one finding in docs/build/reports/r-platform-m6a.md and FAILS until the viewer is fixed.

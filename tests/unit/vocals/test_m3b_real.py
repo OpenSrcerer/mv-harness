@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """M3b on the four real songs (opt-in: MVH_REAL=1; minutes per song). Snapshot assertions with tolerances.
 
 Upstream comes from the real-song overlays (``python -m tests.synth.m3b.stem_overlay``); each test runs instruments ->

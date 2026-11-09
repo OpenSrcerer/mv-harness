@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long literals and docstrings)
 """Snapshots of the mood heads on the four real W0 songs (no ground truth: tolerances and orderings only).
 
 W0 (docs/spike/bench-music.md section 5) measured emoMusic [valence, arousal] on the 1..9 scale: megafauna [3.98, 4.82], versatile [4.60, 5.71],

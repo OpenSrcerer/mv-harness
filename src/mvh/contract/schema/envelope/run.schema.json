@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://mv-harness.local/schema/envelope/run.schema.json",
  "title": "mvh/envelope/run",
- "x-contract-version": "1.0.0-rc.1",
+ "x-contract-version": "1.0.0-rc.2",
  "type": "object",
  "properties": {
   "schema": {
@@ -186,6 +186,19 @@
       "items": {
        "type": "string"
       }
+     },
+     "wait_s": {
+      "type": [
+       "number",
+       "null"
+      ],
+      "x-unit": "s",
+      "description": "time spent waiting for a heavy slot (included in seconds; D64)"
+     },
+     "computed_seconds": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "cache hit: seconds of the run that computed the entry (D64)"
      }
     },
     "required": [

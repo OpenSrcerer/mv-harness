@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Shared marker setup for the M5 unit-test folders (each folder's conftest.py calls these).
 
 * ``models``: synthetic inputs through real models (faster-whisper, MMS_FA, ECAPA, Rhubarb) inside a heavy slot;

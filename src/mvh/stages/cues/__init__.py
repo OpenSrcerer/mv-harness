@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long catalogue tables / docstrings)
 """cues stage (contract v1, owner M2): THE tiered cue list agents cut from, and the top moments.
 
 Tiers (PLAN §5 cues, D15, D37):
@@ -153,7 +152,7 @@ def run(ctx) -> StageResult:  # noqa: C901
     for c in cues:
         if "pinned" in c["kinds"] and c["kind"] != "pinned":
             # a user pin keeps its identity (M2-D13): it leads the merged cue whatever its co-timed kinds are
-            # (conventions.CUE_KIND_PRIORITY ranks 'pinned' last; change request for the W3 integrator)
+            # (no-op since D49 put 'pinned' first in conventions.CUE_KIND_PRIORITY; kept as a guard)
             k = c["kinds"].index("pinned")
             c["kinds"].insert(0, c["kinds"].pop(k))
             c["sources"].insert(0, c["sources"].pop(k))

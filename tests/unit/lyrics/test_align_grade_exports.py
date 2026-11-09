@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """lyrics mechanics without models: the vendored CTC Viterbi against torchaudio (golden), alignment windows on
 synthetic emissions, the G1-G8 gate and grades, the hallucination filter and match score, and the exports."""
 

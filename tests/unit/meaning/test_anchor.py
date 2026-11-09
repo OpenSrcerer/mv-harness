@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Re-anchoring per-section claims when the sections move (PLAN §8.5)."""
 from __future__ import annotations
 

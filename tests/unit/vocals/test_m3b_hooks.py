@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long numeric tables / docstrings)
 """Human-correction hooks of the M3b stages (``--param notes.piano_mode=...``, ``vocals.present``, ``vocals.style``).
 
 Runs the stages directly on the synthetic fixture with the cached instruments output as upstream (seconds each).

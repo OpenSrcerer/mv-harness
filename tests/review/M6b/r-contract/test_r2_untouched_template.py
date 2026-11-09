@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-CONTRACT (M6b) round 2, R2-1 (major, round-1 r-words F4 not fixed on two common song shapes).
 
 interview.md says of its YAML template "Empty = no answer". The fix turned the harness's voice proposals into

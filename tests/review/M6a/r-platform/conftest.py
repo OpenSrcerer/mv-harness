@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """Fixtures for the R-PLATFORM review tests of M6a (viewer)."""
 
 from __future__ import annotations

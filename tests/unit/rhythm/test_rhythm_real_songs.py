@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Real-song snapshot tests for the M2 chain rhythm -> structure -> choreo -> cues (opt-in: -m real or MVH_REAL_TESTS=1).
 
 Upstream stages come from tests/contract/real-<slug> (the W0 data: ingest, separation, spectral, allin1, harmony ...;

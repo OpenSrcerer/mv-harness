@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings and tables)
 """drums: the detector on synthetic one-shots, the DrumSep path and the classifier path scored against the synthetic
 song's ground truth (PLAN §7: F1 >= 0.9 kick/snare/hat, >= 0.7 tom/cymbal; event time = the one-shot's first
 sample), then the stage end to end on the fixture."""
@@ -402,3 +401,81 @@ def test_cymbal_far_under_the_kit_needs_ring_and_classifier_confirmation():
     conf, _ = core.drumsep_hits(subs, SR, cymbal_confirm=[1.0 + i for i in range(4)])
     assert [round(h.t, 2) for h in unconf if h.drum == "cymbal"] == [1.0, 2.0] and st0["cymbal_leak_dropped"] == 2
     assert [round(h.t, 2) for h in conf if h.drum == "cymbal"] == [1.0, 2.0, 3.0, 4.0]
+
+
+# ------------------------------------------------------------------------------------------------ ride patterns (R3-1)
+@pytest.mark.parametrize("bpm,div", [(120, 2), (140, 2), (150, 2), (90, 4)])
+def test_dense_ride_patterns_keep_their_strokes(bpm, div):
+    """A ringing ride struck in 8ths / 16ths with accents: each stroke rises only a few dB over the previous ring."""
+    rng = np.random.default_rng(3)
+    n = int(0.6 * SR)
+    t = np.arange(n) / SR
+    stroke = rng.standard_normal(n) * np.exp(-t / 0.25)
+    b, a = __import__("scipy.signal", fromlist=["butter"]).butter(4, 5000 / (SR / 2), "high")
+    stroke = __import__("scipy.signal", fromlist=["lfilter"]).lfilter(b, a, stroke)
+    stroke /= np.abs(stroke).max()
+    spacing = 60.0 / bpm / div
+    ref = [1.0 + i * spacing for i in range(int(8.0 / spacing))]
+    shots = [(int(r * SR), stroke * (1.0 if i % 2 == 0 else 0.85)) for i, r in enumerate(ref)]
+    ride = _place(int(10 * SR), shots)
+    silent = np.zeros_like(ride)
+    subs = {"kick": silent, "snare": silent, "toms": silent, "hihat": silent, "ride": ride, "crash": silent}
+    hits, _st = core.drumsep_hits(subs, SR)
+    est = [h.t for h in hits if h.drum == "cymbal"]
+    _f1, p, rc, _tp = core.match_f1(est, ref, 0.012)
+    assert rc >= 0.7 and p >= 0.8, (bpm, div, rc, p)
+
+
+# ---------------------------------------------------------------- R4-1: low-rise ride / crash hits need an input event
+def test_low_rise_crash_stem_hit_without_input_event_is_dropped():
+    """a crash-stem 'onset' that rises < 8 dB in its own stem and has no 6-16 kHz rise in the DrumSep input (the stem sum or
+    ``drums_mix``) is energy moving between sub-stems, not a stroke"""
+    import numpy as np
+
+    from mvh.stages.drums import core
+
+    sr = 44100
+    rng = np.random.default_rng(1)
+    n = sr * 4
+    crash = 0.01 * rng.standard_normal(n)                       # the stem's own noise floor
+    t = np.arange(int(0.6 * sr)) / sr
+    ring = rng.standard_normal(t.size) * np.exp(-t * 6)
+    crash[sr:sr + ring.size] += 0.2 * ring                      # a real stroke at 1.0 s (rises a lot, input event)
+    # a slow swell at 3.0 s: a bump that rises only a few dB in the crash stem
+    k = int(3.0 * sr)
+    crash[k:k + sr // 2] += 0.018 * rng.standard_normal(sr // 2) * np.exp(-np.arange(sr // 2) / sr * 2)
+    subs = {"crash": crash, "kick": np.zeros(n), "snare": np.zeros(n)}
+    flat_mix = 0.01 * rng.standard_normal(n)      # a mix with no event at 3.0 s
+    flat_mix[sr:sr + ring.size] += 0.2 * ring
+    low = [h for h in core.detect(crash, sr, drum='cymbal') if abs(h.t - 3.0) < 0.05]
+    assert low and low[0].rise_db < 8.0, low   # the premise: it passes the 4 dB floor but not the old 8 dB one
+    hits, st = core.drumsep_hits(subs, sr, drums_mix=flat_mix)
+    ts = [h.t for h in hits if h.drum == "cymbal"]
+    assert any(abs(x - 1.0) < 0.02 for x in ts)
+    assert not any(abs(x - 3.0) < 0.05 for x in ts)
+
+
+def test_ride_hit_at_a_snare_stroke_must_decay_like_a_cymbal():
+    """snare leakage into the ride stem (a short crack) is dropped, a ringing ride stroke on the same snare stays"""
+    import numpy as np
+
+    from mvh.stages.drums import core
+
+    sr = 44100
+    rng = np.random.default_rng(2)
+    n = sr * 5
+    t = np.arange(int(1.0 * sr)) / sr
+
+    def burst(ring_s):
+        return rng.standard_normal(t.size) * np.exp(-t / ring_s)
+
+    snare = np.zeros(n)
+    ride = 0.002 * rng.standard_normal(n)
+    for at, ring_s in ((1.0, 0.012), (3.0, 0.6)):          # a leak (dies in ms) and a real ringing stroke
+        k = int(at * sr)
+        snare[k:k + t.size] += 0.5 * burst(0.05)
+        ride[k:k + t.size] += 0.3 * burst(ring_s)
+    hits, st = core.drumsep_hits({"snare": snare, "ride": ride, "kick": np.zeros(n)}, sr)
+    ts = [h.t for h in hits if h.drum == "cymbal"]
+    assert any(abs(x - 3.0) < 0.02 for x in ts)
+    assert not any(abs(x - 1.0) < 0.02 for x in ts)

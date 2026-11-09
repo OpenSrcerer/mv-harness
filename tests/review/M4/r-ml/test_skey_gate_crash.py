@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long docstrings)
 """R-ML M4 round 2: the S-KEY p_max gate (fix for F1) crashes the harmony stage when S-KEY is unsure.
 
 ``keys.Evidence.methods()`` now drops ``skey`` when ``skey_weight(skey_probs)`` is 0 (top recovered probability under

@@ -1,4 +1,3 @@
-# ruff: noqa: E501  (long lines)
 """viewer stage (contract v1, owner M6a): ``viewer.html``, the one-page song viewer (PLAN §9).
 
 ``viewer.html`` is a single self-contained file: styles, the viewer script, an inline copy of ``lib/mvh.js`` (loaded

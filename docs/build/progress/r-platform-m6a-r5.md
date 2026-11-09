@@ -1,0 +1,12 @@
+# r-platform-m6a-r5 progress
+- started round 5 2026-11-09 08:00. F-R4-VOICE-FLOOR NOT fixed: voices/intent.py + core.py unchanged (03:47/03:59), test_r4 fails 3/3 (baseline passes). fixer-m6a-r4 report defers it as voices-stage CR.
+- next: check viewer file mtimes for changes since r4 (07:04), regressions, integration tests M6a, browser on 2 real songs
+- copied jeremy+versatile from integrator (copy_song.py, no .cache/.wav) -> out/_wip/r-platform-m6a-r5/; rebuilt viewer.html (build_real.py): 15.9 MB / 11.0 MB
+- served (bg b7lrl2rsn :63819 jeremy, b3hqi8pnz :63820 versatile) -> STOP before report. Claude_Browser pane hidden => rAF never fires (V.t stuck at 0): env artefact; used headless CDP (node cdp_viewer.mjs direct; rp_support.drive via run.ps1 printed nothing)
+- headless: served+file both songs ready, 11 lanes (jeremy via Claude_Browser), drift <10 ms, no lane errors; served logs favicon.ico 404 x2 (minor)
+- SUSPECT NEW major: structure writes provenance.overrides_applied one entry PER EDIT {key:'structure.boundaries', value:{action,t,..}} (structure/__init__.py ~326-338, 726-735); viewer data.js appliedOverrides maps key->value (last wins, a dict), edit.js pendingBoundaries does (dict||[]).map -> TypeError. Evidence folder: critic-w3/rt-synth copied to out/_wip/r-platform-m6a-r5/rt-synth. Next: verify in browser.
+- CONFIRMED NEW BLOCKER F-R5-APPLIED-BOUNDARY: served rt-synth -> fatal page; file:// -> sections lane error. Failing tests tests/review/M6a/r-platform/test_r5_platform.py (2 fail for stated reason, 18 s). rt-synth server bg b5s88rtvs :57750 -> STOP.
+- review doc Round 5 appended (m16 favicon, m17 labels pending, m6 still open). gate running bg bqq64mmis -> out/_wip/r-platform-m6a-r5/gate.log (unit: contract fails not M6a, viewer 51 pass). next: wait gate, stop servers (b7lrl2rsn, b3hqi8pnz, b5s88rtvs), report
+- report drafted at docs/build/reports/r-platform-m6a-r5.md; waiting on gate
+- servers stopped, browser pane closed; ruff clean on M6a+review; gate review fails only on my r4/r5 tests
+- DONE: report final; gate e2e/determinism unfinished (bg ends with session)

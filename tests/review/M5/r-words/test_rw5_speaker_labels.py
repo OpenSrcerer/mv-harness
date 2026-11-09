@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """R-WORDS M5 (major): one-off "Word: ..." lyric lines are parsed as speaker labels.
 
 ``text._label_split`` accepts any capitalised word (up to 4) followed by ``": "`` as a speaker label unless it is

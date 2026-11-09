@@ -1,0 +1,17 @@
+# fixer-m2-r4 progress (W3 module fix round 2, M2)
+- started. Prior: fixer-m2-r3 fixed F4-r3/F6-r3/S05/S09; verifier r-dsp-m2-r4 found F7-r4 (impact snap shifts jeremy verse#1 eight-counts; test tests/review/M2/r-dsp/test_structure_impact_snap_counts_real.py).
+- NEXT: read F7 test + integration tests, fix phrase grid on snap.
+- DONE code: structure phrases keep song phrase grid (phrase_offset/grid_support; remainder first when other section starts align with a+r), version 1.1.0 (r4-m2).
+- NEXT: run F7 test -m real, review M2 all, compare phrases on real songs.
+- review M2 default 22p/6s, -m real 6p, unit 49p (after phrase fix)
+- e2e rerun launched: out/_wip/fixer-m2-r4/rerun.ps1 (status rerun.status); compare: compare.py (vs integrator)
+- mvh analyze --only refused: integrator upstream caches stale vs current non-M2 code (rhythm/harmony/dynamics stale). Using probes/runreal.py (verifier's CacheUpstream method) -> out/_wip/fixer-m2-r4/real/<slug>; cmp: probes/cmp.py. Refactored to module-level phrase_layout(); unit test tests/unit/structure/test_phrase_grid.py
+- real reruns done 5/5 rc 0
+- cmp done (cmp.txt): only jeremy verse#1 phrasing/counts change, counts == integrator pre-snap grid. decisions M2.md appended. NEXT gate (background, log out/_wip/fixer-m2-r4/gate.log)
+- pre-gate: ruff clean; contract --check FAILS only on vocals deps (+lyrics, M3b, not M2). gate launched 07:57
+- review -m real after refactor: 6 passed
+- seams on my outputs: S05 gap 0.0 PASS, S09 PASS; tests/integration/M2 fail only on stale integrator folder (05:10). Waiting for gate.
+- report drafted docs/build/reports/fixer-m2-r4.md; gate steps 1-6: only unit-contract + contract fail (vocals deps, M3b). waiting e2e/determinism (monitor)
+- gate e2e FAIL: lyrics (M5) TypeError float(dict) -> vocals/choreo/cues not run; M2 allin1/rhythm/structure done. Waiting determinism.
+- gate done exit 1: unit(contract)/contract (vocals deps), e2e (lyrics M5 crashed at 08:12 edit; choreo/cues not run), determinism (run1 incomplete + separation.json). M2 in-process double run identical (jeremy, synth). NEXT: own e2e analyze to confirm choreo/cues
+- own e2e analyze synth rc 0 validate 0 (all stages incl choreo/cues); report final. DONE except StructuredOutput.
