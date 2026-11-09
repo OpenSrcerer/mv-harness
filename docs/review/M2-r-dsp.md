@@ -221,3 +221,59 @@ No real-song lyric text was read or printed.
 - There is still no unit test for short inputs.
 - The structure unit tests still score against two truth-derived inputs: the fixture allin1 segments and the fixture
   dynamics segments.
+
+## Round 3 (r-dsp-m2-r3)
+
+Scope: verify the fixer's F4-r2 change to `structure` (drum-pattern and embedding novelty, edge damping, gated dynamics
+evidence, phrase-grid refinement, agglomerative repeat groups), then look for regressions. Probes are in
+out/_wip/r-dsp-m2-r3/probes (p_sens, p_full, p_jitter, p_pattern, p_loop, p_mega, replay/cmp_*).
+
+### Status of F4-r2
+- With the fixture's rhythm the fix holds and is not a one-parameter hack. F stays 1.0 and the choruses stay in group C
+  across split_min_novelty 0.45-0.6, w_pattern 0.5-0.9, w_embedding 0.3-0.7, dyn_gate 0.5-1.0, section_cost_q 70-80 and
+  repeat_adjacent_penalty 0.8-0.9 (p_sens.log). The 17.0 s boundary comes only from the phrase-grid refinement.
+- The real pipeline is still not right. A fresh full `mvh analyze` of the synthetic song gives 0.99/5.0/9.0/17.0/25.0/34.5/50.52 s,
+  which is F 0.923 with a spurious 2+2 intro split. The only input that causes this is the real rhythm: two downbeats are
+  18 ms late, while beats F1 is 1.0. The review test passes only because it uses the fixture rhythm, which is the truth rhythm
+  (a third circular input). This is the new major F4-r3, test tests/review/M2/r-dsp/test_structure_rhythm_jitter.py.
+- A new major regression on MEGAFAUNA: the drop is shortened from 141.8-212.7 s to 141.8-176.1 s, against the SPIKE loud
+  plateau of 146-217 s. This is F6-r3, test tests/review/M2/r-dsp/test_structure_drop_extent_real.py (-m real).
+
+### Minor findings, round 3
+
+**r3-m1. The phrase-grid refinement splits a loop that never changes**
+- **Location:** `structure.run`, refinement block.
+- **Cause:** `split_min_novelty` is compared with `norm01(foote(S_hom, 4))`. That value is normalised to the song's own
+  p98, not to "the in-section level" that the docstring describes. On a song without real changes, noise is scaled up
+  to 1.0.
+- **Evidence:** a 32-bar uniform 120 BPM loop (kick, hat, the same 4 saw chords; p_loop.py) goes from 6 sections
+  (refinement off) to 9. Every 8-bar section becomes 4+4, and the halves are adjacent and in the same group B.
+- **Why it matters:** the refinement runs after the same-group merge, so it undoes what the merge intends (fewer cuts
+  that change nothing).
+- **Suggested fix:** use an absolute or in-section-relative floor, for example the raw Foote value against the median of
+  the section's own grid points. Do not split when both halves fall in the same repeat group.
+
+**r3-m2. The dynamics gate almost never applies**
+- **The issue:** the gate is `clip(own / dyn_gate)` with `dyn_gate` 0.7. In the full synthetic run, about 25 of 28 bars
+  have own >= 0.7, so the dynamics segments, impacts and novelty are added in full almost everywhere.
+- **Evidence:** at 5.0 s they add +0.75 (own 1.72 -> 2.47). That is what lifts the bar over the merge guard of 2.41 in
+  F4-r3.
+- **Suggested fix:** gate on own relative to the section cost (for example own >= cost), or scale the gate by
+  own / cost.
+
+**r3-m3. Labels inside one repeat group mix roles, and a mid-song section is labelled 'outro'**
+- **MEGAFAUNA:** group J = drop, drop, drop, inst and group K = drop, inst, inst. The material is the same and the
+  energies are equal. This is a side effect of F6-r3.
+- **Versatile:** 129.2 s (8 bars) changes from break (G) to 'outro' (group C), although it carries the edm_role
+  breakdown 129.2-144.0 s. The round-2 note about the outro group's over-reach still applies.
+
+**r3-m4. The DSP-only rhythm fallback locks onto the off-beat hats**
+- **Evidence:** on a simple loop (sine-sweep kick on every beat, noise hat on the off-beats; p_loop.py, use_models=False),
+  beats land at 0.246, 0.761, 1.262 s while the kicks are at 0.5, 1.0, 1.5 s. The tempo is correct (119.99 BPM) and the
+  phase is half a beat off.
+- **Scope:** fallback path only. The model path was not checked on this signal.
+
+**r3-m5. Test coverage**
+- The structure tests, both unit and review round 2, still use the fixture's truth rhythm. None checks stability under
+  tracker jitter.
+- `test_pattern_features.py` does not cover hits that sit on the slot edges.

@@ -121,3 +121,113 @@ and are summarised in `docs/build/reports/r-ml-m3a-r2.md`.
   DrumSep sub-stem drops strokes (N3: 10 of 16 rides and 5 of 8 toms are not even candidates in the 48 kHz run) nothing
   recovers them. A classifier hit with no DrumSep counterpart could be added at low conf with evidence
   `classifier_only`, at least for tom (the classifier now reaches tom F1 1.0 on the clean drum stem).
+
+## Round 3 (r-ml-m3a-r3, 2026-11-09)
+
+Re-checked against fixer-m3a-r2 by running the code: all review tests, fresh ROCm end-to-end runs of the synthetic
+song at 44.1 kHz and 48 kHz, the mono and near-mono excerpts, two new separation variants (-6 dB master, 0.5 s of
+leading silence that moves every separator chunk boundary), the W0 stems of all four real songs, and probes on the
+generator's clean sub-stems (scripts in `out/_wip/r-ml-m3a-r3/probe/`).
+
+### Status of round-2 findings
+- **F2 (classifier path hat / cymbal): fixed with one of the round-2 options.** `core.classify` is unchanged (clean drum
+  stem: kick .977, snare .967, hat .793, tom 1.000, cymbal .444). On the stage with `drums.path="classifier"`, hat and
+  cymbal have vel <= 0.45 (raw value in `vel_raw`) and conf <= 0.45. Kick vel goes up to 1.0. The fallbacks are
+  `drums:classifier` and `drums:low_confidence(hat,cymbal)`, and the envelopes follow the scaled vel. Round 2 asked for
+  the review test to be updated to the chosen behaviour, so `test_drums_classifier_path.py` now checks the PLAN gates
+  on kick, snare and tom plus that scaling.
+- **F3-R (near-mono karaoke): fixed.** On the narrow-24 excerpt the split is dropped (`sep:lead_backing_suspect`,
+  `sep:lead_backing_narrow`, `lead_backing_split=false`, lead = vocals). The mono excerpt is flagged
+  `sep:lead_backing_mono`. On the real W0 stems the new rule only flags, because all four masters are wide (side/mid
+  -7.4 to -15.1 dB):
+  - megafauna: backing 33 dB over lead, flagged `sep:lead_backing_suspect`.
+  - versatile: lead only 2.5 dB over backing, flagged `sep:lead_backing_suspect`.
+  - jeremy (lead +9.2 dB) and newton (+22.4 dB) are not flagged.
+
+  `checks.lead_share_frames` exposes the per-second confidence.
+- **N1 (soft passage loses cymbals): fixed.** Clean sub-stems, kit attenuated in 16.9-20.95 s, 16.9-24.5 s or
+  34-56.5 s by 0 to 24 dB: cymbal recall in the window does not change (8/9, 15/16, 3/3). In 0-34 s it stays 16/17
+  except at exactly -20 dB (see r3-m3, a detector level cliff that is not caused by the gate). Crash level relative to
+  the ride (+0 to +12 dB) and ride level (0 to -12 dB) leave ride recall at 1.0.
+- **N2 (absolute brightness threshold): fixed.** The hi-hat stem was darkened by a high-cut of 6-25 dB above 6.5 kHz
+  (typical brightness -3 to 13 dB): all 32 open hats stay hats, hat F1 .964-.997 and no relabels. On the real W0 hi-hat
+  stems, slow-decaying (open-like) and fast-decaying hits have the same median brightness relative to the stem's
+  typical value (newton +0.4 / +0.3, jeremy +0.1 / -2.9 dB), and only 2-5 hits per song are relabelled (megafauna 65,
+  an electronic kit). Residual: r3-m4.
+- **N3 (gates hold for one separation output only): fixed.** Fresh ROCm runs, all passing (gates .9/.9/.9/.7/.7):
+
+  | Run | kick | snare | hat | tom | cymbal |
+  |---|---|---|---|---|---|
+  | 44.1 kHz | 1.000 | .993 | .926 | 1.000 | .800 |
+  | 48 kHz | .994 | .980 | .917 | .889 | .714 |
+  | -6 dB master | 1.000 | .986 | .910 | .800 | .821 |
+  | 0.5 s pad | .994 | .980 | .916 | .941 | .757 |
+
+  The margins are still thin: hat by 1-2 hits in each run, cymbal by 1 hit at 48 kHz.
+
+### New major finding (failing test)
+- **R3-1: a ride in 8th notes loses about 95 % of its strokes.** Test:
+  `tests/review/M3a/r-ml/test_r3_drums_ride_eighths.py`. Ride / crash candidates need a broadband rise of
+  `cymbal_rise_db` = 8 dB, and each stroke rises over the ring of the previous one. One clean ride stroke of the
+  generator, tiled at a uniform spacing, gives these results:
+
+  | Ride rate | Spacing | Recall |
+  |---|---|---|
+  | quarter notes | 0.5 s | 1.0 |
+  | 8ths at 120 bpm | 0.25 s | .967 (rise 8.2 dB) |
+  | 8ths at 140 bpm | 0.214 s | .057 |
+  | 8ths at 150 bpm | 0.2 s | .053 (rise 6.4 dB) |
+
+  With `cymbal_rise_db=4`, recall is 1.0 and precision 1.0 at every tempo. End to end (the synthetic MIX with its ride part doubled at +0.214 s, real ROCm separation): ride recall .219 (7/32), song cymbal F1 .385 (gate .7). A ride with dynamics loses its softer strokes
+  in the same way: every other quarter-note stroke 6 dB down rises 7.5 dB and is lost (ride recall .56). The synthetic
+  song only has quarter-note rides, so no gate exercises this.
+
+### Minor findings (round 3)
+
+#### r3-m1. Duplicate drum events from the classifier
+- `core.classify` can emit two hits with the same (sample, drum): two band-onset clusters snap to the same broadband
+  onset. In the DrumSep path, `drums.run` adds classifier-only toms against `have`, which is computed before the loop,
+  so both copies are added. In the 48 kHz run `events/drum_hits.json` holds `(32.132, tom)` twice (1 of the 2 tom false
+  positives). On the classifier path the duplicate goes straight out: `(8.996871, hat)` twice on the synthetic
+  separated stem. Fix: dedupe on (sample, drum) in `classify`, and update `have` as toms are added.
+
+#### r3-m2. Classifier-only toms carry full vel (and outrank the DrumSep toms)
+- The recovered toms (N3 fix) have conf <= 0.5, but `velocities()` pools their peaks with the DrumSep toms' peaks. The
+  two sources measure on different signals: the full drum stem's 160-400 Hz band or broadband peak, against the toms
+  sub-stem.
+- On newton the 15 `classifier_only` toms get vel .74-1.0 and the 19 DrumSep toms get .36-.88. The consumers read
+  `t, drum, vel`, so the unverified toms become the song's strongest tom accents. This is the same gap F2 closed on the
+  classifier path.
+- On the synthetic song the two scales happen to agree. Even there tom vel tracks the programmed velocity poorly
+  (Pearson .41 on clean sub-stems; a second stroke 125 ms after the first rides on its ring).
+- Fix: scale `classifier_only` vel by its conf cap, as on the classifier path, or compute vel per source.
+
+#### r3-m3. The detector's adaptive threshold has a level cliff near -60 dB
+- `detect()` sets its threshold from the ODF spread over blocks whose 10 ms level is above `abs_floor_db + 10`
+  (-60 dBFS). When a stem's strokes straddle that level, the block set and the threshold jump.
+- The generator ride stem (peak -30 dBFS) scaled by -20 dB keeps 1 of 16 candidates at the 8 dB cymbal floor. At -19
+  and -21 dB it keeps 16 of 16. The hi-hat stem at -28 dB loses 67 of 182 candidates.
+- The real W0 sub-stems peak at -4 to -17 dBFS, so this matters for quiet masters or sub-stems only. A relative floor
+  (for example the stem's p99 level minus 60 dB) would remove the cliff.
+
+#### r3-m4. Residual of N2: open hats darker than closed hats
+- The relabel rule `bright < typ - 7.5` (slow decay, large rise) still switches all at once on the hats themselves.
+  Open hats only, darkened by 8 dB above 6.5 kHz: no change. By 10 dB: all 32 become cymbals, cymbal F1 .974 -> .535.
+- The real stems do not show such a gap (see N2 above), so this is minor. A coincident ride / crash onset, or a decay
+  longer than an open hat's, would make the relabel safe.
+
+#### r3-m5. Hi-hat F1 sits at the gate on band-limited sources
+- With the clean hi-hat stem low-passed at 10 kHz or at 12 kHz, as on a low-bitrate lossy source, hat F1 drops from
+  .997 to exactly .900. At 6 kHz it is .787. No relabel or drop rule fires, so the loss is in the 8-16 kHz air-band
+  detector, which finds the soft closed hats after an open hat. When the band above about 11 kHz is empty, the air band
+  could fall back to 6-11 kHz.
+
+#### r3-m6. `sep:lead_backing_suspect` fires on the stereo synthetic song
+- The synthetic song is ordinary stereo: lead 6.4 dB over backing in the truth, separated lead minus backing 3.3 dB at
+  44.1 kHz and 4.0 dB at 48 kHz. That leaves 0.3-1.0 dB of margin over the 3 dB `lead_suspect_db`.
+- In the ride-8ths variant (only the drum part changed) the margin is gone: lead minus backing 2.7 dB, which raises
+  `sep:lead_backing_suspect` and a run warning.
+- On a wide master the rule only flags, so the cost is a false QA flag. But the flag also fires on versatile
+  (+2.5 dB), and will fire on most duets.
+- A per-section check on `lead_share_frames`, or a wider margin that applies only together with a narrow width, would
+  be more specific.
