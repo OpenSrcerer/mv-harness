@@ -134,10 +134,13 @@ def run(ctx) -> StageResult:
                         confirmed += 1
             stats["classifier_confirmed"] = confirmed
             have = np.array(sorted(h.t for h in hits if h.drum == "tom"))
+            kick_snare = np.array(sorted(h.t for h in hits if h.drum in ("kick", "snare")))   # a tom is not played with them
             added = 0
             for c in ch:
                 if c.drum != "tom":
                     continue
+                if kick_snare.size and float(np.min(np.abs(kick_snare - c.t))) <= 0.025:
+                    continue   # a kick / snare transient the classifier read as a tom (real stems: 90 % of its toms)
                 if have.size and float(np.min(np.abs(have - c.t))) <= 2 * tol:
                     continue
                 c.source = "classifier"

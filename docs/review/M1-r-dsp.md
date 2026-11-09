@@ -53,3 +53,33 @@ Minor findings, round 2:
 | m13 | `spectral/stage.py` `viz` flag with the quiet-master gate | For a quiet master, `viz=true` is set on hits that the real viz never registers. viz gates on the raw kick band at -46 dB, but the flag is computed with the lowered gate. | Kicks over bass scaled to -30 and -40 dB: 44 events, all `viz=true`. The real `audio.js` in Node registers 0 hits at both levels (47 at 0 dB). | Compute `viz_hit` with viz's own -46 dB gate, or document that `viz` means "viz logic with the song-relative gate". |
 | m14 | `docs/contract/decisions/M1.md` | The round-1 fix rows reuse IDs that are already taken: a second M1-S6 (kick events) and a second M1-D3 (`t_event`). They sit below the change requests, outside the tables. M1-S5 still says the kick onset score uses 0.5 × the click step, but the stage uses `kick_click_w` = 1.0. | Read the file. | Renumber them (M1-S12, M1-D10), move them into their tables and update the M1-S5 wording. |
 | m15 | `dynamics/stage.py` boundaries vs `t_event` | The drop *part* still starts at the snapped downbeat. With a grid 0.95 s off, the part starts at 28.95 s for a drop at 28.0 s. `t_event` is kept internally but never written. | `out/_wip/r-dsp-m1-r2/probe_m2.py` gives parts (28.95, 'drop') at offset 0.95 and (27.1, 'drop') at offset 1.1. | Write `t_event` (additive optional field, the unsnapped impact time) on the dynamics item. Otherwise snap major impacts only within a beat. |
+
+## Round 3 (r-dsp-m1-r3)
+
+Reviewer r-dsp-m1-r3 checked fixer-m1-r2's changes to `spectral` (`dsp.select_kick_events`: the low band's own attack
+replaces the click refractory; pitch-drop evidence; a roll rule for double kicks) by running code. The scratch scripts are
+in `out/_wip/r-dsp-m1-r3/`. Blockers and majors are in `docs/build/reports/r-dsp-m1-r3.md`, each with a failing test in
+`tests/review/M1/r-dsp/test_rdsp_r3_kicks.py` (or the existing round-2 test).
+
+Fix status:
+- **B1-R2: not fixed.** The hat cases pass: F1 0.989, 0.989 and 1.0. The contract fixture song gets *worse*: F1 0.864
+  (P 0.835, R 0.894; round 2 had 0.880). The round-1 floor test (P >= 0.85, R >= 0.9) now fails as well. The cause is not
+  the hat but the bass line. The truth has a bass note (`notes.bass`, A1/F1, inside the 35-100 Hz kick band) 100 ms
+  before each lost kick. Its onset is emitted as a kick (viz true), and the 0.2 s refractory then drops the real kick:
+  over the held bass, the kick's ≤ 400 Hz excess is about 2 dB, below the 3.5 dB needed.
+- **R2-M1: fixed for the tested cases, not over a held bass note.** The crash cases pass (130 and 150 BPM: 1.0; 170 and
+  190: 1.0 and 0.99). Jeremy's kick-stem recall is 0.97 (opt-in test passes). On real songs, the viz-registered hits that
+  are now dropped look like non-kicks: their median DrumSep kick-stem rise is 2.3 / 0.1 / 3.5 dB on Versatile, Jeremy and
+  newton, against 57 / 51 / 84 dB for the kept ones (`real3.py`). But rock 8th-kick pairs over a held bass note lose the
+  '&' kick at 140-160 BPM (major, new test).
+- **R2-M2: fixed only at the tested tempo.** 16th double kicks are found at 150 and 160 BPM with the tight, clicky kick,
+  but not at 170 BPM (R 0.81) or 180 BPM (3 of 96), nor under a crash (42 of 96).
+
+Minor findings, round 3:
+
+| id | location | claim | evidence | suggested fix |
+|---|---|---|---|---|
+| m16 | `spectral/dsp.py:select_kick_events` docstring | The docstring describes two rules the code does not implement: a `glide_song` rule ("in a song whose events mostly show it every hit needs it"), and "a click-less hit within the refractory is a kick when it has it" (the pitch drop). The kept loop applies the glide only to weak hits (v ≤ 0.3), and the refractory branch never looks at the glide. | `grep glide_song` finds only the docstring. `probe_glide_song.py` shows what such a veto would do (share 0.5, veto below 1.1). Four-on-the-floor over off-beat bass goes 0.88 → 0.978. The hat cases and kicks_over_bass go to 1.0. The fixture song and the syncopated groove barely move, because their misses come from the refractory. | Implement the documented rules, or delete them from the docstring. See the bass-line blocker in the report. |
+| m17 | `kick_conf` (CONTRACT decision M1-S8) and `tests/unit/spectral::test_kick_events_with_sub_bass_line` | M1-S8 says sustained bass notes "read low" in `kick_conf`, and the unit test's docstring says `kick_conf` separates them. On the builder's four-on-the-floor groove(), the 12 bass-note onsets emitted as kicks have kick_conf 0.965-1.0 (median 1.0, the same as the true kicks). On the default groove the extras have median 0.948 against 1.0 for the true kicks, so the test's `median(tp) >= median(fp)` passes with almost no margin. | `kc.py`, `probe_groove2.py`. | Put the pitch drop (`kick_glide`) into `kick_conf`: kicks median 1.93, bass-note extras ≤ 1.29 on these signals. Make the test strict (`median(fp) <= 0.5`). |
+| m18 | `tests/unit/spectral::test_real_song_kick_counts` | The fixer widened the bar from ±10 % of the W0 viz reference to [-35 %, +10 %]. For Versatile, Jeremy and newton the kick-stem evidence supports the widening. For MEGAFAUNA, 164 of its 503 viz-registered kick-band hits are dropped, and its DrumSep stem cannot tell whether they are kicks: the share of attacks with a clear kick-stem attack is 0.35 for the dropped ones and 0.31 for the kept ones. A -35 % band would hide a future recall regression. | `out/_wip/r-dsp-m1-r3/real3.log`. | Replace the count band with a per-song kick-stem recall test (strict attacks, as in `test_jeremy_unambiguous_kicks_are_kept`) for Jeremy, newton and Versatile. Keep MEGAFAUNA count-only with a note. |
+| m19 | `docs/contract/decisions/M1.md` | m14 still stands. There are still two M1-S6 rows (the flash rule at line 16, and the kick-event rule rewritten by the fixer at line 59), outside the table. | Read the file. | Renumber the kick-event row (e.g. M1-S12) and move it into the spectral table. |

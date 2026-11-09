@@ -9,3 +9,4 @@
   step-only candidates; refractory 0.2 s needs the low band's own attack. Synthetic: hats 0.99, crash 1.0, doubles 1.0, kicks_over_bass 0.99;
   fixture song stuck ~0.86 (bass-note onsets with hats), groove-with-bass recall 0.8. Real: Jeremy stem recall .97.
   Next: fix unit tests that encode old behaviour, run gate, report.
+- gate run: M1 review 14/16 (2 fixture-song kick tests fail), unit contract + determinism fail from other modules. Report written.

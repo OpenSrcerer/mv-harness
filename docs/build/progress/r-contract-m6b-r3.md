@@ -16,3 +16,7 @@
 - waiting on gate (background); then frames e2e if possible; then report
 - gate: review/contract/validate/e2e/lib-node PASS; unit FAIL contract only (not M6b); ruff transient (clean on rerun); determinism FAIL (upstream)
 - frames e2e: analyze running in background -> out/_wip/r-contract-m6b-r3/e2e/synth
+- R2-6 verified e2e (frames rc=1 not_run when separate_hq stale due to another module's param change)
+- report written docs/build/reports/r-contract-m6b-r3.md; waiting for re-analyze + frames export (background) to check CSV
+- RESUMED after power outage (02:45): review tests unchanged (9 r-contract r3 fails as stated); analyze2 had died mid-lyrics;
+  started `mvh frames e2e/synth --fps 24 --fps 24000/1001 --frame0 1` in background -> e2e/frames3.log

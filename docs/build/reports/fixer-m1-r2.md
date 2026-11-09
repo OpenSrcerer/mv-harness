@@ -33,3 +33,16 @@ kick looks like in band envelopes), and 9 of its kicks sit 100 ms after such an 
 tree / gradient boosting classifier cross-validated on the fixture reaches F1 0.87 at best, so the evidence available from band envelopes does
 not separate them. Pitch drop helps (the fixture kicks sweep, the bass notes do not) but real mixes mostly hide the sweep (9 % of Jeremy's kicks
 show it), so it cannot be made mandatory without gutting real songs.
+
+## Gate (scripts\gate.ps1 M1, log docs/build/progress/fixer-m1-r2.gate.log): FAILED
+- spectral / loudness / dynamics unit tests: pass (spectral 33 incl. opt-in real songs, run separately).
+- review M1: 14 pass, 2 fail: both are the contract-fixture-song kick tests (round-1 bar P >= 0.85 / R >= 0.9 gets P 0.835 / R 0.894; r2 bar F1 0.95 gets 0.864).
+- unit contract: tests/unit/contract/test_catalog_dag.py::test_stub_files_are_stubs fails because rhythm is no longer a stub (not M1).
+- determinism: 28 of 180 files differ (lyrics, lipsync, voices, vocal curves, brief...: other modules' ML stages). Spectral alone is bit-identical
+  across two runs (hits, onsets and all curves compared).
+- ruff, contract check, validate, e2e: pass.
+
+## Change requests / open items
+- Fixture song kicks: see "Why the fixture song stays below 0.95". A separation-based kick source (the DrumSep kick stem from the drums stage)
+  would resolve it; spectral cannot depend on it (deps frozen), so the W3 integrator could fuse hits.kick with drums.kick instead.
+- test_catalog_dag.py::test_stub_files_are_stubs: update for rhythm being real (contract tests are not M1's).

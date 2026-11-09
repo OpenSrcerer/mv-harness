@@ -99,3 +99,29 @@ tests/unit/contract pass).
 - `separate_hq.variant_order` is validated (list drawn from rocm, cpu, htdemucs; anything else fails the stage);
   `normalization_threshold` / `amplification_threshold` are now honoured by the worker (defaults 100.0 / 0.0).
 - `invariants.gain_gate`: an inverted stem (negative LS weight) fails the gain gate.
+
+## Fixer round 2 (fixer-m3a-r2): additive changes and interpretations
+
+- **M3a-R2-1 Drum leak gates are local** (`drums.core.drumsep_hits`): a ride / crash / tom hit is gated by its level above
+  the kit's own level at that instant (the kick / snare stroke at the same instant, else the loudest within +-0.75 s),
+  against the 2nd loudest such value of the ride + crash stems (3rd loudest for toms), not against the song's loudest
+  strokes: a passage played softer keeps its cymbals. Ring: ride / crash candidates carry `_ring` (4-16 kHz over
+  100-1000 Hz in the first 30 ms, and the 4-16 kHz drop to 150 ms later). A hit past the tight 12 dB gate stays (down to
+  28 dB) only when it rings AND the classifier on the full drum stem also finds a cymbal there (+-15 ms); a ringing hit
+  is exempt from the hat-copy and hat-leak drops; a hat-stem hit at the instant of a kept ringing ride / crash stroke is
+  that stroke's copy (relabelled, then merged).
+- **M3a-R2-2 Hi-hat brightness rules are relative** to the stem's own typical brightness (relabel to cymbal under
+  `min(11, typ - 7.5)` dB; snare-noise drop under `min(0, typ - 18.5)` dB), so an EQ'd or naturally darker hi-hat stem
+  keeps its open hats.
+- **M3a-R2-3 Classifier second opinion** (DrumSep path): toms found by the classifier with no DrumSep tom within 30 ms are
+  added (`source: classifier`, `conf <= 0.5`, `evidence: classifier_only`); classifier cymbals confirm (above).
+- **M3a-R2-4 Classifier path vel**: hat and cymbal hits (classes below the PLAN gates on that path) carry
+  `vel = 0.45 * vel_raw` (additive field `vel_raw`), so the choreo / cues packs (which read `t, drum, vel`) and the
+  `drums.hat` / `drums.cymbal` envelopes weigh them down; fallback `drums:low_confidence(hat,cymbal)` is added next to
+  `drums:classifier`.
+- **M3a-R2-5 Karaoke split sanity** (`separate_hq`): the backing RMS within `lead_suspect_db` (3 dB) of the lead or above it
+  flags `sep:lead_backing_suspect`; on a narrow master (`side_to_mid_db <= narrow_side_db`, -20 dB) the split is
+  dropped like the mono case (`lead := vocals`, silent backing, `lead_backing_split=false`, flag
+  `sep:lead_backing_narrow`, fallback `lead_vocals:=vocals(narrow)`). `meta/separation.json.checks` gains
+  `side_to_mid_db`, `lead_minus_backing_db` and `lead_share_frames` (`{seconds, clean_fraction, median_lead_minus_backing_db}`,
+  the split's own per-second confidence). New params `separate_hq.lead_suspect_db`, `separate_hq.narrow_side_db`.

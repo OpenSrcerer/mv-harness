@@ -275,7 +275,7 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
                  preecho_db: float = -15.0, click_rise_db: float = 12.0, cym_bright_rel_db: float = 7.5,
                  cym_decay_db: float = 6.0, snare_bleed_bright_rel_db: float = 18.5,
                  merge_cymbal_any_ms: float = 15.0, cym_gate_db: float = 12.0, tom_gate_db: float = 20.0, kit_window_s: float = 0.75,
-                 cym_loose_db: float = 28.0, hat_dup_ring_db: float = 8.0, hat_dup_ring_conf_db: float = 12.5, ring_min_db: float = 14.0, ring_decay_db: float = 13.0,
+                 cym_loose_db: float = 28.0, cym_abs_gate_db: float = 8.0, hat_dup_ring_db: float = 8.0, hat_dup_ring_conf_db: float = 12.5, ring_min_db: float = 14.0, ring_decay_db: float = 13.0,
                  ride_twin_db: float = 6.0, hat_leak_db: float = 10.0, cymbal_confirm: Sequence[float] = (),
                  confirm_ms: float = 15.0) -> tuple[list[Hit], dict[str, Any]]:
     """Hits from DrumSep sub-stems ({'kick': x, 'snare': x, ...}). Returns (hits, stats).
@@ -370,6 +370,8 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
     cym_all = [rel_lvl[x.sample] for sub_, xs in per.items() if SUBSTEM_DRUM[sub_] == "cymbal" for x in xs]
     cym_top = float(np.sort(cym_all)[-min(2, len(cym_all))]) if cym_all else FLOOR_DB   # 2nd loudest of ride + crash
     cym_ref = {sub_: cym_top for sub_ in ("ride", "crash")}
+    cym_abs = {sub_: float(np.sort([x.level_db for x in xs])[-min(2, len(xs))]) for sub_, xs in per.items()
+               if xs and SUBSTEM_DRUM[sub_] == "cymbal"}   # song-wide 2nd loudest stroke of the stem (the old absolute reference)
     # a cymbal rings: its 4-16 kHz energy is still there 150 ms later and dominates the low band; kick / snare leakage
     # into a ride / crash stem is a short transient (no ring), whatever its level
     ring = {h.sample: _ring(subs[sub_], sr, h.sample) for sub_, xs in per.items() if SUBSTEM_DRUM[sub_] == "cymbal" for h in xs}
@@ -414,7 +416,8 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
                               default=FLOOR_DB)
                 rl = rel_lvl[h.sample] - cym_ref.get(sub, FLOOR_DB)
                 rings = rings_ok(h, ring_decay_db)
-                if (rl < -cym_loose_db or (rl < -cym_gate_db and not (rings and confirmed(h)))
+                abs_leak = h.level_db < cym_abs.get(sub, FLOOR_DB) - cym_abs_gate_db   # a leak is far under the kit AND under the song's strokes
+                if ((rl < -cym_loose_db or (rl < -cym_gate_db and not (rings and confirmed(h)) and abs_leak))
                         or (hat_now >= h.level_db + hat_leak_db and not dup_ok(h))):
                     # a ride / crash stem is nearly silent except for its strokes: a hit far under the stem's own
                     # strokes, or a quiet copy of a louder hi-hat stroke, is leakage

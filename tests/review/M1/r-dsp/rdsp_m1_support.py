@@ -300,3 +300,35 @@ def kick_stem_attacks(path: Path, rise_db: float = 20.0, top_db: float = 6.0) ->
         else:
             i += 1
     return out
+
+
+# ------------------------------------------------------------------------------------------------ round 3
+def bass_riff_kicks(bpm: float = 128.0, bars: int = 8, bass_steps=range(16), hat_steps=range(16), bass_gain: float = 0.5,
+                    hat_gain: float = 0.3, kick_steps=(0, 4, 8, 12), staccato: float = 0.8,
+                    sr: int = SR) -> tuple[np.ndarray, list[float]]:
+    """Four-on-the-floor fixture kicks over a staccato 16th-note bass riff (A1 A1 A2 A1 C2 A1 A2 G1: the rock / EDM
+    gallop) with closed 16th hats. Truth = the kicks' first samples."""
+    from tests.synth import dsp
+    from tests.synth.m1.signals import _faded
+
+    beat = 60.0 / bpm
+    s16 = beat / 4
+    x = np.zeros((2, int((0.5 + bars * 4 * beat + 1.0) * sr)))
+    ref: list[float] = []
+    notes = [33, 33, 45, 33, 36, 33, 45, 31]
+    k = int(0.15 * sr)
+    for b in range(bars):
+        t0 = 0.5 + b * 4 * beat
+        for s in kick_steps:
+            i = int(round((t0 + s * s16) * sr))
+            kk = dsp.kick(0.95, sr)
+            kk[kk.size - k :] *= 0.5 + 0.5 * np.cos(np.linspace(0.0, np.pi, k))
+            dsp.place(x, dsp.pan(kk * 0.9, 0.0), i)
+            ref.append(i / sr)
+        for s in bass_steps:
+            dsp.place(x, dsp.pan(dsp.bass_note(notes[s % 8], s16 * staccato, 0.8, sr) * bass_gain, 0.0), int(round((t0 + s * s16) * sr)))
+        for s in hat_steps:
+            dsp.place(x, dsp.pan(_faded(dsp.hihat(0.6, False, sr, seed=4), sr) * hat_gain, 0.3), int(round((t0 + s * s16) * sr)))
+    x += 10 ** (-70 / 20) * np.random.default_rng(1).standard_normal(x.shape)
+    x *= 10 ** (-1 / 20) / np.max(np.abs(x))
+    return x, ref

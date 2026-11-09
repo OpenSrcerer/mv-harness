@@ -1,0 +1,158 @@
+mvh-env: repo=C:\Users\OpenSrcerer\Desktop\playground\mv-harness threads=3 offline=True ffmpeg=C:\Users\OpenSrcerer\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe
+[gate] target=M5 unit=[tests/unit/contract, tests/unit/identity, tests/unit/lyrics, tests/unit/voices, tests/unit/lipsync] review=[tests/review/M5, tests/review/m5]
+[gate] fixture      PASS (0.0s) tests/contract/synth/.done.json present
+............F........................................................... [ 80%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+__________________________ test_stub_files_are_stubs __________________________
+
+    def test_stub_files_are_stubs():
+        import inspect
+    
+        import mvh.stages.rhythm as r
+>       assert "run_stub" in inspect.getsource(r.run)
+E       assert 'run_stub' in 'def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline\n    p = ctx.params\n    fallbacks: list[str] = []\n...nfidence=round(conf, 3),\n                       provenance={"models": models_prov, "tools": tools, "notes": notes})\n'
+E        +  where 'def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline\n    p = ctx.params\n    fallbacks: list[str] = []\n...nfidence=round(conf, 3),\n                       provenance={"models": models_prov, "tools": tools, "notes": notes})\n' = <function getsource at 0x00000294B42CACA0>(<function run at 0x00000294BD0F1DA0>)
+E        +    where <function getsource at 0x00000294B42CACA0> = <module 'inspect' from 'C:\\Users\\OpenSrcerer\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\inspect.py'>.getsource
+E        +    and   <function run at 0x00000294BD0F1DA0> = <module 'mvh.stages.rhythm' from 'C:\\Users\\OpenSrcerer\\Desktop\\playground\\mv-harness\\src\\mvh\\stages\\rhythm\\__init__.py'>.run
+
+tests\unit\contract\test_catalog_dag.py:200: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/unit/contract/test_catalog_dag.py::test_stub_files_are_stubs - a...
+1 failed, 89 passed in 1.37s
+........                                                                 [100%]
+8 passed in 0.38s
+............ssss............                                             [100%]
+24 passed, 4 skipped in 94.58s (0:01:34)
+..........                                                               [100%]
+10 passed in 59.62s
+.....                                                                    [100%]
+============================== warnings summary ===============================
+tests/unit/lipsync/test_lipsync.py::test_channels_and_shapes
+  C:\Users\OpenSrcerer\Desktop\playground\mv-harness\.venv\Lib\site-packages\g2p_en\g2p.py:156: SyntaxWarning: invalid escape sequence '\-'
+    text = re.sub("[^ a-z'.,?!\-]", "", text)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 1 warning in 49.14s
+[gate] unit         FAIL (213.3s) pytest exit codes: contract=1 identity=0 lyrics=0 voices=0 lipsync=0
+.....................ss......s...                                        [100%]
+30 passed, 3 skipped in 118.73s (0:01:58)
+.....................ss......s...                                        [100%]
+30 passed, 3 skipped in 99.42s (0:01:39)
+[gate] review       PASS (221.7s) pytest exit codes: M5=0 m5=0
+All checks passed!
+[gate] ruff         PASS (0.1s) ruff check src tests (exit 0)
+checked 70 schemas
+[gate] contract     PASS (0.4s) python -m mvh.contract.gen --check
+valid: 116 files checked, 0 errors, 0 warnings
+[gate] validate     PASS (1.1s) mvh validate tests/contract/synth
+[mvh] analyze synth: 25 stages, threads=3, cores=8, profile=max
+[mvh] ingest: running (threads=3)
+[mvh] ingest: done 1.2s
+[mvh] identity: running (threads=3)
+[mvh] loudness: running (threads=3)
+[mvh] identity: done 0.4s
+[mvh] separate_fast: running (threads=3)
+[mvh] loudness: done 2.6s
+[mvh] separate_hq: running (threads=3)
+[mvh] separate_fast: done 18.1s
+[mvh] allin1: running (threads=3)
+[mvh] allin1: done 20.8s
+[mvh] spectral: running (threads=3)
+[mvh] spectral: done 4.0s
+[mvh] rhythm: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:rhythm); retry every 15s
+[mvh] separate_hq: done 115.2s
+[mvh] stem_activity: running (threads=3)
+[mvh] stem_activity: done 4.7s
+[mvh] drums: running (threads=3)
+[mvh] drums: done 4.8s
+[mvh] instruments: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:instruments); retry every 15s
+[mvh] rhythm: done 110.2s
+[mvh] dynamics: running (threads=3)
+[mvh] dynamics: done 3.2s
+[mvh] harmony: running (threads=3)
+[mvh] harmony: done 16.2s
+[mvh] notes: running (threads=3)
+[mvh] notes: degraded 11.3s
+[mvh] structure: running (threads=3)
+[mvh] structure: done 7.0s
+[mvh] lyrics: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:lyrics); retry every 15s
+[mvh] instruments: done 89.9s
+[mvh] mood: running (threads=3)
+[mvh] mood: done 1.5s
+[mvh] vocals: running (threads=3)
+[mvh] vocals: done 7.0s
+[mvh] choreo: running (threads=3)
+[mvh] choreo: done 0.7s
+[mvh] cues: running (threads=3)
+[mvh] cues: done 0.6s
+[mvh] lyrics: done 236.4s
+[mvh] voices: running (threads=3)
+[mvh] voices: done 6.6s
+[mvh] lipsync: running (threads=3)
+[mvh] meaning: running (threads=3)
+[mvh] meaning: done 0.6s
+[mvh] lipsync: done 16.4s
+[mvh] brief: running (threads=3)
+[mvh] viewer: running (threads=3)
+[mvh] brief: done 0.3s
+[mvh] viewer: done 0.8s
+{"manifest": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-6d9e30fe\\synth song\\manifest.json", "brief": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-6d9e30fe\\synth song\\brief.md", "viewer": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-6d9e30fe\\synth song\\viewer.html", "warnings": ["identity: identity lookup skipped: offline (no cached response)", "notes: piano stem active but CED finds no piano: transcribed with basic-pitch (synth keys or bleed)"], "pending": []}
+valid: 117 files checked, 0 errors, 0 warnings
+[gate] e2e          PASS (456.0s) mvh analyze + validate -> C:\Users\OPENSR~1\AppData\Local\Temp\mvh-gate-6d9e30fe\synth song
+✔ vizState addendum cases (17.5246ms)
+✔ lyricAt: singer / voice_ids join (lead first) (2.0958ms)
+✔ meaningAt: section entry by id, else by time; global + section do_not (1.571ms)
+✔ textureData fills NaN-aware channels with the held value (1.1461ms)
+✔ spectrumWindow bytes (0.479ms)
+✔ mvh.glsl declares the contract signature (0.5085ms)
+✔ golden texture cases: mvhCurve equals textureSample and curve.at (1.4746ms)
+✔ wrapped sampling equals curve.at for every width, rate and row wrap (linear and hold) (72.9128ms)
+✔ float32 time input (GPU uniforms) stays within float32 resolution of curve.at (1.8909ms)
+✔ the transpiled check is not vacuous: an off-by-one row index is caught (0.5339ms)
+✔ r8 textures: the sampler reads value/255 of the packed bytes (1.519ms)
+✔ golden file copy in src/mvh/assets/golden is current (1.0348ms)
+✔ frames: time_of, frame_centre, frame_window, frame_of, roundtrip, frame_count (2.0241ms)
+✔ curve: at() and frame() under all four policies; samples_in_frame (4.5103ms)
+✔ flash rule: the event frame carries the peak (0.2065ms)
+✔ voicing: NaN-aware sampling, vocalAt, NaN-aware frames (0.919ms)
+✔ beats: beat_pos, beat_phase, bar_phase, count (pickup bar, odd section), no beats, osc (1.1332ms)
+✔ events: at, next, prev, between, inFrame (0.5669ms)
+✔ pulse: defaults, attack + linear, beats unit + smooth (0.3008ms)
+✔ singerAt: three voices, duet overlap, backing (0.3946ms)
+✔ texture: wrapped layout, texels, sampling equals curve.at (1.3133ms)
+✔ spectrum rows (0.1353ms)
+✔ loadSync: curves, policies, events sorted, missing files are empty (7.1705ms)
+✔ helpers never return NaN on a dense grid (44.8526ms)
+✔ async load from a path with include; ensure accepts helper names (3.9925ms)
+✔ URL mode (browser / Remotion): lazy parts must be ensured, then everything is synchronous (3.2337ms)
+✔ textureData: wrap layout info, r32f and r8 (2.7099ms)
+✔ spectrumAt / spectrumWindow: nearest row, oldest first, zero rows outside (1.7161ms)
+✔ vizState: viz field names and shapes, onset frame, pulse decay, recentBeats (3.6089ms)
+✔ frame rules: rational fps, frame0, validation (0.2305ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 156.0458
+[gate] lib-node     PASS (0.2s) node --test (4 files)
+180 files hashed
+[mvh] analyze synth: 25 stages, threads=3, cores=8, profile=max
+[mvh] ingest: running (threads=3)
+[mvh] ingest: done 1.3s
+[mvh] identity: running (threads=3)
+[mvh] loudness: running (threads=3)
+[mvh] identity: done 0.5s
+[mvh] separate_fast: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:separate_fast); retry every 15s
+[mvh] loudness: done 2.7s
+[mvh] separate_hq: running (threads=3)
+[mvh] separate_hq: done 148.7s
+[mvh] spectral: running (threads=3)
+[mvh] spectral: done 4.3s
