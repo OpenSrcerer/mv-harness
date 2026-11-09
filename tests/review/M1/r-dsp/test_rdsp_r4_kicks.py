@@ -15,7 +15,8 @@ The rules were tuned on one synthetic kick (tests/synth/dsp.kick). All of these 
 * R4-M3: kick_rel_db is relative to the GLOBAL median kick, so every kick of a section 14 dB quieter (an intro, a
   breakdown, a fade) is dropped: 0 / 16 (16 / 16 with kick_rel_db = 60).
 
-PLAN §7: kick events F1 >= 0.95 at +-10 ms on synthetic one-shots, event time = the one-shot's sample onset."""
+PLAN §7: kick events F1 >= 0.95 at +-10 ms on synthetic one-shots, event time = the one-shot's sample onset.
+UD2 (W4): the held-bass designs are now precision targets for the hits.kick fallback (see the test's docstring)."""
 
 from __future__ import annotations
 
@@ -32,11 +33,18 @@ def _times(x, tmp_path, params=None) -> list[float]:
 @pytest.mark.parametrize("kind", ["acoustic", "tr808"])
 def test_other_kick_designs_over_a_held_bass_note(kind, tmp_path):
     """Four-on-the-floor at 120 BPM, 8th hats, one bass note per bar starting with the downbeat (gain 0.5 vs kick 0.9).
-    Now: acoustic F1 0.588 (R 0.417), tr808 F1 0.551 (R 0.396; 8 events 11-21 ms before the kick). Without the bass:
-    1.0 / 1.0. The fixture kick in the same mix: 1.0."""
+    Round 4: acoustic F1 0.588 (R 0.417), tr808 F1 0.551; fixer-m1-r4 (click / 808 routes): 1.0 / 0.968.
+
+    REWRITTEN by user decision UD2 (W4, docs/contract/decisions/UD2.md): agents cut on the drum-stem kick; hits.kick is
+    the fallback and is tuned for PRECISION over recall. The click route that found these acoustic kicks also turned
+    kick-free material into kicks (R5-M3), so it is off. Target now: no invented kick (precision >= 0.95 at +-10 ms)
+    and, as a regression guard well under today's value, recall >= 0.5. Measured with the UD2 spectral 1.3.0:
+    acoustic P 1.0 R 0.625, tr808 P 1.0 R 0.896. The fixture kick in the same mix keeps F1 1.0."""
     x, ref = song(kind, hats=True, bass=0.5)
     f, p, r = f1(_times(x, tmp_path), ref, 0.010)
-    assert f >= 0.95, (kind, round(f, 3), round(p, 3), round(r, 3))
+    assert p >= 0.95 and r >= 0.5, (kind, round(f, 3), round(p, 3), round(r, 3))
+    xf, reff = song("fixture", hats=True, bass=0.5)
+    assert f1(_times(xf, tmp_path / "fixture"), reff, 0.010)[0] >= 0.95
 
 
 @pytest.mark.parametrize("kind,bass", [("fixture", 0.7), ("fixture", 1.0), ("tr909", 0.7)],

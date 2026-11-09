@@ -1,106 +1,112 @@
-"""Parse ``meaning/intent.md`` (the user's answers) into claims. The file is an INPUT: never written here.
+"""Read ``meaning/intent.md`` (the user's answers) into claims. The file is an INPUT: never written here.
 
-THE INTENT GRAMMAR (v3). One grammar covers every way a user answers; the interview's template round-trips through it
-exactly (``docs.yaml_template`` writes back every user claim, and parsing that template gives the same claims).
-The file is read in three layers. YAML template regions are read before the free text, and the free text only fills
-fields they left empty (do-not rules, characters, line singers and section notes are unions). The viewer block wins.
+THE INTENT GRAMMAR, mvh-intent v2 (user decision UD1, CONTRACT D78). intent.md is read in exactly two ways, plus the
+viewer's machine-written block:
 
-Layer 1: the viewer block. ``<!-- mvh-viewer:begin v1 --> ... <!-- mvh-viewer:end -->`` (M6a grammar,
-  ``mvh.stages.viewer.intent_block``): ``- V1 = C1 Name`` voice mappings and ``### S02 verse#1 9.000-17.000 s`` section
-  bullets. It is the latest edit, so it wins over everything below. Other HTML comments are ignored.
+1. **The interview template** is the ONLY source of structured fields (logline, summary, themes, setting, tone,
+   perspective, characters, voice mapping, line singers, palette, motifs, symbolism, references, per-section
+   feel / meaning / emotion / movement / camera / palette / characters) and of do-not rules, the only hard
+   constraints. Anything that must be obeyed goes in the template.
+2. **Free text** (everything outside the template and the viewer block) is the user's prose. It is passed to every
+   agent verbatim as ``notes`` (user-authored) and is NEVER parsed into fields or rules: a ``## Never show`` heading,
+   a ``**Story:**`` label or a ``Chorus: wide`` line in free text is a note, not a do-not rule, a summary or a feel.
+3. **The viewer block** ``<!-- mvh-viewer:begin v1 --> ... <!-- mvh-viewer:end -->`` (M6a grammar,
+   ``mvh.stages.viewer.intent_block``): ``- V1 = C1 Name`` voice mappings and ``### S02 verse#1 9.000-17.000 s``
+   section bullets. It is machine-written and the latest edit, so it wins over the template.
 
-Layer 2: template regions (YAML). A region is
-  * a fenced block opened by ```` ```yaml ````, ```` ```yml ```` or ```` ```mvh-intent ````, up to its closing fence.
+Other HTML comments (``<!-- ... -->``) are ignored.
+
+TEMPLATE REGIONS. A region is
+  * fenced: a block opened by ```` ```yaml ````, ```` ```yml ```` or ```` ```mvh-intent ```` up to its closing fence.
     When the closing fence is missing, the region runs over the template-shaped lines (below) after the opening one;
-  * or, unfenced, it starts at a ``# mvh-intent`` marker line or at a column-0 template key line (``logline:``,
-    ``characters:``, ... in lower case: ``TEMPLATE_KEYS``), together with the ``#`` comment lines directly above it.
+  * or unfenced: it starts at a ``# mvh-intent`` marker line or at a column-0 template key line in lower case
+    (``logline:``, ``characters:``, ... ``TEMPLATE_KEYS``), together with the ``#`` comment lines directly above it.
     It runs over the template-shaped lines that follow: blank lines, indented lines, column-0 template key lines,
-    column-0 ``- `` items directly under a key with no value, and ``#`` comment lines followed by more template.
-    The first other line ends it: prose, a markdown ``##`` heading or a note such as ``Chorus: ...``.
-  Values are YAML, with three tolerances so that typing an answer the way the template's hints show never breaks it:
+    column-0 ``- `` items under a key with no value (blank lines between them are fine, as in YAML), and ``#``
+    comment lines followed by more template.
+    The first other line ends it (prose, a markdown ``##`` heading, a capitalised ``Tone: ...`` line): that line is
+    free text. ``Palette: ...`` (capitalised) is therefore a note, ``palette: ...`` the template key.
+  Several regions may appear; the first one that answers a single-valued field wins, list fields are unions.
+
+TEMPLATE VALUES are YAML (``safe_load``), with these tolerances so that typing an answer the way the template's hints
+show never breaks it:
+  * tabs in the indentation (and between ``-`` and an item) count as spaces to the next multiple of 4 (YAML forbids
+    them; Notepad types them); a value holding a tab is quoted;
   * a hex colour that starts a value is a value, never a comment: ``[#c93523, night blue]``, ``- #0e2346`` and
     ``palette: #0e2346, rust red`` all work;
   * a ``#`` comment needs two or more spaces (or a tab) before it, or must follow a closed ``[...]``, ``{...}`` or
     quoted value. The template's own hints use three spaces. After one space, ``#`` is part of the text, so
-    ``tone: dark #1 hit`` keeps all of it;
-  * a plain value that YAML would misread is quoted first. That covers a value with a ``#`` or ``: `` in it, a value
-    that ends with ``:``, one that starts with ``@ ` % * & ! ? , ] }``, and yes/no/on/off/true/false.
+    ``tone: dark #1 hit`` keeps all of it. The template's own hint comments (``TEMPLATE_HINTS``) are comments
+    whatever the spacing before them;
+  * a plain value that YAML would misread is quoted first: a value with a ``#`` or ``: `` in it, a value that ends
+    with ``:``, one that starts with ``@ ` % * & ! ? , ] }``, and yes/no/on/off/true/false.
   When a region still does not parse, each top-level key is parsed on its own, and each entry under ``characters``,
-  ``sections``, ``line_singers`` and ``motifs`` too. The parts that parse are kept. An entry that fails is reported
-  in a warning, and its lines (comments removed) are read as free text. Template comments never become claims; the
-  template's own hint comments (``TEMPLATE_HINTS``) are comments whatever the spacing before them.
-  A map key answered with bullets (``characters:`` then ``- C1 The Keeper = V1``; ``sections:`` then
-  ``- Chorus: wide``; ``line_singers:`` then ``- L005: C1+C2``; ``perspective:`` then ``- narrator: C1``) reads each
-  ``- key: value`` item as that map entry and each text item by the free-text rule of the key (rules 5-7). An item
-  that matches nothing is kept in ``notes`` with a warning.
-  Untouched template entries (empty strings, empty lists) are no answer.
+  ``voices``, ``sections``, ``line_singers``, ``motifs``, ``do_not``, ``symbolism``, ``notes``, ``themes``,
+  ``references`` and ``palette`` too (an entry starts at every line at the entries' indent: a key, a ``- `` item or a
+  stray line). The parts that parse are kept. An entry that fails is reported in a warning and in ``unparsed_keys``
+  (meaning.json ``intent_unparsed``, an open question and a brief.md line) and its lines (comments removed) are kept
+  verbatim as a note: never silently dropped, and one bad line never takes the other rules with it.
+  Untouched template entries (empty strings, empty lists, empty keys) are no answer.
 
-Layer 3: free text (markdown), everything outside regions, read line by line. The first rule that matches wins:
-  0. The interview's own text (the user copied ``interview.md`` and wrote answers under its questions). A question
-     line (``9. **Never show**: what must never appear ...``, ``_IV_QUESTIONS``) whose remainder is the harness's
-     text, or empty, is a heading for the answer below it; the block class is the question's (meaning -> story,
-     the world -> setting, colours -> palette, never show -> do-not, others -> other). Text after the harness's part
-     of the line is the first line of the answer. A question line with any other remainder is the user's own label
-     line (rule 3/4). The preamble, the status line, the voice-fact bullets and ``## Open questions`` bullets are the
-     harness's, never claims. An untouched copy of the interview therefore answers nothing.
-  1. A heading (``#`` to ``######``) starts a block. The heading text decides what the block is:
-     * an interview question (rule 0);
-     * a do-not heading: the WHOLE heading is a do-not phrase (``Never show``, ``Do not``, ``Don'ts``, ``Avoid``,
-       ``No-gos``, ``Hard rules``, ...; such a phrase followed by a colon counts too: ``## Never show: on screen``),
-       or it is made only of do-not vocabulary with at least one trigger word (never, avoid, don't, do not, not,
-       no-go, forbidden, off-limits, must not, banned, taboo) and filler words (what, things, I, we, want, to, see,
-       show, these, ever, on screen, in the video, ...): ``What I don't want``, ``Avoid these``, ``Things I never
-       want to see``, ``Never show these``. A title with any other word is not (``# Never Let Me Go``,
-       ``# Don't Stop Me Now: my notes``, ``## The story: a night that never ends``, ``## Avoiding the obvious``);
-     * ``Palette`` / ``Colours`` (the whole heading): each bullet or comma-separated item is a colour;
-     * story / meaning / means / about / summary / logline: the summary (its first sentence is the logline);
-       setting / world / place / where; tone; theme(s); symbol(s) / symbolism; motif(s); reference(s) / inspiration;
-     * any other H1 is a title: its prose counts as the preamble (the text before the first heading).
-  2. Inside a do-not heading block, every bullet (or every non-empty line, when there are no bullets) is one rule,
-     kept verbatim. Nothing else is read from that block.
-  3. A do-not label line, plain, bold, a bullet or numbered (``Never show: X``, ``- **Avoid**: X``,
-     ``9. **Never show**: X``), is ONE rule X. A bare label (``**Never show**``, ``Avoid:``) opens a list: the
-     bullets that follow it are rules, until the first blank line after a bullet, a heading, a non-bullet line or a
-     character bullet (``- C1 ...``). A bare label that is itself a bullet lists the bullets indented under it, or,
-     when the first one is at its own level, the bullets at its level.
-  4. A field label (case-insensitive, may be bold or a bullet): ``Logline:``, ``Summary:``, ``Story:``, ``Meaning:``,
-     ``Setting:``, ``(The) World:``, ``Tone:``, ``Themes:``, ``Symbolism:``, ``References:``, ``Notes:``,
-     ``Narrator:`` or ``Addressee:``, followed by the value. ``Palette:`` / ``Colours:`` / ``Colors:`` (also
-     ``Palette - ...``) gives the palette as hex codes or colour words (``night blue, #f2a541, rust red``).
-  5. Per-line singers anywhere on a line: ``L005: C1+C2`` (also ``=`` / ``->``; ``+ & , /`` join singers).
-  6. A character line: ``C1 The Lamplighter = voice V1 (the low voice). Lead.`` (may be a bullet or bold).
-  7. Section notes: ``Intro: slow drift. Verse: call and response``, ``S03: ...``, ``chorus#2: ...``,
-     ``last chorus: ...``, ``Drop: ...`` (several per line; see ``anchor.py`` for how keys find sections).
-  8. In a themes / symbolism / references block, each bullet is one item (prose: one item). In a motifs block, each
-     bullet is a motif ``name (L001, L009): note``.
-  9. Prose: under a story heading it is the summary; under setting / tone headings, those fields. The preamble's
-     prose is the summary when the file has no story heading. Any other prose or unmatched bullet is kept verbatim
-     in ``notes``, so nothing the user wrote is dropped silently.
+TEMPLATE KEYS (``TEMPLATE_KEYS``):
+  ``logline``, ``summary``, ``setting``, ``tone``: text. ``themes``, ``references``: a list, or a comma-separated
+  string. ``symbolism``, ``notes``, ``do_not``: a list; a plain string is ONE item (commas are text). ``do_not`` items
+  are kept verbatim: they are the hard constraints.
+  ``perspective``: ``{narrator: C1, addressee: C2}`` (or ``- narrator: C1`` bullets).
+  ``characters``: ``C1: {name, description, voices: [V1], lead_backing: lead|backing|both}``, or ``C1: The Keeper = V1``,
+  or bullets ``- C1 The Keeper = V1 (the low voice). Lead.`` (short form: the name runs up to ``=`` / ``(`` / ``:``;
+  ``V<n>`` ids are its voices; the words lead / backing (harmony, choir, backup) set lead_backing; the rest is the
+  description).
+  ``voices``: which character sings each detected voice, voice first like the viewer block: ``V1: C1 The Keeper``
+  (a map) or bullets ``- V1 = C1 The Keeper``; ``V1 -> C1`` and ``V1 is C1`` are accepted too. A voice has one
+  character: this mapping wins over ``characters.*.voices``. An integer (``voices: 3``) is the number of singers
+  (the voices stage clusters into that many voices).
+  ``line_singers``: ``{L005: C1+C2}`` or bullets ``- L005: C1+C2`` (``=`` / ``->`` too; ``+ & , /`` join singers).
+  ``palette``: hex codes or colour words. ``motifs``: ``[{name, lines: [L001], note}]`` or ``- name (L001, L009): note``.
+  ``sections``: keyed by section id (``S05``) or by a label (``chorus``, ``chorus#2``, ``last chorus``, ``drop``; see
+  ``anchor.py``), each ``{t0, t1, occurrence_label, feel, meaning, emotion, movement, camera, palette, characters,
+  do_not}``; a plain string is the feel; bullets ``- Chorus: wide shots`` are ``{chorus: {feel: wide shots}}``.
+  Unknown keys are reported in a warning and kept verbatim as a note.
+
+FREE TEXT -> NOTES. The text outside template regions and the viewer block is cut into notes: a note is a markdown
+heading with everything under it up to the next heading, template region or the end (text before the first heading is
+a note of its own). Lines are kept verbatim (trailing spaces cut, runs of blank lines collapsed). A heading with no text
+of its own joins the note below it; directly above a template region it is the region's label and is not a note.
+A copy of ``meaning/interview.md`` is recognised: the harness's own lines (title, preamble, status, voice facts, the
+template heading, the bullets of ``## Open questions``) are not the user's; a question title is kept only as the
+heading of the user's answer below or after it, and text the user typed after a harness line stays the user's.
+An untouched copy of the interview therefore answers nothing.
 
 The result is a plain dict (see ``empty_intent``); ``n_characters`` is what the voices stage may use as the voice count
-(PLAN §5 voices). Stdlib + PyYAML (safe_load only).
+(PLAN §5 voices), ``n_voices`` an explicit singer count. Stdlib + PyYAML (safe_load only).
 """
 from __future__ import annotations
 
 import re
 from typing import Any
 
+from . import interview_text as IV
 from .colors import parse_palette
 
-__all__ = ["parse_intent", "empty_intent", "SECTION_WORDS", "TEMPLATE_KEYS", "split_singers", "tolerant_yaml_line"]
+__all__ = ["parse_intent", "empty_intent", "SECTION_WORDS", "TEMPLATE_KEYS", "TEMPLATE_HINTS", "split_singers",
+           "tolerant_yaml_line", "free_text_notes", "RULE_WORDS"]
 
-TEMPLATE_KEYS = ("logline", "summary", "themes", "setting", "tone", "perspective", "characters", "line_singers",
-                 "palette", "do_not", "motifs", "symbolism", "sections", "references", "notes")
+TEMPLATE_KEYS = ("logline", "summary", "themes", "setting", "tone", "perspective", "characters", "voices",
+                 "line_singers", "palette", "do_not", "motifs", "symbolism", "sections", "references", "notes")
 #: words that address sections by label or EDM role
 SECTION_WORDS = ("intro", "verse", "pre-chorus", "prechorus", "chorus", "post-chorus", "hook", "bridge", "inst",
                  "instrumental", "solo", "break", "breakdown", "build", "buildup", "build-up", "drop", "outro",
                  "interlude", "refrain", "silence")
 ORDINALS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "last": -1, "final": -1}
+#: words that make a free-text note read like a rule. Advisory only: such a note stays a note (never a do-not rule);
+#: the meaning stage asks the user to move it into the template's do_not.
+RULE_WORDS = re.compile(r"\b(?:never|avoid|don'?t|do\s+not|must\s+not|mustn'?t|no-?gos?|forbidden|off[- ]limits|"
+                        r"banned|taboo)\b", re.I)
 
-_HEAD = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
-_BULLET = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
+_HEAD = re.compile(r"^(#{1,6})[ \t]+\S")
 _CHAR = re.compile(r"^\**(C[1-9]\d*)\**\b\s*[:.\-–—]?\s*(.*)$")
 _VOICE = re.compile(r"\bV([1-9]\d*)\b")
+_VMAP = re.compile(r"^\**(V[1-9]\d*)\**\s*(?:=|->|→|:|\bis\b)\s*\**(C[1-9]\d*)\**\b[\s,.:;=\-–—]*(.*?)\s*$", re.I)
 _LINE_SINGER = re.compile(r"\b(L\d{3,})\b\s*(?:[:=]|->|→)\s*(C[1-9]\d*(?:\s*[+&,/]\s*C[1-9]\d*)*)")
 _SEC_ID = r"S\d{2,}"
 _WORDS_ALT = "|".join(sorted((re.escape(w) for w in SECTION_WORDS), key=len, reverse=True))
@@ -109,94 +115,44 @@ _SEC_KEY = re.compile(
     rf"(?:{_SEC_ID}|(?:{_WORDS_ALT})(?:#\d+|\s+\d+)?)s?)\**\s*:\s*",
     re.I,
 )
-_SENT = re.compile(r"(.+?[.!?])(\s|$)", re.S)
 
-# ---- layer 2 (template regions)
+# ---- template regions
 _FENCE_OPEN = re.compile(r"^\s*```+\s*(yaml|yml|mvh-intent)\b.*$", re.I)
 _FENCE_ANY = re.compile(r"^\s*```")
 _FENCE_CLOSE = re.compile(r"^\s*```+\s*$")
 _MARKER = re.compile(r"^\s*#\s*mvh-intent\b", re.I)
 _TKEY = re.compile(r"^(" + "|".join(TEMPLATE_KEYS) + r")[ \t]*:(?=[ \t]|$)")
-_YKEY = re.compile(r"^([A-Za-z0-9_][\w.\- ]*?)[ \t]*:(?=[ \t]|$)")
-_PARTS = re.compile(r"^([ \t]*)((?:-[ \t]+)*)(?:([A-Za-z0-9_][\w.\- ]*?)[ \t]*:(?=[ \t]|$))?([ \t]*)(.*)$")
+#: a map key: may hold a '#' that does not follow a space ('chorus#2:'); ' #' would start a YAML comment
+_KEY = r"[A-Za-z0-9_](?:[\w.\-]|(?<! )#| (?!#))*?"
+_YKEY = re.compile(r"^(" + _KEY + r")[ \t]*:(?=[ \t]|$)")
+_PARTS = re.compile(r"^([ \t]*)((?:-[ \t]+)*)(?:(" + _KEY + r")[ \t]*:(?=[ \t]|$))?([ \t]*)(.*)$")
 _HEXTOK = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9A-Za-z_\-])")
 _BOOLISH = re.compile(r"^(?:yes|no|on|off|y|n|true|false)$", re.I)
-_NESTED = ("characters", "sections", "line_singers", "motifs")
-
-# ---- layer 3 (free text)
-_DN_PHRASE = (r"(?:never\s+show|never|do\s+not\s+show|do\s+not|don'?t\s+show|don'?ts|do-?nots?|avoid|must\s+not\s+show|"
-              r"must\s+not|no-?gos?|forbidden|off[- ]limits|hard\s+rules|prohibited)")
-_DN_LABEL = (r"(?:never\s+show|never|do\s+not\s+show|do\s+not|don'?t\s+show|don'?ts|don'?t|do-?nots?|avoid|"
-             r"must\s+not\s+show|must\s+not|no-?gos?|forbidden|not\s+allowed)")
-_DO_NOT_HEAD = re.compile(
-    rf"^(?:things\s+to\s+|what\s+to\s+|please\s+)?{_DN_PHRASE}(?:\s+(?:on\s+screen|ever|list|please|rules|at\s+all|in\s+the\s+video))?"
-    rf"\s*[.!?]?\s*$|^{_DN_LABEL}\s*:|^what\s+must\s+never\s+appear\b", re.I)
-_DO_NOT_BARE = re.compile(rf"^\**\s*{_DN_LABEL}\s*:?\s*\**\s*:?\s*$", re.I)
-_DO_NOT_INLINE = re.compile(rf"^\**\s*{_DN_LABEL}\s*\**\s*:\s*\**\s*(\S.*?)\s*$", re.I)
-_LABEL = re.compile(r"^\**\s*(?:the\s+)?(logline|summary|story|meaning|setting|world|tone|themes?|symbolism|symbols?|"
-                    r"references?|inspirations?|notes?|narrator|addressee)\s*\**\s*:\s*\**\s*(\S.*?)\s*$", re.I)
-_PALETTE = re.compile(r"^\**(palette|colou?rs?)\**\s*[:\-]\s*\**\s*(.+)$", re.I)
-#: do-not heading vocabulary (grammar rule 1): a heading made ONLY of these words, with at least one trigger, is a
-#: do-not heading ('What I don't want', 'Avoid these', 'Things I never want to see'). A title with any other word
-#: ('Never Let Me Go', 'The story: a night that never ends', 'Avoiding the obvious') is not.
-_DN_TRIGGERS = frozenset({"never", "avoid", "dont", "donts", "nogo", "forbidden", "offlimits", "prohibited", "mustnot",
-                          "banned", "taboo", "not"})
-_DN_FILLERS = frozenset({"what", "things", "thing", "stuff", "i", "we", "you", "to", "want", "wanna", "see", "show",
-                         "shown", "showing", "these", "this", "those", "ever", "please", "any", "at", "all", "on",
-                         "screen", "in", "the", "video", "list", "rules", "rule", "hard", "appear", "appears", "should",
-                         "must", "will", "would", "like", "of", "my", "our", "a", "an", "or", "and", "do", "be", "here",
-                         "visuals", "images", "anything", "allowed", "seen", "include", "frame", "frames", "shots"})
-_DN_JOIN = ((r"\bno[\s-]?gos?\b", "nogo"), (r"\boff[\s-]?limits\b", "offlimits"),
-            (r"\b(?:do[\s-]?nots|don'?ts)\b", "donts"), (r"\b(?:do\s+not|don'?t)\b", "dont"),
-            (r"\b(?:must\s+not|mustn'?t)\b", "mustnot"))
+_NESTED = ("characters", "voices", "sections", "line_singers", "motifs", "do_not", "symbolism", "notes", "themes",
+           "references", "palette")
+#: template keys whose value is a list of items: a bare 'key: value' line among their '- ' items is a stray line, not
+#: an item (VWU1-a)
+_LIST_KEYS = ("do_not", "symbolism", "notes", "themes", "references", "palette", "motifs")
+#: a column-0 block-sequence item: a dash then a space, a tab or nothing ('- item', '-<TAB>item', '-') (VWU1-b)
+_COL0_ITEM = re.compile(r"^-(?:[ \t]|$)")
+#: tab stop used to expand tabs in the indentation of template lines (YAML forbids tab indentation)
+TAB_WIDTH = 4
 
 #: the template's own hint comments: cut as comments whatever the spacing before them (they never become claims)
 TEMPLATE_HINTS = ("# hex (#", "# one per person on screen", "# the harness proposes voices", "# lead_backing:",
                   "# optional per-line fixes", "# rules in your own words", "# [{name: lanterns",
-                  "# name, the lyric lines")
-
-# ---- layer 3, rule 0: the interview's own text (a user who copies interview.md and answers under its questions)
-#: (bold question title, block class, the harness's text after the title). A question line whose remainder is the
-#: harness's text (or empty) is a heading for the answer below it; text after the harness's part is the answer.
-_IV_QUESTIONS: tuple[tuple[str, str, str], ...] = (
-    (r"What does this song mean to you\?", "story",
-     r"One sentence \(the logline\), then as much as you like\.(?:\s*Credits found: .*?\)\.)?"),
-    (r"Who sings to whom\?", "other", r"\d+ voice\(s\) were found\b.*?lane\):"),
-    (r"Check the singer", "other", r"of \d+ low-confidence line\(s\).*?under `line_singers`\."),
-    (r"The hooks", "other", r"repeat:\s*\S+ \(\d+x:.*?Should they look the same each time\?"),
-    (r"The world", "setting", r":\s*where and when does the video take place\?(?:\s*Who are the characters "
-                              r"\(look, age, costume\)\?)?(?:\s*Any visual references \(films, artists, photos\)\?)?"),
-    (r"The mood arc", "other", r"the audio models hear\b.*?Where should it differ\?"),
-    (r"How should each section feel and move\?", "other",
-     r"Sections:.*?For each: feel, what it means, movement/choreography, camera\."),
-    (r"The top moments", "other", r":\s*#\d+ \d+:\d.*?What should happen on screen at each\?"),
-    (r"Colours", "palette", r":\s*which palette belongs to the song\b[^?]*\?(?:\s*Per-section colours\?)?"),
-    (r"Never show", "do_not", r":\s*what must never appear on screen\?(?:\s*\(copied verbatim to every agent\))?"),
-)
-#: unbolded questions (the whole question is harness text)
-_IV_PLAIN: tuple[tuple[str, str], ...] = (
-    (r"The song is \*\*instrumental\*\* \(no lyrics were found\)\. What story or image should carry it\?", "story"),
-    (r"No lyrics were found\. Are there words to show\?(?: \(pass `--lyrics`[^)]*\))?", "other"),
-    (r"No separate voices were detected\. Is it one singer throughout\?(?: If not, who sings which lines\?)?", "other"),
-)
-_IV_LEAD = r"^[ \t]*(?:\d+[.)][ \t]+|[-*+][ \t]+)?"
-_IV_Q_RE = [(re.compile(_IV_LEAD + r"\*\*(" + t + r")\*\*[ \t]*(.*)$"), cls, re.compile(tail))
-            for t, cls, tail in _IV_QUESTIONS]
-_IV_PLAIN_RE = [(re.compile(_IV_LEAD + "(" + t + r")[ \t]*(.*)$"), cls) for t, cls in _IV_PLAIN]
-#: the interview's other lines (preamble, status, voice facts): never claims
-_IV_ECHO = re.compile(
-    r"^[ \t]*(?:The harness found the facts below\.|Current meaning status: \*\*\w+\*\*|Already answered in intent\.md:"
-    r"|(?:[-*][ \t]+)?\*\*V\d+\*\*: \d+(?:\.\d+)? s, \d+ lines\b"
-    r"|Which character is each voice\? Is any voice a narrator or announcer)")
+                  "# name, the lyric lines", "# which character sings each voice")
 
 
 def empty_intent() -> dict[str, Any]:
     return {
         "present": False, "form": "none", "logline": None, "summary": None, "setting": None, "tone": None,
         "themes": [], "symbolism": [], "perspective": {"narrator": None, "addressee": None},
-        "characters": {}, "line_singers": {}, "palette": [], "palette_names": [], "palette_unparsed": [],
-        "do_not": [], "motifs": [], "sections": [], "references": [], "notes": [], "warnings": [],
-        "n_characters": None,
+        "characters": {}, "voice_map": {}, "n_voices": None, "line_singers": {}, "palette": [], "palette_names": [],
+        "palette_unparsed": [], "do_not": [], "motifs": [], "sections": [], "references": [], "notes": [],
+        "free_notes": [], "warnings": [], "n_characters": None,
+        # W4A-UD1: the template key of every entry that did not parse and was kept as a note (one per entry)
+        "unparsed_keys": [],
     }
 
 
@@ -222,7 +178,7 @@ def _item_text(x: Any) -> str | None:
     if x is None:
         return None
     if isinstance(x, dict):
-        parts = [f"{k}: {v}" if v not in (None, "") else str(k) for k, v in x.items()]
+        parts = [f"{k}: {v}" if v not in (None, "") else f"{k}:" for k, v in x.items()]  # "- x:" is "x:"
         return "; ".join(parts).strip() or None
     s = str(x).strip()
     return s or None
@@ -259,10 +215,41 @@ def _lead_word(text: str) -> str | None:
     return None
 
 
-def _first_sentence(s: str) -> str:
-    m = _SENT.match(s.strip())
-    first = (m.group(1) if m else s).strip()
-    return first[:240]
+def _char_from_text(rest: str) -> dict[str, Any]:
+    """The template's short character form (after the id): 'The Keeper = V1 (the low voice). Lead.'"""
+    voices = [f"V{v}" for v in _VOICE.findall(rest)]
+    name_part = re.split(r"\s*(?:=|\(|:|\bis\b|\bvoice\b|–|—|\s-\s)\s*", rest, maxsplit=1)[0].strip(" *.,")
+    desc = rest[len(name_part):] if name_part and rest.startswith(name_part) else rest
+    desc = re.sub(r"(?:=|\bis\b)?\s*(?:the\s+)?(?:voice\s*)?\bV[1-9]\d*\b", "", desc, flags=re.I)
+    desc = re.sub(r"[()]", "", desc)
+    desc = re.sub(r"\s+([.,;])", r"\1", re.sub(r"\s+", " ", desc)).strip(" .,;:=-")
+    return {"name": name_part or None, "description": desc or None, "voices": voices,
+            "lead_backing": _lead_word(rest)}
+
+
+def _section_notes(body: str) -> list[dict[str, Any]]:
+    """A ``sections:`` bullet: 'Intro: slow drift. Verse: call and response' -> two claims (feel)."""
+    ms = list(_SEC_KEY.finditer(body))
+    out = []
+    for i, m in enumerate(ms):
+        end = ms[i + 1].start() if i + 1 < len(ms) else len(body)
+        txt = body[m.end():end].strip().rstrip(".").strip()
+        if not txt or txt.startswith("#"):
+            continue  # empty, or a comment
+        key = re.sub(r"\s+", " ", m.group(1).strip().lower())
+        key = re.sub(r"^(s\d{2,})$", lambda mm: mm.group(1).upper(), key)
+        out.append({"key": key, "t0": None, "t1": None, "occurrence_label": None, "feel": txt, "meaning": None,
+                    "emotion": None, "movement": None, "camera": None, "palette": [], "palette_unparsed": [],
+                    "characters": [], "do_not": [], "origin": "yaml"})
+    return out
+
+
+def _vmap_text(text: str) -> tuple[str, str, str] | None:
+    """'V1 = C1 The Keeper' / 'V1 -> C1' / 'V1 is C1, the Keeper' -> ('V1', 'C1', 'The Keeper')."""
+    m = _VMAP.match(text.strip())
+    if not m:
+        return None
+    return m.group(1).upper(), m.group(2).upper(), m.group(3).strip(" .,;*")
 
 
 # ============================================================================================ layer 2: YAML tolerance
@@ -386,7 +373,7 @@ def tolerant_yaml_line(line: str) -> str:
         return head + flow
     if val in ("~", "null", "Null", "NULL"):
         return head + val
-    if ("#" in val or re.search(r":(\s|$)", val) or c0 in "@`%*&!?,]}" or val.startswith("- ")
+    if ("#" in val or "\t" in val or re.search(r":(\s|$)", val) or c0 in "@`%*&!?,]}" or val.startswith("- ")
             or _BOOLISH.match(val)):
         return head + _q(val)
     return head + val
@@ -401,8 +388,7 @@ def _scan_unfenced(lines: list[str], i: int) -> int:
         ln = lines[j]
         t = ln.strip()
         if not t:
-            list_ok = False
-            continue
+            continue  # a blank line inside a block sequence is valid YAML: 'do_not:', blank, '- item' (W4A-UD1)
         if _FENCE_ANY.match(ln):
             break
         if _MARKER.match(ln):
@@ -413,7 +399,7 @@ def _scan_unfenced(lines: list[str], i: int) -> int:
             last, list_ok = j, False
         elif _is_comment_line(ln):
             continue  # counted only when more template follows
-        elif (t.startswith("- ") or t == "-") and list_ok:
+        elif _COL0_ITEM.match(t) and list_ok:  # '- item' and '-<TAB>item' (VWU1-b)
             last = j
         elif t[0] in "]}":
             last = j
@@ -468,18 +454,26 @@ def _yaml_load(text: str) -> tuple[Any, bool]:
         return None, False
 
 
-def _chunks(lines: list[str], indent: int) -> list[tuple[int, int]]:
-    """Split ``lines`` at the lines that hold a key at ``indent`` -> [(start, end)]; leading lines join the first."""
-    starts = [k for k, ln in enumerate(lines)
-              if ln.strip() and (len(ln) - len(ln.lstrip(" "))) == indent and _YKEY.match(ln[indent:])]
+def _chunks(lines: list[str], indent: int, entries: bool = False) -> list[tuple[int, int]]:
+    """Split ``lines`` at the lines that hold a key at ``indent`` -> [(start, end)]; leading lines join the first.
+    ``entries`` (the body of one key): EVERY line at ``indent`` or less starts an entry (a key, a ``- `` item or a
+    stray line), so one bad line never takes its neighbours' entries with it (W4A-UD1)."""
+    if entries:
+        starts = [k for k, ln in enumerate(lines) if ln.strip() and (len(ln) - len(ln.lstrip(" "))) <= indent]
+    else:
+        starts = [k for k, ln in enumerate(lines)
+                  if ln.strip() and (len(ln) - len(ln.lstrip(" "))) == indent and _YKEY.match(ln[indent:])]
     if not starts:
         return [(0, len(lines))]
     starts[0] = 0
     return [(a, starts[k + 1] if k + 1 < len(starts) else len(lines)) for k, a in enumerate(starts)]
 
 
-def _load_region(raw: list[str], warns: list[str]) -> tuple[dict[str, Any] | None, set[int]]:
-    """Parse one template region. -> (merged mapping or None, raw line indices to read as free text instead)."""
+def _load_region(raw: list[str], warns: list[str],
+                 demoted: list[str] | None = None) -> tuple[dict[str, Any] | None, set[int]]:
+    """Parse one template region. -> (merged mapping or None, raw line indices to read as free text instead).
+    ``demoted`` collects the template key of every entry whose lines became a note."""
+    demoted = demoted if demoted is not None else []
     safe = _safe_lines(raw)
     d, ok = _yaml_load("\n".join(safe))
     if ok:
@@ -488,7 +482,8 @@ def _load_region(raw: list[str], warns: list[str]) -> tuple[dict[str, Any] | Non
         if isinstance(d, dict):
             return d, set()
         if any(ln.strip() for ln in safe):
-            warns.append("intent.md: a template block is not a 'key: value' map; read as free text")
+            warns.append("intent.md: a template block is not a 'key: value' map; its lines were kept as a note")
+            demoted.append("?")
         return None, set(range(len(raw)))
     merged: dict[str, Any] = {}
     fallback: set[int] = set()
@@ -508,27 +503,58 @@ def _load_region(raw: list[str], warns: list[str]) -> tuple[dict[str, Any] | Non
             ind = next((len(x) - len(x.lstrip(" ")) for x in body if x.strip()), 2)
             sub: dict[str, Any] = {}
             subl: list[Any] = []
-            for sa, sb in _chunks(body, ind):
+            order: list[tuple[str, Any, int, int]] = []  # ('map' | 'list', value, sa, sb) as typed (VWU1-a)
+            for sa, sb in _chunks(body, ind, entries=True):
                 piece, ok2 = _yaml_load(f"{key}:\n" + "\n".join(body[sa:sb]))
                 val = piece.get(key) if ok2 and isinstance(piece, dict) else None
                 if ok2 and isinstance(val, dict):
                     sub.update(val)
+                    order.append(("map", val, sa, sb))
                 elif ok2 and isinstance(val, list):
                     subl.extend(val)
+                    order.append(("list", val, sa, sb))
                 elif ok2 and val is None:
                     continue
                 else:
                     first = next((x.strip() for x in body[sa:sb] if x.strip()), "")
                     warns.append(f"intent.md: the template entry '{key}: {first.split(':', 1)[0][:20]}' does not parse "
-                                 "as YAML; its lines were read as free text (check quotes and brackets)")
+                                 "as YAML; its lines were kept verbatim as a note, not as fields (check quotes and brackets)")
                     fallback.update(range(a_key + 1 + sa, a_key + 1 + sb))
-            if sub or subl:
+                    demoted.append(key)
+            if sub and subl:  # VWU1-a: '- ' items AND 'key: value' lines under one key: one form never drops the other
+                if key in _LIST_KEYS and key != "notes":
+                    # the '- ' items are the answer; a stray 'Also: ...' line beside them is a note, never an item
+                    merged[key] = subl
+                    for kind, _v, sa, sb in order:
+                        if kind != "map":
+                            continue
+                        first = next((x.strip() for x in body[sa:sb] if x.strip()), "")
+                        warns.append(f"intent.md: under '{key}:' the line '{first.split(':', 1)[0][:20]}: ...' is not a "
+                                     "'- ' item like the others; it was kept verbatim as a note, not as an item (start it "
+                                     "with '- ' to make it one)")
+                        fallback.update(range(a_key + 1 + sa, a_key + 1 + sb))
+                        demoted.append(key)
+                else:  # notes (text either way) and the map keys (bullets are read by _list_answer): all, as typed
+                    merged[key] = [x for kind, v, _sa, _sb in order
+                                   for x in (v if kind == "list" else [{kk: vv} for kk, vv in v.items()])]
+            elif sub or subl:
                 merged[key] = sub if sub else subl
             continue
-        warns.append(f"intent.md: the template key '{key or '?'}' does not parse as YAML; its lines were read as free "
-                     "text (check quotes and brackets)")
+        warns.append(f"intent.md: the template key '{key or '?'}' does not parse as YAML; its lines were kept verbatim as a note, "
+                     "not as fields (check quotes and brackets)")
         fallback.update(range(a, b))
+        demoted.append(key or "?")
     return merged, fallback
+
+
+def _expand_indent(line: str) -> str:
+    """Tabs in a line's indentation (and between its ``- `` dashes) -> spaces (tab stop ``TAB_WIDTH``): Notepad and
+    many editors indent with a tab, which YAML forbids. Tabs inside the text are kept."""
+    m = re.match(r"^[ 	]*(?:-[ 	]+)*", line)
+    lead = m.group(0) if m else ""
+    if "	" not in lead:
+        return line
+    return lead.expandtabs(TAB_WIDTH) + line[len(lead):]
 
 
 def _safe_lines(raw: list[str]) -> list[str]:
@@ -537,6 +563,7 @@ def _safe_lines(raw: list[str]) -> list[str]:
     out: list[str] = []
     block_indent: int | None = None
     for ln in raw:
+        ln = _expand_indent(ln)
         ind = len(ln) - len(ln.lstrip(" "))
         if block_indent is not None:
             if not ln.strip() or ind > block_indent:
@@ -555,7 +582,16 @@ def _apply_yaml(d: dict[str, Any], out: dict[str, Any]) -> None:
     out["form"] = "yaml" if out["form"] == "none" else ("yaml+text" if out["form"] == "text" else out["form"])
     unknown = [str(k) for k in d if str(k) not in TEMPLATE_KEYS]
     if unknown:
-        out["warnings"].append("intent.md: unknown top-level key(s) in the YAML template ignored: " + ", ".join(unknown[:6]))
+        out["warnings"].append("intent.md: unknown template key(s) kept as notes, not fields: " + ", ".join(unknown[:6]))
+        for k in d:
+            if str(k) not in TEMPLATE_KEYS:
+                v = d[k]
+                txt = "; ".join(_strs(v)) if isinstance(v, (list, dict)) else (_clean(v) or "")
+                if isinstance(v, dict):
+                    txt = "; ".join(f"{kk}: {vv}" for kk, vv in v.items())
+                note = f"{k}: {txt}".strip().rstrip(":")
+                if note and note not in out["notes"]:
+                    out["notes"].append(note)
     for k in TEMPLATE_KEYS:
         v = d.get(k)
         if isinstance(v, list) and any(x is None for x in v):
@@ -567,12 +603,15 @@ def _apply_yaml(d: dict[str, Any], out: dict[str, Any]) -> None:
         vals = _strs(d.get(k))
         if vals and not out[k]:
             out[k] = vals
-    for k in ("symbolism", "notes"):
+    for k in ("symbolism",):
         vals = _texts(d.get(k))
         if vals and not out[k]:
             out[k] = vals
+    for x in _texts(d.get("notes")):  # notes are a union (template notes, then the free text)
+        if x not in out["notes"]:
+            out["notes"].append(x)
     d = dict(d)
-    for k in ("perspective", "characters", "line_singers", "sections"):
+    for k in ("perspective", "characters", "voices", "line_singers", "sections"):
         if isinstance(d.get(k), list):  # a key answered with bullets: '- C1 Ann = V1', '- L005: C1+C2', '- Chorus: wide'
             d[k] = _list_answer(k, d[k], out)
     p = d.get("perspective")
@@ -603,6 +642,7 @@ def _apply_yaml(d: dict[str, Any], out: dict[str, Any]) -> None:
                 "name": _clean(c.get("name")), "description": _clean(c.get("description")),
                 "voices": voices, "lead_backing": lb if lb in ("lead", "backing", "both") else None,
             }
+    _apply_voices(d.get("voices"), out)
     ls = d.get("line_singers")
     if isinstance(ls, dict):
         for lid, s in ls.items():
@@ -635,9 +675,9 @@ def _apply_yaml(d: dict[str, Any], out: dict[str, Any]) -> None:
 
 
 def _list_answer(key: str, items: list[Any], out: dict[str, Any]) -> dict[str, Any]:
-    """A map key (``characters``, ``line_singers``, ``sections``, ``perspective``) answered with a list of bullets.
-    A ``- key: value`` item is that map entry; a text item is read by the free-text rule of the key (character line,
-    per-line singers, section notes). An item that matches nothing is kept in ``notes`` with a warning."""
+    """A map key (``characters``, ``voices``, ``line_singers``, ``sections``, ``perspective``) answered with a list of
+    bullets. A ``- key: value`` item is that map entry; a text item is read by the key's short form (character line,
+    voice mapping, per-line singers, section notes). An item that matches nothing is kept in ``notes`` with a warning."""
     merged: dict[str, Any] = {}
     for it in items:
         if it is None:
@@ -645,12 +685,19 @@ def _list_answer(key: str, items: list[Any], out: dict[str, Any]) -> dict[str, A
         if isinstance(it, dict) and (key == "perspective" or all(isinstance(v, dict) for v in it.values())
                                      or key == "line_singers"
                                      or (key == "characters" and all(re.fullmatch(r"C[1-9]\d*", str(k).strip())
-                                                                     for k in it))):
+                                                                     for k in it))
+                                     or (key == "voices" and all(re.fullmatch(r"V[1-9]\d*", str(k).strip(), re.I)
+                                                                 for k in it))):
             merged.update(it)
             continue
         text = _item_text(it) or ""
         hit = False
-        if key == "characters":
+        if key == "voices":
+            vm = _vmap_text(text)
+            if vm:
+                merged.setdefault(vm[0], f"{vm[1]} {vm[2]}".strip())
+                hit = True
+        elif key == "characters":
             mc = _CHAR.match(text)
             if mc and not mc.group(2).strip().startswith("{"):
                 merged.setdefault(mc.group(1), {"_text": mc.group(2).strip()})
@@ -668,6 +715,48 @@ def _list_answer(key: str, items: list[Any], out: dict[str, Any]) -> dict[str, A
             if text not in out["notes"]:
                 out["notes"].append(text)
     return merged
+
+
+def _apply_voices(v: Any, out: dict[str, Any]) -> None:
+    """The ``voices`` key: an integer is the singer count; a map ``{V1: C1 Name}`` (or bullets, already merged by
+    ``_list_answer``) maps each voice to one character and wins over ``characters.*.voices``."""
+    if v is None or v == "" or v == {} or v == []:
+        return
+    if isinstance(v, bool):
+        out["warnings"].append("intent.md: 'voices' is a number of singers or a 'V1: C1 Name' map; ignored")
+        return
+    if isinstance(v, int) or (isinstance(v, str) and re.fullmatch(r"\s*\d{1,2}\s*", v)):
+        n = int(v)
+        if n >= 1 and out["n_voices"] is None:
+            out["n_voices"] = n
+        return
+    if not isinstance(v, dict):
+        out["warnings"].append("intent.md: 'voices' is a number of singers or a 'V1: C1 Name' map; kept as a note")
+        txt = "voices: " + "; ".join(_strs(v))
+        if txt not in out["notes"]:
+            out["notes"].append(txt)
+        return
+    for vid, who in v.items():
+        vid_s = str(vid).strip().upper()
+        mm = re.fullmatch(r"(C[1-9]\d*)\b[\s,.:;=\-–—]*(.*?)\s*", str(who or "").strip())
+        if not re.fullmatch(r"V[1-9]\d*", vid_s) or not mm:
+            if who not in (None, ""):
+                out["warnings"].append("intent.md: a 'voices' entry is not 'V1: C1 Name'; kept as a note")
+                note = f"voices: {vid}: {who}"
+                if note not in out["notes"]:
+                    out["notes"].append(note)
+            continue
+        if vid_s in out["voice_map"]:
+            continue  # an earlier template region answered this voice
+        cid, name = mm.group(1), mm.group(2).strip(" .,;*") or None
+        other = [c for c, rec in out["characters"].items() if vid_s in rec["voices"] and c != cid]
+        if other:
+            out["warnings"].append(f"intent.md: {vid_s} is listed under {other[0]} and mapped to {cid} under 'voices'; "
+                                   "'voices' wins (a voice has one character)")
+        known = cid in out["characters"]
+        _map_voice(out, vid_s, cid, None)
+        if name and not (known and out["characters"][cid].get("name")):
+            out["characters"][cid]["name"] = name
 
 
 def _num(v: Any) -> float | None:
@@ -703,309 +792,129 @@ def _motif_from_text(s: str) -> dict[str, Any]:
     return {"name": name or s.strip(), "lines": lines, "note": note.strip() or None}
 
 
-# ============================================================================================ layer 3: free text
-def _is_do_not_heading(h: str) -> bool:
-    """``h``: the lower-cased heading text. A whole do-not phrase, or only do-not vocabulary (grammar rule 1)."""
-    if _DO_NOT_HEAD.match(h):
-        return True
-    s = h
-    for pat, rep in _DN_JOIN:
-        s = re.sub(pat, rep, s)
-    toks = re.findall(r"[a-z]+", s.replace("'", ""))
-    return (0 < len(toks) <= 8 and any(t in _DN_TRIGGERS for t in toks)
-            and all(t in _DN_TRIGGERS or t in _DN_FILLERS for t in toks))
+
+# ============================================================================================ free text -> notes
+_Q_RE = [(re.compile(r"^[ \t]*(?:\d+[.)][ \t]+|[-*+][ \t]+)?\*\*(" + t + r")\*\*[ \t]*(.*)$"), re.compile(tail))
+         for t, tail in IV.QUESTIONS]
+_PLAIN_RE = [re.compile(r"^[ \t]*(?:\d+[.)][ \t]+|[-*+][ \t]+)?(" + t + r")[ \t]*(.*)$") for t in IV.PLAIN_QUESTIONS]
 
 
-def _head_class(text: str, level: int) -> str:
-    raw = re.sub(r"^\d+[.)]\s*", "", text.strip().strip("*_ ").replace("’", "'")).strip("*_ ")
-    iv = _iv_class(raw)
-    if iv:
-        return iv  # an interview question used as a heading (rule 0)
-    h = raw.lower()
-    if _is_do_not_heading(h):
-        return "do_not"
-    if re.fullmatch(r"open questions", h):
-        return "harness"  # the interview's open questions (copied): the harness's text, not answers
-    if re.fullmatch(r"(?:the\s+|my\s+)?(?:colou?r\s+)?(?:palette|colou?rs?)\s*[:.]?", h):
-        return "palette"
-    if re.search(r"\b(story|meaning|about|means|summary|logline)\b", h):
-        return "story"
-    if re.search(r"\b(setting|world|place|where)\b", h):
-        return "setting"
-    if re.search(r"\btone\b", h):
-        return "tone"
-    if re.search(r"\bthemes?\b", h):
-        return "themes"
-    if re.search(r"\b(symbols?|symbolism)\b", h):
-        return "symbolism"
-    if re.search(r"\bmotifs?\b", h):
-        return "motifs"
-    if re.search(r"\b(references?|inspirations?)\b", h):
-        return "references"
-    return "title" if level == 1 else "other"
+def _strip_markup(s: str) -> str:
+    return re.sub(r"\*\*|__|`", "", s).strip()
 
 
-def _char_from_text(rest: str) -> dict[str, Any]:
-    voices = [f"V{v}" for v in _VOICE.findall(rest)]
-    name_part = re.split(r"\s*(?:=|\(|:|\bis\b|\bvoice\b|–|—|\s-\s)\s*", rest, maxsplit=1)[0].strip(" *.,")
-    desc = rest[len(name_part):] if name_part and rest.startswith(name_part) else rest
-    desc = re.sub(r"(?:=|\bis\b)?\s*(?:the\s+)?(?:voice\s*)?\bV[1-9]\d*\b", "", desc, flags=re.I)
-    desc = re.sub(r"[()]", "", desc)
-    desc = re.sub(r"\s+([.,;])", r"\1", re.sub(r"\s+", " ", desc)).strip(" .,;:=-")
-    return {"name": name_part or None, "description": desc or None, "voices": voices,
-            "lead_backing": _lead_word(rest)}
-
-
-def _section_notes(body: str) -> list[dict[str, Any]]:
-    """'Intro: slow drift. Verse: call and response' -> two claims (feel)."""
-    ms = list(_SEC_KEY.finditer(body))
-    out = []
-    for i, m in enumerate(ms):
-        end = ms[i + 1].start() if i + 1 < len(ms) else len(body)
-        txt = body[m.end():end].strip().rstrip(".").strip()
-        if not txt or txt.startswith("#"):
-            continue  # empty, or a comment
-        key = re.sub(r"\s+", " ", m.group(1).strip().lower())
-        key = re.sub(r"^(s\d{2,})$", lambda mm: mm.group(1).upper(), key)
-        out.append({"key": key, "t0": None, "t1": None, "occurrence_label": None, "feel": txt, "meaning": None,
-                    "emotion": None, "movement": None, "camera": None, "palette": [], "palette_unparsed": [],
-                    "characters": [], "do_not": [], "origin": "text"})
-    return out
-
-
-def _interview_echo(pairs: list[tuple[int, str]]) -> list[tuple[int, str]]:
-    """Rule 0: the interview's own text in intent.md (the user copied interview.md and answered under its questions).
-    A question line becomes a heading (``## <title>``, see ``_IV_QUESTIONS`` for its block class) and the text after
-    the harness's part of it is the first line of the answer. The preamble, status and voice-fact lines are dropped.
-    A question line whose remainder is not the harness's text is the user's own label line and is left alone
-    (``9. **Never show**: blood`` is the rule 'blood')."""
-    out: list[tuple[int, str]] = []
-    for i, ln in pairs:
-        if _IV_ECHO.match(ln):
-            out.append((i, ""))
+def _echo(line: str, in_open_questions: bool) -> list[tuple[str, str]]:
+    """One line of free text -> [(kind, text)]: kind 'user' (the user's words), 'ctx' (the harness's question, kept
+    only as the heading of an answer) or nothing (the harness's own text, dropped). See the grammar: interview copy."""
+    if IV.ECHO_LINE.match(line):
+        return []
+    if line.strip() == IV.OPEN_QUESTIONS_HEADING:
+        return [("ctx", IV.OPEN_QUESTIONS_HEADING)]
+    if in_open_questions and re.match(r"^[-*][ \t]+\S", line):
+        return [("ctx", line.rstrip())]  # a copied open question (column 0): context for a sub-bullet answer
+    for rx, tail in _Q_RE:
+        m = rx.match(line)
+        if not m:
             continue
-        head: tuple[str, str] | None = None
-        for rx, cls, tail in _IV_Q_RE:
-            m = rx.match(ln)
-            if not m:
-                continue
-            rest = m.group(2).strip()
-            tm = tail.match(rest)
-            if tm:
-                head = (m.group(1), rest[tm.end():].strip())
-            elif not rest and cls != "do_not":  # a bare '**Never show**' is the label of rule 3
-                head = (m.group(1), "")
-            break
-        if head is None:
-            for rx, _cls in _IV_PLAIN_RE:
-                m = rx.match(ln)
-                if m:
-                    head = (m.group(1), m.group(2).strip())
-                    break
-        if head is None:
-            out.append((i, ln))
+        rest = m.group(2).strip()
+        tm = tail.match(rest)
+        if not tm:  # a bare title or the user's own text after it: the user's line, verbatim
+            return [("user", line.rstrip())]
+        user = rest[tm.end():].strip()
+        return [("ctx", "## " + _strip_markup(m.group(1)))] + ([("user", user)] if user else [])
+    for rx in _PLAIN_RE:
+        m = rx.match(line)
+        if m:
+            user = m.group(2).strip()
+            return [("ctx", "## " + _strip_markup(m.group(1)))] + ([("user", user)] if user else [])
+    m = IV.VOICE_FACT.match(line)
+    if m:
+        user = line[m.end():].strip()
+        return [("user", f"- {m.group(1)}: {user}")] if user else []
+    m = IV.WHICH_CHARACTER.match(line)
+    if m:
+        user = line[m.end():].strip()
+        return [("user", user)] if user else []
+    return [("user", line.rstrip())]
+
+
+def free_text_notes(lines: list[str | None]) -> list[str]:
+    """The free-text notes of intent.md. ``lines``: the file's lines with every template-region line replaced by
+    None (the viewer block and HTML comments already removed). Grammar: FREE TEXT -> NOTES."""
+    items: list[tuple[str, str]] = []  # (kind, text); kind: user | ctx | head | ctxhead | blank | region
+    in_oq = False
+    for ln in lines:
+        if ln is None:
+            if not items or items[-1][0] != "region":
+                items.append(("region", ""))
             continue
-        out.append((i, "## " + head[0]))
-        if head[1]:
-            out.append((i, head[1]))
-    return out
-
-
-_IV_CLASS = {t: cls for t, cls, _tail in _IV_QUESTIONS} | {t: cls for t, cls in _IV_PLAIN}
-
-
-def _iv_class(title: str) -> str | None:
-    for pat, cls in _IV_CLASS.items():
-        if re.fullmatch(pat, title, re.I):
-            return cls
-    return None
-
-
-def _logical_lines(pairs: list[tuple[int, str]]) -> list[tuple[int, str]]:
-    """Join an indented non-bullet line to the bullet above it (a wrapped bullet)."""
-    out: list[tuple[int, str]] = []
-    prev = ""
-    for i, ln in pairs:
-        if (out and ln[:1] in (" ", "\t") and ln.strip() and not _BULLET.match(ln) and _BULLET.match(out[-1][1])
-                and prev.strip()):
-            out[-1] = (out[-1][0], out[-1][1].rstrip() + " " + ln.strip())
-            prev = ln
+        if not ln.strip():
+            items.append(("blank", ""))
             continue
-        out.append((i, ln.rstrip()))
-        prev = ln
-    return out
-
-
-def _unbold(s: str) -> str:
-    s = s.strip()
-    if s.endswith("**") and s.count("**") % 2 == 1:
-        s = s[:-2].strip()
-    return s
-
-
-def _parse_text(lines: list[str], no_prose: set[int], out: dict[str, Any]) -> None:
-    if not any(ln.strip() for ln in lines):
-        return
-    out["form"] = "text" if out["form"] == "none" else ("yaml+text" if out["form"] == "yaml" else out["form"])
-    fill: dict[str, Any] = {}
-    rules: list[str] = []
-    pre_prose: list[str] = []
+        if _HEAD.match(ln):
+            in_oq = ln.strip() == IV.OPEN_QUESTIONS_HEADING
+        for kind, text in _echo(ln, in_oq):
+            if kind == "ctx" and _HEAD.match(text):
+                items.append(("ctxhead", text))
+            elif kind == "user" and _HEAD.match(text):
+                items.append(("head", text))
+            else:
+                items.append((kind, text))
     notes: list[str] = []
-    story_seen = False
-    blk: dict[str, Any] = {"cls": "title", "prose": [], "bullets": []}
+    heads: list[tuple[str, str]] = []  # the headings of the open note
+    body: list[tuple[str, str]] = []  # its lines: (user | ctx | blank, text)
 
-    def commit(b: dict[str, Any]) -> None:
-        nonlocal story_seen
-        prose = " ".join(b["prose"]).strip()
-        bl = [x for x in b["bullets"] if x]
-        cls = b["cls"]
-        if cls == "story":
-            text = " ".join([prose] + bl).strip()
-            if text:
-                story_seen = True
-                fill.setdefault("summary", text[:2000])
-                fill.setdefault("logline", _first_sentence(text))
-        elif cls in ("setting", "tone"):
-            v = prose or "; ".join(bl)
-            if v:
-                fill.setdefault(cls, v)
-        elif cls in ("themes", "symbolism", "references"):
-            v = bl or ([prose] if prose else [])
-            if v:
-                fill.setdefault(cls, v)
-        elif cls == "title":
-            if prose:
-                pre_prose.append(prose)
-            notes.extend(bl)
-        elif cls == "palette":
-            items = [x for v in [prose] + bl for x in re.split(r"[,;]|\s+and\s+", v) if x.strip()]
-            if items and not out["palette"] and not out["palette_unparsed"]:
-                out["palette"], out["palette_names"], out["palette_unparsed"] = parse_palette(items)
-        elif cls == "harness":  # the interview's open questions: its bullets are the harness's, prose is the user's
-            if prose:
-                notes.append(prose)
+    def flush(at_region: bool, at_end: bool) -> None:
+        nonlocal heads, body
+        users = [i for i, (k, _t) in enumerate(body) if k == "user"]
+        if users:
+            keep: list[str] = []
+            for i, (k, t) in enumerate(body):
+                if k == "ctx" and not any(j > i for j in users):
+                    continue  # a harness line with no answer after it
+                if k == "ctx" and body[i + 1:i + 2] and body[i + 1][0] == "ctx":
+                    continue  # a harness line followed by another one: no answer to it
+                keep.append(t)
+            text = "\n".join([t for _k, t in heads] + _tidy(keep))
+            notes.append(text.strip("\n"))
+            heads, body = [], []
+            return
+        user_heads = [(k, t) for k, t in heads if k == "head"]
+        if at_region:
+            heads = []  # a heading directly above the template labels it: not a note
+        elif at_end:
+            if user_heads:
+                notes.append("\n".join(t for _k, t in user_heads))
+            heads = []
         else:
-            if prose:
-                notes.append(prose)
-            notes.extend(bl)
+            heads = user_heads  # a heading with no text of its own joins the note below it
+        body = []
 
-    dn_list = False  # inside the list a bare do-not label opened
-    dn_started = False
-    dn_indent = -1  # the indent of a bare label that is itself a bullet (-1: not a bullet)
-    dn_nested = True  # its list is the bullets indented under it (else: the bullets at its own level)
-    for idx, raw in _logical_lines(_interview_echo(list(enumerate(lines)))):
-        t = raw.strip()
-        if not t:
-            if dn_list and dn_started:
-                dn_list = False
-            continue
-        hm = _HEAD.match(raw)
-        if hm:
-            commit(blk)
-            blk = {"cls": _head_class(hm.group(2), len(hm.group(1))), "prose": [], "bullets": []}
-            dn_list = False
-            continue
-        is_bullet = bool(_BULLET.match(raw))
-        indent = len(raw) - len(raw.lstrip())
-        body = _BULLET.sub("", t).strip() if is_bullet else t
-        norm = body.replace("’", "'")
-        if blk["cls"] == "do_not":
-            rules.append(body)
-            continue
-        if blk["cls"] == "harness":  # the copied open questions: only the user's own prose under them is kept
-            if not is_bullet:
-                blk["prose"].append(body)
-            continue
-        if dn_list:
-            if not dn_started and is_bullet and dn_indent >= 0:
-                dn_nested = indent > dn_indent
-            level_ok = indent > dn_indent if dn_nested else indent == dn_indent
-            if is_bullet and level_ok and not _CHAR.match(body) and not _LINE_SINGER.search(body):
-                rules.append(body)
-                dn_started = True
-                continue
-            dn_list = False
-        im = _DO_NOT_INLINE.match(norm)
-        if im and not im.group(1).lower().startswith("what must never appear"):
-            rules.append(_unbold(body[im.start(1):]))
-            continue
-        if _DO_NOT_BARE.match(norm) or im:
-            dn_list, dn_started, dn_indent, dn_nested = True, False, (indent if is_bullet else -1), True
-            continue
-        lm = _LABEL.match(body)
-        if lm:
-            _label(lm.group(1).lower(), _unbold(lm.group(2)), fill, out)
-            continue
-        pm = _PALETTE.match(body)
-        if pm:
-            if not out["palette"] and not out["palette_unparsed"]:
-                items = re.split(r"[,;]|\s+and\s+", _unbold(pm.group(2)))
-                out["palette"], out["palette_names"], out["palette_unparsed"] = parse_palette(items)
-            continue
-        if _LINE_SINGER.search(body):
-            for m in _LINE_SINGER.finditer(body):
-                out["line_singers"].setdefault(m.group(1), split_singers(m.group(2)))
-            continue
-        mc = _CHAR.match(body)
-        if mc:
-            cid, rest = mc.group(1), mc.group(2).strip()
-            if not rest.startswith("{") and cid not in out["characters"]:
-                out["characters"][cid] = _char_from_text(rest)
-            continue
-        notes_here = _section_notes(body)
-        if notes_here:
-            out["sections"].extend(notes_here)
-            continue
-        if idx in no_prose or re.fullmatch(r"[\w.\- ]+:", body) or re.fullmatch(r"S\d{2,}:?", body):
-            continue  # a template line that did not parse (already warned), or an empty 'key:'
-        if blk["cls"] == "motifs" and is_bullet:
-            out["motifs"].append(_motif_from_text(body))
-            continue
-        (blk["bullets"] if is_bullet else blk["prose"]).append(body)
-    commit(blk)
-    if not story_seen and pre_prose:
-        text = " ".join(pre_prose)
-        fill.setdefault("summary", text[:2000])
-        fill.setdefault("logline", _first_sentence(text))
-    elif pre_prose:
-        notes = pre_prose + notes
-    for k in ("summary", "logline", "setting", "tone"):
-        if fill.get(k) and not out.get(k):
-            out[k] = fill[k]
-    for k in ("themes", "symbolism", "references"):
-        if fill.get(k) and not out.get(k):
-            out[k] = [x for x in fill[k] if x]
-    for k in ("narrator", "addressee"):
-        if fill.get(k) and not out["perspective"][k]:
-            out["perspective"][k] = fill[k]
-    for x in rules:
-        if x and x not in out["do_not"]:
-            out["do_not"].append(x)
-    for x in (fill.get("notes") or []) + notes:
-        if x and x not in out["notes"]:
-            out["notes"].append(x)
+    for kind, text in items:
+        if kind == "region":
+            flush(at_region=True, at_end=False)
+        elif kind in ("head", "ctxhead"):
+            flush(at_region=False, at_end=False)
+            heads.append((kind, text))
+        elif kind == "blank":
+            if body and body[-1][0] != "blank":
+                body.append(("blank", ""))
+        else:
+            body.append((kind, text))
+    flush(at_region=False, at_end=True)
+    return [n for n in notes if n.strip()]
 
 
-def _label(word: str, val: str, fill: dict[str, Any], out: dict[str, Any]) -> None:
-    if word in ("logline",):
-        fill.setdefault("logline", val)
-    elif word in ("summary", "story", "meaning"):
-        fill.setdefault("summary", val)
-        fill.setdefault("logline", _first_sentence(val))
-    elif word in ("setting", "world"):
-        fill.setdefault("setting", val)
-    elif word == "tone":
-        fill.setdefault("tone", val)
-    elif word.startswith("theme"):
-        fill.setdefault("themes", [s.strip() for s in re.split(r"[,;]", val) if s.strip()])
-    elif word.startswith("symbol"):
-        fill.setdefault("symbolism", [val])
-    elif word.startswith(("reference", "inspiration")):
-        fill.setdefault("references", [s.strip() for s in re.split(r"[;]", val) if s.strip()])
-    elif word.startswith("note"):
-        fill.setdefault("notes", []).append(val)
-    elif word in ("narrator", "addressee"):
-        fill.setdefault(word, val)
+def _tidy(lines: list[str]) -> list[str]:
+    """Strip leading / trailing blank lines and collapse inner runs to one."""
+    out: list[str] = []
+    for t in lines:
+        if not t.strip() and (not out or not out[-1].strip()):
+            continue
+        out.append(t)
+    while out and not out[-1].strip():
+        out.pop()
+    return out
 
 
 # ============================================================================================ entry
@@ -1024,19 +933,26 @@ def parse_intent(text: str | None) -> dict[str, Any]:
     text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     lines = text.splitlines()
     regions, consumed = _regions(lines)
-    free = ["" if i in consumed else ln for i, ln in enumerate(lines)]
-    no_prose: set[int] = set()
+    free: list[str | None] = [None if i in consumed else ln for i, ln in enumerate(lines)]
+    broken: list[str] = []
     for a, b in regions:
         raw = lines[a:b]
-        d, fallback = _load_region(raw, out["warnings"])
+        d, fallback = _load_region(raw, out["warnings"], out["unparsed_keys"])
         if d:
             _apply_yaml(d, out)
         elif d is not None and out["form"] == "none":
             out["form"] = "yaml"  # an empty template region is still the template
-        for k in fallback:
-            free[a + k] = _cut_comment(raw[k])
-            no_prose.add(a + k)
-    _parse_text(free, no_prose, out)
+        if fallback:  # an entry that did not parse: kept verbatim as a note (warned in _load_region)
+            kept = _tidy([_cut_comment(raw[k]).rstrip() for k in sorted(fallback)])
+            if kept:
+                broken.append("\n".join(kept))
+    notes = free_text_notes(free) + broken
+    if notes:
+        out["form"] = "text" if out["form"] == "none" else ("yaml+text" if out["form"] == "yaml" else out["form"])
+    for n in notes:
+        if n not in out["notes"]:
+            out["notes"].append(n)
+        out["free_notes"].append(n)
     if vb:
         _parse_viewer_block(vb.group(1), out)
     out["n_characters"] = len(out["characters"]) or None
@@ -1050,24 +966,29 @@ _VB_SEC = re.compile(r"^### (S\d{2,})(?: (\S.*?))? (-?\d+(?:\.\d+)?)-(-?\d+(?:\.
 _VB_KV = re.compile(r"^- (feel|meaning|movement|camera|palette|do not): ?(.*)$")
 
 
+def _map_voice(out: dict[str, Any], v: str, cid: str, name: str | None) -> None:
+    """A voice has one character: map ``v`` to ``cid`` (removing it from any other character)."""
+    for c in out["characters"].values():
+        if v in c["voices"]:
+            c["voices"].remove(v)
+    c = out["characters"].setdefault(cid, {"name": None, "description": None, "voices": [], "lead_backing": None})
+    if v not in c["voices"]:
+        c["voices"].append(v)
+    if name and name != cid:
+        c["name"] = name
+    out["voice_map"][v] = cid
+
+
 def _parse_viewer_block(body: str, out: dict[str, Any]) -> None:
     """The block ``mvh view`` maintains in intent.md (grammar: mvh.stages.viewer.intent_block, M6a): the user's own
-    words edited in the viewer. It wins over the YAML template and the free text (it is the latest edit)."""
+    words edited in the viewer. It wins over the template (it is the latest edit)."""
     claims: list[dict[str, Any]] = []
     cur: dict[str, Any] | None = None
     for raw in body.splitlines():
         line = raw.rstrip()
         vm = _VB_VOICE.match(line)
         if vm:
-            v, cid, name = vm.group(1), vm.group(2), (vm.group(3) or "").strip()
-            for c in out["characters"].values():  # a voice has one character: the viewer's mapping wins
-                if v in c["voices"]:
-                    c["voices"].remove(v)
-            c = out["characters"].setdefault(cid, {"name": None, "description": None, "voices": [], "lead_backing": None})
-            if v not in c["voices"]:
-                c["voices"].append(v)
-            if name and name != cid:
-                c["name"] = name
+            _map_voice(out, vm.group(1), vm.group(2), (vm.group(3) or "").strip())
             continue
         sm = _VB_SEC.match(line)
         if sm:

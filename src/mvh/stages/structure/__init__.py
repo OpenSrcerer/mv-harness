@@ -42,14 +42,14 @@ STAGE = StageSpec(
     "structure",
     ('allin1', 'rhythm', 'harmony', 'dynamics'),
     "main",
-    "1.2.0",
+    "1.4.1",
     override_keys=('structure.boundaries', 'structure.labels'),
     outputs=catalog_outputs("structure"),
-    params={'min_section_bars': 2, 'phrase_bars': [4, 8, 16], 'repeat_threshold': 0.62, 'section_cost_q': 75,
+    params={'analysis_lufs': -10.0, 'drop_top_min_rise': -0.25, 'verse_min_before_chorus': 0.25, 'min_section_bars': 2, 'phrase_bars': [4, 8, 16], 'repeat_threshold': 0.62, 'section_cost_q': 75,
             'drop_bass_jump_db': 6.0, 'drop_kick_jump': 0.5, 'drop_context_bars': 2, 'merge_repeat_max_bars': 8, 'merge_keep_strong': 1.4,
             'silence_db': -55.0, 'w_pattern': 0.7, 'w_embedding': 0.5, 'dyn_gate': 0.7, 'split_min_novelty': 0.5, 'repeat_len_exp': 0.15, 'repeat_adjacent_penalty': 0.85,
             'bar_jitter_frames': 2, 'short_section_margin': 0.25, 'impact_snap_strength': 0.6,
-            'phrase_pickup_margin': 0.3},
+            'phrase_pickup_margin': 0.3, 'drive_kick_cap': 1.0},
     module="M2",
     description='Canonical sections (allin1 labels, downbeat-snapped, >= 2 bars), repetition groups, phrases, EDM roles.',
 )
@@ -78,11 +78,23 @@ def _reg(L: int) -> float:
 
 
 def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced: set[int], forbidden: set[int],
-               short_pen: float = 0.0) -> list[int]:
+               short_pen: float = 0.0, silent: np.ndarray | None = None) -> list[int]:
     """Section start bars (indices into the section bars, always including 0) maximising
     sum(score[start] - cost + reg(length)). A section shorter than 4 bars that does not end at a forced boundary or
     at the song's end pays ``short_pen`` more: a phrase-breaking cut needs a clear margin over the section cost, so
-    it does not appear or vanish with one frame of downbeat jitter (F4-r3)."""
+    it does not appear or vanish with one frame of downbeat jitter (F4-r3).
+
+    ``silent`` (per bar): a single silent bar that ends a section (the stop before a drop) is not counted in the
+    phrase-length prior: 4 bars + a stop bar is a 4-bar phrase, not a 5-bar one (W4A-GAIN / W4A-STABLE: the synthetic
+    bridge flipped between 25.0 and 27.0 s on a 0.05 score difference because 4 + 5 and 5 + 4 bars scored the same)."""
+    sil = np.zeros(n_bars, bool) if silent is None else np.asarray(silent, bool)[:n_bars]
+
+    def eff_len(i: int, j: int) -> int:
+        L = j - i
+        if L >= 2 and sil[j - 1] and not sil[j - 2]:
+            return L - 1
+        return L
+
     NEG = -1e18
     if n_bars <= min_len:
         return [0]
@@ -99,7 +111,7 @@ def segment_dp(score: np.ndarray, n_bars: int, min_len: int, cost: float, forced
             # a forced boundary strictly inside (i, j) is not allowed to be skipped
             if any(i < q < j for q in forced_sorted):
                 continue
-            g = f[i] + (score[i] if i > 0 else 0.0) - cost + _reg(j - i)
+            g = f[i] + (score[i] if i > 0 else 0.0) - cost + _reg(eff_len(i, j))
             if j - i < 4 and j != n_bars and j not in forced:
                 g -= short_pen
             if g > f[j]:
@@ -157,6 +169,11 @@ def run(ctx) -> StageResult:  # noqa: C901
     bars_all = list(ctx.events("bars").items)
     mix = ctx.audio("mix", mono=True)
     x = np.asarray(mix.samples, np.float32).reshape(-1)
+    from mvh.stages.loudness.level import mix_gain
+
+    a_gain, _, _ = mix_gain(ctx, p.get("analysis_lufs", -10.0))
+    if a_gain != 1.0:  # W4V-GAIN (W4-AN-9): the bar features read the mix at one fixed analysis level
+        x = (x * np.float32(a_gain)).astype(np.float32)
     sr = int(mix.sr)
     duration = x.size / sr
     n = -(-x.size * 100 // sr)
@@ -233,8 +250,13 @@ def run(ctx) -> StageResult:  # noqa: C901
         fallbacks.append("dynamics:unavailable")
         notes.append("dynamics evidence unavailable: own energy features only")
     else:
+        # a dynamics part that starts on a decay tail (the last hit ringing out) is not a section start: the tail is the
+        # end of the part before it (W4A-STABLE: the synthetic outro moved one bar late onto its decay tail)
+        tails_t = [float(y["t"]) for y in (_opt(lambda: list(ctx.events("decay_tails").items), []) or [])]
         for it in dyn_items[1:]:
             k = _nearest_bar(float(it["t"]), starts)
+            if any(abs(float(it["t"]) - y) <= 0.25 * sbars[k]["d"] for y in tails_t):
+                continue
             if abs(starts[k] - it["t"]) <= 0.5 * sbars[k]["d"]:
                 dyn_b[k] = 1.0
     for it in impacts:
@@ -336,7 +358,7 @@ def run(ctx) -> StageResult:  # noqa: C901
     forced.discard(0)
     min_len = int(p.get("min_section_bars", 2))
     cost = float(max(0.8, np.percentile(score[1:], float(p.get("section_cost_q", 75))))) if N > 2 else 1.0
-    bounds = segment_dp(score, N, min_len, cost, forced, set(), float(p.get("short_section_margin", 0.25)) * cost)
+    bounds = segment_dp(score, N, min_len, cost, forced, set(), float(p.get("short_section_margin", 0.25)) * cost, silent)
     # a major impact on the downbeat one bar BEFORE a section start is where the arrangement changes (the band enters,
     # then the voice a bar later): the section starts at the impact when that bar clears the section cost on its own
     # (S05). The DP cannot keep both (a 1-bar section), and allin1's functional boundary follows the voice.
@@ -456,8 +478,10 @@ def run(ctx) -> StageResult:  # noqa: C901
         refined: list[tuple[int, int]] = []
 
         def split_range(a: int, b: int) -> list[tuple[int, int]]:
-            cand = list(range(a + 4, b - 3, 4))
-            if b - a < 8 or not cand or silent[a:b].any():
+            # a single silent bar closing the section (the stop before a drop) is not part of its phrase grid (W4A-GAIN)
+            be = b - 1 if b - a >= 2 and silent[b - 1] and not silent[b - 2] else b
+            cand = list(range(a + 4, be - 3, 4))
+            if be - a < 8 or not cand or silent[a:be].any():
                 return [(a, b)]
             m = max(cand, key=lambda q: nov_grid[q])
             if nov_grid[m] < split_min:
@@ -504,7 +528,11 @@ def run(ctx) -> StageResult:  # noqa: C901
     letter = {g: repeat_group_label(k + 1) for k, g in enumerate(order)}
 
     # ------------------------------------------------------------------ section energy / drive, EDM roles
-    drive_bar = fx.zscore(bass_b)[:, 0] + fx.zscore(4 * kick_rate)[:, 0] + 0.5 * fx.zscore(rms_b)[:, 0]
+    # the kick term is the kick COVERAGE (kick peaks per beat capped at 1): a snare roll or a fill leaking into the kick band
+    # doubles the peak rate of a build, which must not out-drive the four-on-the-floor drop (W4A-STABLE: at 0.9x tempo the
+    # synthetic build read 2 'kicks' per beat and both EDM roles were lost)
+    kick_cov = np.minimum(kick_rate, float(p.get("drive_kick_cap", 1.0)))
+    drive_bar = fx.zscore(bass_b)[:, 0] + fx.zscore(4 * kick_cov)[:, 0] + 0.5 * fx.zscore(rms_b)[:, 0]
     nonsil = ~silent
 
     def sec_mean(arr, a, b):
@@ -515,6 +543,7 @@ def run(ctx) -> StageResult:  # noqa: C901
     drive = [sec_mean(drive_bar, a, b) for a, b in sec_ranges]
     bass_s = [sec_mean(bass_b, a, b) for a, b in sec_ranges]
     kick_s = [sec_mean(kick_rate, a, b) for a, b in sec_ranges]
+    kick_cov_s = [sec_mean(kick_cov, a, b) for a, b in sec_ranges]
     roles: list[dict[str, Any]] = []
     role_of: dict[int, str] = {}
     stop_items = _opt(lambda: list(ctx.events("stops").items), []) or []
@@ -612,8 +641,14 @@ def run(ctx) -> StageResult:  # noqa: C901
         rise = float(np.mean(drive_bar[a:min(b, a + 4)])) - float(np.mean(drive_bar[prev]))
         kick_enters = pk <= 0.35 and nk >= max(0.75, pk + float(p.get("drop_kick_jump", 0.5)))
         big_jump = (jump_b >= float(p.get("drop_bass_jump_db", 6.0)) or kick_enters) and rise >= 0.8
-        cue = big_jump or (gap_sil and rise >= 0.3) or (imp_s >= 0.6 and rise >= 1.2 and jump_b >= 3.0)
-        ev = [f"bass {jump_b:+.1f} dB", f"kick {pk:.2f}->{nk:.2f}/beat", f"drive {rise:+.2f} z"]
+        # margin (W4A-STABLE): the song's top-drive section entered after a stop / silence with a strong impact is a drop
+        # even when the build before it already rose most of the way (its last bars as loud as the drop)
+        # (round 2: rise > drop_top_min_rise, -0.25 z: at 0.95x tempo the synthetic drop's rise was +0.01 / -0.01 z
+        # depending on one kick-band peak)
+        top = drive[i] >= drive_peak - 0.25 and gap_sil and imp_s >= 0.6 and rise > float(p.get("drop_top_min_rise", -0.25))
+        cue = big_jump or (gap_sil and rise >= 0.3) or (imp_s >= 0.6 and rise >= 1.2 and jump_b >= 3.0) or top
+        # m-d (W4): an onset rate of the mix kick band, not the agent-facing kick count
+        ev = [f"bass {jump_b:+.1f} dB", f"kick-band onsets {pk:.2f}->{nk:.2f}/beat", f"drive {rise:+.2f} z"]
         for it in impacts:
             if abs(it["t"] - starts[a]) <= 0.25 * sbars[a]["d"]:
                 ev.append(f"impact {it['id']}")
@@ -651,10 +686,14 @@ def run(ctx) -> StageResult:  # noqa: C901
         prev_hi = max(drive[k] for k in range(first_high, i) if not is_sil[k])
         prev_bass = max(bass_s[k] for k in range(first_high, i) if not is_sil[k])
         comes_back = any(drive[k] >= prev_hi - 0.6 for k in range(i + 1, nsec) if not is_sil[k])
-        if drive[i] <= prev_hi - 1.2 and bass_s[i] <= prev_bass - 6.0 and i < nsec - 1 and comes_back:
+        # the kick thins out in a breakdown: a section that keeps a kick on every beat is a verse without bass, not a
+        # breakdown (W4A-STABLE margin: Newton's bass-less rap verse sat at the 1.2 z threshold)
+        prev_kick = max(kick_cov_s[k] for k in range(first_high, i) if not is_sil[k])
+        kick_thins = kick_cov_s[i] <= prev_kick - 0.2 or kick_cov_s[i] < 0.5
+        if drive[i] <= prev_hi - 1.2 and bass_s[i] <= prev_bass - 6.0 and i < nsec - 1 and comes_back and kick_thins:
             conf = float(np.clip(0.4 + 0.04 * (prev_bass - bass_s[i]), 0, 0.9))
             roles.append({"role": "breakdown", "a": a, "b": b, "t": float(starts[a]), "t_end": float(starts[b] if b < N else duration), "sec": i,
-                          "conf": conf, "evidence": [f"bass {bass_s[i] - prev_bass:+.1f} dB vs the preceding peak", f"kick {kick_s[i]:.2f}/beat"]})
+                          "conf": conf, "evidence": [f"bass {bass_s[i] - prev_bass:+.1f} dB vs the preceding peak", f"kick-band onsets {kick_s[i]:.2f}/beat"]})
             role_of[i] = "breakdown"
 
     # ------------------------------------------------------------------ labels
@@ -705,11 +744,30 @@ def run(ctx) -> StageResult:  # noqa: C901
                 labels[i0] = "intro"
                 confs[i0] = float(sec_probs[i0].get("intro", 0.5)) if sec_probs[i0] else 0.5
         for i in range(1, nsec - 1):
-            if (singleton[i] and not is_sil[i] and labels[i] not in ("chorus", "bridge", "intro", "outro")
-                    and labels[i - 1] == "chorus" and labels[i + 1] == "chorus" and max(sec_probs[i].values(), default=0.0) < 0.55):
+            # W4A-GAIN: allin1 can run one 'chorus' segment over chorus + bridge; a part that is not repeated and sits
+            # between two members of ONE chorus repeat group (the repeat analysis found it unlike them) is the bridge too
+            sandwiched = (labels[i] == "chorus" and group_of[i - 1] == group_of[i + 1] != group_of[i]
+                          and not is_sil[i - 1] and not is_sil[i + 1])
+            if (singleton[i] and not is_sil[i] and labels[i - 1] == "chorus" and labels[i + 1] == "chorus"
+                    and ((labels[i] not in ("chorus", "bridge", "intro", "outro") and max(sec_probs[i].values(), default=0.0) < 0.55)
+                         or sandwiched)):
                 notes.append(f"labels: section at {starts[sec_ranges[i][0]]:.1f} s relabelled bridge (not repeated, between choruses; allin1 said {labels[i]})")
                 labels[i] = "bridge"
                 confs[i] = float(sec_probs[i].get("bridge", 0.4)) if sec_probs[i] else 0.4
+        # W4 round 2: allin1 can call the part right before the first chorus 'chorus' as well (synth at 32 kHz: verse 0.36,
+        # chorus 0.60). A section that is not repeated, is a different repeat group from the chorus right after it, sits
+        # just before the FIRST occurrence of that repeated chorus group and still has verse >= verse_min_before_chorus
+        # is the verse leading into it (two different choruses back to back is not a form)
+        vmin = float(p.get("verse_min_before_chorus", 0.25))
+        for i in range(nsec - 1):
+            j = i + 1
+            if (labels[i] == "chorus" and labels[j] == "chorus" and singleton[i] and not is_sil[i] and not is_sil[j]
+                    and group_of[j] != group_of[i] and len(reps[group_of[j]]) >= 2 and min(reps[group_of[j]]) == j
+                    and not any(labels[k] == "chorus" for k in range(i)) and sec_probs[i].get("verse", 0.0) >= vmin):
+                notes.append(f"labels: section at {starts[sec_ranges[i][0]]:.1f} s relabelled verse (not repeated, right before the "
+                             f"first chorus of a repeated chorus group; allin1 verse {sec_probs[i].get('verse', 0.0):.2f})")
+                labels[i] = "verse"
+                confs[i] = float(sec_probs[i].get("verse", 0.3))
         notes.append("labels: allin1 Harmonix probabilities (informative), shared within repeat groups")
     else:
         e_sec = drive

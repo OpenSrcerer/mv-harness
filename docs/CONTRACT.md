@@ -1,4 +1,4 @@
-# mv-harness output contract (v1.0.0-rc.2)
+# mv-harness output contract (v1.0.0-rc.3)
 
 The single source of truth for everything a song folder `out/<slug>/` contains and how to read it. Module builders code
 against it; video agents read it (it is copied to `skill/mv-harness/references/CONTRACT.md`).
@@ -279,7 +279,7 @@ Every `events/<name>.json` (and `lipsync/visemes.json`, `lipsync/phonemes.json`)
 (`mvh/envelope/events`):
 
 ```json
-{"schema": "mvh/events/beats", "schema_version": "1.0.0-rc.2", "name": "beats", "kind": "event",
+{"schema": "mvh/events/beats", "schema_version": "1.0.0-rc.3", "name": "beats", "kind": "event",
  "fields": {"t": {"unit": "s", "type": "number"}, ...}, "provenance": {...},
  "items": [ {"beat_index": 0, "t": 0.25, ...}, ... ]}
 ```
@@ -906,6 +906,16 @@ X = rest/idle.
 | `n_voices` | integer |  |  |
 | `voices` | object[] |  |  - item keys: `hint`, `id`, `n_lines`, `proposed_character_id`, `seconds` |
 
+#### `mvh/files/drums` - `meta/drums.json`
+
+| Key | Type | Unit | Description |
+|---|---|---|---|
+| `agreement` | object |  |  - keys: `drums_in_mix`, `low`, `min`, `mix_in_drums`, `threshold`, `tol_ms` |
+| `drums` | object |  |  - keys: `checks_failed`, `fast_gap_share`, `n`, `path`, `vel_median` |
+| `kick_source` | string |  | drums = events/drum_hits drum=kick; mix = events/hits.kick one of drums, mix |
+| `mix` | object |  |  - keys: `n` |
+| `reason` | string |  |  |
+
 #### `mvh/files/grooves` - `meta/grooves.json`
 
 | Key | Type | Unit | Description |
@@ -980,7 +990,8 @@ X = rest/idle.
 <!-- END GENERATED: files -->
 
 `meaning/schema.json` is a copy of `mvh/files/meaning` for the drafting agent. An authored draft (`meaning/authored.json`) must validate
-against it with `status: "draft"`; the user's `meaning/intent.md` is free text or the YAML template written by the interview.
+against it with `status: "draft"`; the user's `meaning/intent.md` is read in exactly two ways (D78): the interview's YAML template
+(the only source of structured fields and do-not rules) and free text (the user's notes, verbatim, never parsed).
 Merge precedence for every claim: user > lyric > audio > external > speculative; draft claims never overwrite user claims.
 Every per-section entry stores `section_id`, `t0`, `t1` and `occurrence_label`, so `mvh meaning` can re-anchor it by time overlap;
 claims that lose their section go to `orphans.json` and a warning in brief.md.
@@ -1033,7 +1044,7 @@ Producer `_runner` = the runner's finalize step; `_user` = user/agent-authored i
 | `run.json` | json | _runner | `mvh/envelope/run` | yes | volatile run facts |
 | `schema/{name}.schema.json` | json | _runner | - | yes | copies of the contract schemas |
 | `meaning/authored.json` | json | _user | `mvh/files/meaning` | opt | a meaning draft written by an agent or LLM (status draft); an input, never overwritten |
-| `meaning/intent.md` | text | _user | - | opt | the user's answers (free text or the YAML template); never overwritten |
+| `meaning/intent.md` | text | _user | - | opt | the user's answers: the interview template (fields, do-not rules) + free text (notes, never parsed); never overwritten |
 | `overrides.json` | json | _user | `mvh/envelope/overrides` | opt | user corrections (viewer edit mode or by hand) |
 | `artwork/cover.jpg` | audio | ingest | - | opt | embedded cover art (absent when the file has none) |
 | `audio/mix.flac` | audio | ingest | - | yes | THE soundtrack and timebase: 24-bit FLAC of the canonical decode |
@@ -1080,6 +1091,7 @@ Producer `_runner` = the runner's finalize step; `_user` = user/agent-authored i
 | `events/stem_activity.json` | events | stem_activity | `mvh/events/stem_activity` | yes | events `stem_activity` (segment): active segments per stem |
 | `meta/stems.json` | json | stem_activity | `mvh/files/stems` | yes | per-stem presence and level statistics |
 | `events/drum_hits.json` | events | drums | `mvh/events/drum_hits` | yes | events `drum_hits` (event): classified drum hits |
+| `meta/drums.json` | json | drums | `mvh/files/drums` | opt | the agent-facing kick source (drums \| mix), its reason, the drum-stem kick's reliability and the two kick timelines' agreement (D79, UD2) |
 | `events/instruments.json` | events | instruments | `mvh/events/instruments` | yes | events `instruments` (segment): instrument timeline segments |
 | `events/vocal_style.json` | events | instruments | `mvh/events/vocal_style` | yes | events `vocal_style` (segment): lead-vocal style segments |
 | `meta/instruments.json` | json | instruments | `mvh/files/instruments` | yes | instrument summary and vocal style |
@@ -1227,7 +1239,7 @@ into the cache key). `curve:*` / `events:*` = everything. Each consumed producer
 | **dynamics** | main | loudness, spectral, rhythm | `curve:loud.short_term_lufs`<br>`curve:loud.momentary_lufs`<br>`file:meta/loudness.json`: integrated_lufs<br>`curve:bands.bass_db`<br>`curve:bands.kick_db`<br>`curve:timbre.centroid_hz`<br>`curve:timbre.slope_db_oct`<br>`curve:stereo.width`<br>`events:hits.kick`: t, strength<br>`events:onsets.mid`: t<br>`events:onsets.high`: t<br>`events:bars`: t, bar, d |
 | **harmony** | main | ingest, rhythm | `audio:mix`<br>`events:beats`: t, beat_index, in_pulse<br>`events:bars`: t, bar |
 | **stem_activity** | main | ingest, separate_fast, separate_hq | `audio:mix`<br>`audio:fast:{stem}`<br>`audio:{stem}`<br>`file:meta/separation.json`: stems, lead_backing_split |
-| **drums** | main | separate_hq, stem_activity | `audio:drums`<br>`audio:drums_{sub}`<br>`curve:stem.drums.active`<br>`file:meta/stems.json`: stems |
+| **drums** | main | separate_hq, stem_activity, spectral | `audio:drums`<br>`audio:drums_{sub}`<br>`curve:stem.drums.active`<br>`file:meta/stems.json`: stems<br>`events:hits.kick`: t |
 | **instruments** | main | ingest, separate_fast, separate_hq, stem_activity | `audio:mix`<br>`audio:{stem}`<br>`audio:fast:{stem}`<br>`curve:stem.{stem}.active`<br>`file:meta/stems.json`: stems |
 | **notes** | main | separate_hq, stem_activity, rhythm | `audio:{stem}`<br>`curve:stem.{stem}.active`<br>`file:meta/stems.json`: stems<br>`events:beats`: t, beat_index, bar, beat_in_bar<br>`events:bars`: t, bar, beats_in_bar<br>`file:meta/tempo.json`: bpm, meter |
 | **structure** | main | allin1, rhythm, harmony, dynamics | `intermediate:allin1/allin1.json`: segments, labels<br>`intermediate:allin1/activations.f32`<br>`intermediate:allin1/embeddings.f32`<br>`events:bars`: t, d, bar, beats_in_bar<br>`events:beats`: t, beat_index<br>`curve:chroma.{pc}`<br>`events:dynamics`: t, d, level, rel_lu<br>`curve:dyn.intensity`<br>`curve:dyn.novelty`<br>`events:impacts`: id, t, strength<br>`events:silences`: id, t, d |
@@ -1239,9 +1251,9 @@ into the cache key). `curve:*` / `events:*` = everything. Each consumed producer
 | **voices** | main | lyrics, separate_hq, stem_activity | `file:lyrics/lyrics.json`: lines, words, source<br>`audio:vocals`<br>`audio:lead_vocals`<br>`audio:backing_vocals`<br>`curve:stem.vocals.active`<br>`ext:meaning/intent.md` |
 | **lipsync** | main | lyrics, voices, separate_hq | `file:lyrics/lyrics.json`: lines, words<br>`events:voice_spans`: t, d, line_id, voice_id<br>`file:meta/voices.json`: voices<br>`audio:lead_vocals`<br>`audio:vocals` |
 | **meaning** | main | identity, lyrics, voices, structure, mood, vocals, instruments, cues | `file:meta/identity.json`: title, artist, album, credits, duration_s<br>`file:lyrics/lyrics.json`: lines, words, grade, instrumental, language<br>`events:voice_spans`: t, d, line_id, voice_id, conf, review<br>`file:meta/voices.json`: voices, n_voices<br>`events:sections`: id, t, d, label, occurrence, occurrence_label, repeat_group<br>`events:mood`: section_id, valence, arousal, tags<br>`file:meta/mood.json`: global<br>`file:meta/vocal_range.json`: present, lowest, highest, register<br>`file:meta/instruments.json`: summary, vocal_style<br>`events:moments`: rank, t, cue_id, kind<br>`events:cues`: id, t, kind, tier<br>`ext:meaning/intent.md`<br>`ext:meaning/authored.json` |
-| **brief** | main | all analysis stages | `file:meta/source.json`: duration_s, palette<br>`file:meta/identity.json`: title, artist, album<br>`file:meta/tempo.json`: bpm, feel, meter, confidence, qa<br>`file:meta/key.json`: global<br>`file:meta/loudness.json`: integrated_lufs, lra_lu, true_peak_dbtp<br>`file:meta/vocal_range.json`: present, lowest, highest, p10, p90, register<br>`file:meta/instruments.json`: summary<br>`file:meta/separation.json`: degraded, lead_backing_split<br>`file:meta/stems.json`: stems<br>`file:meaning/meaning.json`: status, logline, characters, do_not, palette, sections<br>`file:lyrics/lyrics.json`: grade, lines<br>`events:sections`: id, t, d, label, occurrence_label, repeat_group, start_bar, n_bars<br>`events:dynamics`: t, d, level, mean_lufs<br>`events:instruments`: t, d, instrument<br>`events:vocal_phrases`: t, d, min_midi, max_midi<br>`events:hit_points`: id, t, strength, rank<br>`events:mood`: section_id, valence, arousal, tags<br>`events:edm_roles`: id, t, d, role<br>`events:counts`: id, t, section_id, len, partial<br>`events:grooves`: bar, groove_id<br>`events:holds`: id, t, d, kind<br>`events:moments`: rank, t, cue_id, kind, description<br>`events:cues`: id, t, kind, tier<br>`events:singing`: t, d, character_id, voice_id<br>`file:meta/voices.json`: voices<br>`file:meaning/orphans.json`: orphans<br>`events:visemes`: t |
+| **brief** | main | all analysis stages | `file:meta/source.json`: duration_s, palette<br>`file:meta/identity.json`: title, artist, album<br>`file:meta/tempo.json`: bpm, feel, meter, confidence, qa<br>`file:meta/key.json`: global<br>`file:meta/loudness.json`: integrated_lufs, lra_lu, true_peak_dbtp<br>`file:meta/vocal_range.json`: present, lowest, highest, p10, p90, register<br>`file:meta/instruments.json`: summary<br>`file:meta/separation.json`: degraded, lead_backing_split<br>`file:meta/stems.json`: stems<br>`file:meaning/meaning.json`: status, logline, characters, do_not, palette, sections<br>`file:lyrics/lyrics.json`: grade, lines<br>`events:sections`: id, t, d, label, occurrence_label, repeat_group, start_bar, n_bars<br>`events:dynamics`: t, d, level, mean_lufs<br>`events:instruments`: t, d, instrument<br>`events:vocal_phrases`: t, d, min_midi, max_midi<br>`events:hit_points`: id, t, strength, rank<br>`events:mood`: section_id, valence, arousal, tags<br>`events:edm_roles`: id, t, d, role<br>`events:counts`: id, t, section_id, len, partial<br>`events:grooves`: bar, groove_id<br>`events:holds`: id, t, d, kind<br>`events:moments`: rank, t, cue_id, kind, description<br>`events:cues`: id, t, kind, tier<br>`events:singing`: t, d, character_id, voice_id<br>`file:meta/voices.json`: voices<br>`file:meaning/orphans.json`: orphans<br>`events:visemes`: t<br>`file:meta/drums.json`: kick_source, agreement<br>`events:drum_hits`: t, drum<br>`events:hits.kick`: t |
 | **frames** | main | all analysis stages | `curve:*`<br>`events:*` |
-| **viewer** | main | all analysis stages | `curve:*`<br>`matrix:spectrum128`<br>`events:*`<br>`file:lyrics/lyrics.json`: lines, words<br>`file:meaning/meaning.json`: sections, characters, do_not<br>`audio:preview`<br>`audio:{stem}` |
+| **viewer** | main | all analysis stages | `curve:*`<br>`matrix:spectrum128`<br>`events:*`<br>`file:lyrics/lyrics.json`: lines, words<br>`file:meaning/meaning.json`: sections, characters, do_not<br>`audio:preview`<br>`audio:{stem}`<br>`file:meta/drums.json`: kick_source |
 <!-- END GENERATED: consumed -->
 
 ---
@@ -1374,7 +1386,9 @@ Where PLAN.md was silent or self-contradictory, this contract decides (each is a
   override key handed to the stage unless the stage reports its own list. Curve channels must have exactly
   ceil(n_samples * rate / sample_rate) frames. A float `.wav` twin is written next to any declared `.flac` when |x| > 1.
 - **D34 Manifest assembly.** `files[]` lists the published stage outputs, the curve files and `curves/index.json`, `lib/*`, and the
-  user inputs that exist (stage `_user`); `schema/**` is copied (`schema/<group>/<name>.schema.json`) but not listed. Each
+  user inputs that exist (stage `_user`). The published outputs of a stage the run left stale, pending or failed stay listed
+  while its last committed cache entry exists and the file is on disk (W4VP-1: they stay in the folder, as its curves do);
+  `status.stages` gives their status and one manifest warning names them; `schema/**` is copied (`schema/<group>/<name>.schema.json`) but not listed. Each
   `files` entry is one compact line. When the manifest would exceed about 2.9k tokens the largest `summary.stages` entries are
   dropped first and `manifest:stage_summaries_trimmed` is flagged. `status.stages` covers the analyze stages (and on-demand
   stages that ran); `status.stems` = separation present and not degraded.
@@ -1553,3 +1567,68 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
 - **D77 R19 acceptance test.** `tests/integration/test_override_roundtrip.py` (real, slow) drives the edit server on copies of real max
   runs: boundary move, downbeat phase, voice mapping, pinned cue and a section meaning edit; it asserts that only the stages downstream
   of the edited keys / intent.md re-run and that every edit appears in the outputs.
+
+### W4 final (user decisions)
+- **D78 The meaning input format (user decision UD1; amends D3, D51, D69 and the M6b intent grammar).** `meaning/intent.md` is read
+  in exactly two ways, plus the viewer's machine-written block (M6a V7, it wins as the latest edit), by ONE parser
+  (`mvh.stages.meaning.intent`, grammar "mvh-intent v2", documented in its docstring and docs/contract/decisions/UD1.md) that both
+  readers use (meaning and voices, so they always agree):
+  1. **The interview template**, fenced (```` ```yaml ````, ```` ```yml ````, ```` ```mvh-intent ````) or unfenced (from a
+     `# mvh-intent` marker or a column-0 lower-case template key), YAML with documented tolerances (unquoted hex colours, `#`
+     comments need two spaces, plain values YAML would misread are quoted, a broken entry is kept as a note with a warning). It is the
+     ONLY source of structured fields (logline, summary, themes, setting, tone, perspective, characters, voice mapping, line singers,
+     palette, motifs, symbolism, references, per-section feel/meaning/emotion/movement/camera/palette/characters) and of do-not
+     rules, the only hard constraints. New key `voices`: `V1: C1 Name` (or bullets `- V1 = C1 Name`) maps a voice to one character and
+     wins over `characters.*.voices`; an integer is the singer count (the voices stage's explicit k). Untouched entries are no answer.
+  2. **Free text** (everything else) is the user's prose: kept verbatim as `meaning.json notes` (one note per markdown heading
+     block; `field_sources.notes = user`), shown in meaning.md in full and in brief.md up to 120 words, and NEVER parsed into a
+     field or a rule. The old heuristics (bold labels, colon labels, do-not headings, character / voice / section lines in prose)
+     are removed. A copy of interview.md is recognised: the harness's own lines are never notes; question titles head the
+     user's answers. A free-text note with never / avoid / don't adds an open question (the note is not quoted) asking the user
+     to move it under `do_not`; it is not a rule.
+  The voices stage reads only the template (`n_characters`, `voices` count and map, `line_singers`) and the viewer block (D51 floor
+  rule unchanged); counts or mappings in prose are notes. `meaning.json` documents the optional `notes`, `references`,
+  `field_sources`, `intent_form`. Interview.md, request.md, SKILL.md and brief.md say: anything that must be obeyed goes in the
+  template. Stage versions meaning 1.1.0, brief 1.1.0, voices 1.2.0.
+- **D79 The agent-facing kick (user decision UD2; resolves seam S06, CR-M1-4 and CR-M1-6; supersedes M1-S13).** Two kick
+  timelines exist: `events/drum_hits` rows with `drum = kick` (DrumSep's kick sub-stem) and `events/hits.kick` (spectral, the
+  mix's low band). Agents cut on ONE of them, chosen per song by the drums stage:
+  - **drums 1.2.0** depends on `spectral` as well (acyclic; spectral is a cheap early stage; only `events/hits.kick` `t` and the
+    optional `kick_conf` are read). On the DrumSep path it quality-gates the kick sub-stem before velocities (`kick.gate_kicks`):
+    a kick-stem onset whose 30-120 Hz band (30 ms after vs the 45-5 ms before) does not rise >= 3 dB, one that sits on a hat
+    onset (+-10 ms) while its 30-120 Hz level is > 10 dB under the song's kick reference (p90 of the kick-stem rows' level),
+    or one > 20 dB under it, is bleed and dropped. A snare-stem hit whose 30-120 Hz band dominates its 150-400 Hz band by
+    >= 10 dB (rise >= 6 dB, level within 12 dB of the reference) is a kick DrumSep put in the snare stem: relabelled `kick`; a
+    not bass-dominant snare-stem hit with a kick-level 30-120 Hz burst (within 10 dB) that hits.kick confirms within 30 ms gets
+    an added kick row (a kick layered under the snare); a toms-stem hit needs the kick shape, a fast decay (>= 10 dB from the
+    first 30 ms to 80-110 ms: floor toms ring) and a hits.kick confirmation. Kept kick rows carry evidence `low_band_rise`,
+    recovered ones `recovered_from_<sub>_low_band` / `recovered_layered_from_snare_low_band`.
+  - **The choice** (`kick.choose_source`): the drum-stem kick is used when the drums stage produced kicks that pass the check
+    median kick `vel` >= 0.3, share of inter-kick gaps < 100 ms <= 0.25 (32nd-hat bleed), and the gate kept >= 40 % of the
+    kick-stem onsets; otherwise hits.kick (`mix`, lower quality; also when there is no drum stem). Param
+    `drums.kick_source = auto | drums | mix` overrides the choice (recorded as `override`). A `mix` choice adds the fallback
+    `drums:kick_source_mix`.
+  - **New optional file `meta/drums.json`** (schema `mvh/files/drums`): `kick_source`, `reason`, `drums` {path, n,
+    vel_median, fast_gap_share, raw_fast_gap_share, candidates, kept_share, low_rise_share, dropped, recovered, checks_failed},
+    `mix` {n, kick_conf_median}, `agreement` {tol_ms 30, mix_in_drums, drums_in_mix, min, low, threshold 0.75}.
+  - **Manifest**: optional `summary.kick_source` (`drums` | `mix`) and `summary.kick_agreement` {mix_in_drums, drums_in_mix,
+    tol_ms}, copied by finalize from meta/drums.json (no meta/drums.json: `mix` when events/hits.kick exists). QA flag
+    `qa:kick_sources_disagree` when min(mix_in_drums, drums_in_mix) < 0.75 (W4 real runs: synth 0.98 / 0.99, Newton 1.00 /
+    0.99, Versatile 0.96 / 0.99, Jeremy 0.96 / 0.92, MEGAFAUNA 0.46 / 0.25: flagged; the mix cannot see its sidechained drop
+    kicks, and the gated stem is kept).
+  - **Consumers**: lib `song.kickSource`, `song.kicks()` (Events of {t, vel, conf, source}; drums: vel / conf as stored; mix:
+    vel = `env`, conf = `kick_conf` default 0.5), `events('kick')`, `pulse('kick', t)`, `resolve('kick')`, helper `kicks`,
+    `kickItems(source, items)` (golden section 6b; reference `conventions.kick_items`); brief.md `kick` row and a `kicks`
+    count per section (and in `--section` zooms); the viewer's kick row (the other timeline as grey ticks); frames event
+    column `kick` (the loudest agent-facing kick vel in the frame, 0 without one; frames 1.1.0). SKILL.md tells agents to cut
+    on `song.kicks()`. The continuous `hits.kick` curve (the viz pulse in vizState) is unchanged, and rhythm, dynamics,
+    structure keep reading `events/hits.kick` internally as one input among several (no DAG change for them).
+- **D80 hits.kick favours precision (UD2; spectral 1.3.0).** hits.kick is the fallback, so it must not invent kicks: the
+  clicky-body route is off (`kick_click_route` = 0; it turned a pluck bass with hats, low piano chords and a snare on a new bass
+  note into 39 / 21 / 7 kicks), the sweep route's click alternative needs a 12 dB burst (`kick_click_attack_db`, was 10), and
+  an event both weak (attack < `kick_weak_strength` 0.5 x the typical one) and ambiguous (`kick_conf` < `kick_weak_conf` 0.8)
+  is dropped unless it is a roll / duck kick or sits <= 150 ms after a kept kick. Real songs: Jeremy's snares leave hits.kick
+  (precision against the drum-stem kick 0.89 -> 0.95 at the same recall 0.95); the others change by <= 4 events. The M1
+  review tests that demanded full recall on mix-only hard textures (808 / acoustic kicks over a held bass at other tempos and
+  levels, ducked subs under a lead chord, quiet intros of those designs) are precision targets now
+  (docs/contract/decisions/UD2.md); the kick-free textures and the contract fixture keep their hard targets.

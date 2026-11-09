@@ -1,4 +1,4 @@
-"""mvh_load.py - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.2). numpy only.
+"""mvh_load.py - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.3). numpy only.
 
 The same API as ``lib/mvh.js`` in snake_case (options become keyword arguments); the semantics are
 defined by ``mvh.contract.conventions`` (the reference) and docs/CONTRACT.md section 9. This file is
@@ -25,8 +25,8 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import numpy as np
 
-VERSION = "1.0.0-rc.2"
-CONTRACT_VERSION = "1.0.0-rc.2"
+VERSION = "1.0.0-rc.3"
+CONTRACT_VERSION = "1.0.0-rc.3"
 EPS = 1e-9
 POLICIES = ("linear", "mean", "max", "hold")
 CURVE_RATE_HZ = 100
@@ -41,6 +41,7 @@ __all__ = [
     "SUB_NAMES",
     "VIZ",
     "HELPER_NEEDS",
+    "kick_items",
     "FrameRule",
     "frame_rule",
     "time_of",
@@ -785,7 +786,24 @@ HELPER_NEEDS: dict[str, list[str]] = {
         "events:onsets.mid",
         "events:onsets.high",
     ],
+    "kicks": ["events:drum_hits", "events:hits.kick"],
 }
+
+
+def kick_items(source: str, items: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Kick items of the agent-facing source (D79): {t, vel, conf, source}; drums = drum_hits drum=kick, mix = hits.kick
+    (vel = the hit envelope value env, conf = kick_conf)."""
+    out: list[dict[str, Any]] = []
+    for it in items or []:
+        if source == "drums":
+            if it.get("drum") != "kick":
+                continue
+            out.append({"t": float(it["t"]), "vel": _clamp(float(it.get("vel", 1.0)), 0.0, 1.0),
+                        "conf": _clamp(float(it.get("conf", 1.0)), 0.0, 1.0), "source": "drums"})
+        else:
+            out.append({"t": float(it["t"]), "vel": _clamp(float(it.get("env", 1.0)), 0.0, 1.0),
+                        "conf": _clamp(float(it.get("kick_conf", 0.5)), 0.0, 1.0), "source": "mix"})
+    return out
 _CAMEL = {
     "beatPos": "beat_pos",
     "beatPhase": "beat_phase",
@@ -975,6 +993,8 @@ class Song:
             if h not in HELPER_NEEDS:
                 raise ValueError(f"mvh: unknown helper {h!r}")
             return list(HELPER_NEEDS[h])
+        if s in ("kick", "events:kick"):
+            return [f"events:{self._kick_events_name()}"]
         if s.startswith(("curves:", "events:")) or s in _JSON_FILES:
             return [s]
         if s in self.index["files"]:
@@ -1027,6 +1047,8 @@ class Song:
 
     # ------------------------------------------------------------------ events
     def events(self, name: str) -> Events:
+        if name == "kick":
+            return self.kicks()
         e = self._events.get(name)
         if e is not None:
             return e
@@ -1038,6 +1060,32 @@ class Song:
     @property
     def beats(self) -> list[dict[str, Any]]:
         return self.events("beats").items
+
+    # ------------------------------------------------------------------ kick (D79, user decision UD2)
+    @property
+    def kick_source(self) -> str:
+        """The agent-facing kick timeline: "drums" (events/drum_hits, drum = kick: the quality-gated DrumSep kick stem)
+        or "mix" (events/hits.kick, the fallback, lower quality). manifest summary.kick_source; older folders: drums
+        when drum_hits is listed."""
+        ks = (self.manifest.get("summary") or {}).get("kick_source")
+        if ks in ("drums", "mix"):
+            return ks
+        return "drums" if "drum_hits" in self.event_names else "mix"
+
+    def _kick_events_name(self) -> str:
+        return "drum_hits" if self.kick_source == "drums" else "hits.kick"
+
+    def kicks(self) -> Events:
+        """The kicks agents cut on, from kick_source: Events of {t, vel, conf, source}. events("kick") and
+        pulse("kick", t) use it too."""
+        e = self._events.get("#kick")
+        if e is not None:
+            return e
+        src = self.events(self._kick_events_name())
+        e = Events("kick", {"kind": "event", "items": kick_items(self.kick_source, src.items),
+                            "provenance": {"kick_source": self.kick_source, "from": src.name}}, src.exists)
+        self._events["#kick"] = e
+        return e
 
     # ------------------------------------------------------------------ frames
     def frame_count(self, fr) -> int:

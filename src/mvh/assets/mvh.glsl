@@ -1,4 +1,4 @@
-// mvh.glsl - sample whole-song curves packed by song.textureData(ids, {layout: 'wrap'}) (mv-harness contract v1.0.0-rc.2).
+// mvh.glsl - sample whole-song curves packed by song.textureData(ids, {layout: 'wrap'}) (mv-harness contract v1.0.0-rc.3).
 //
 // GLSL ES 3.00 / WebGL2 (needs texelFetch). Paste or #include it into a fragment or vertex shader; it declares no
 // uniforms and no #version line. The texture is R32F (format 'r32f', NEAREST filtering, no mipmaps) or R8 ('r8', the

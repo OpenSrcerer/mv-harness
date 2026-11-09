@@ -109,15 +109,29 @@ def gather(src: Source, flags: Sequence[str] = ()) -> dict[str, Any]:
                    ("key", "meta/key.json"), ("loud", "meta/loudness.json"), ("vr", "meta/vocal_range.json"),
                    ("inst", "meta/instruments.json"), ("sep", "meta/separation.json"), ("stems", "meta/stems.json"),
                    ("meaning", "meaning/meaning.json"), ("lyrics", "lyrics/lyrics.json"), ("voices", "meta/voices.json"),
-                   ("orphans", "meaning/orphans.json")):
+                   ("orphans", "meaning/orphans.json"), ("drums_meta", "meta/drums.json")):
         d[k] = src.json(rel)
     for name in ("sections", "dynamics", "instruments", "vocal_phrases", "hit_points", "mood", "edm_roles", "counts",
                  "grooves", "holds", "moments", "cues", "singing", "visemes", "chords", "key"):
         d["ev_" + name] = src.events(name)
+    d.update(_kick_facts(src, d.get("drums_meta")))
     d["missing"] = list(src.missing)
     lines = (d["lyrics"] or {}).get("lines") or []
     d["lines"] = [{k: v for k, v in ln.items() if k != "text"} | {"_text": ln.get("text")} for ln in lines]
     return d
+
+
+def _kick_facts(src: Source, meta: Mapping[str, Any] | None) -> dict[str, Any]:
+    """D79 (user decision UD2): the agent-facing kick (meta/drums.json kick_source; drums = events/drum_hits drum=kick,
+    mix = events/hits.kick) as times, for the brief's kick counts."""
+    from mvh.contract.conventions import kick_items
+
+    ks = (meta or {}).get("kick_source")
+    drum_rows = src.events("drum_hits") or []
+    if ks not in ("drums", "mix"):
+        ks = "drums" if any(x.get("drum") == "kick" for x in drum_rows) else "mix"
+    rows = drum_rows if ks == "drums" else (src.events("hits.kick") or [])
+    return {"kick_source": ks, "kick_t": sorted(k["t"] for k in kick_items(ks, rows))}
 
 
 # ============================================================================================ per-section facts
@@ -159,6 +173,8 @@ def section_facts(d: Mapping[str, Any], s: Mapping[str, Any]) -> dict[str, Any]:
         if _ov(t0, t1, float(x["t"]), float(x["t"]) + float(x["d"])) > 0.5 * float(x["d"]) and x["character_id"] not in chars:
             chars.append(x["character_id"])
     out["singers"] = sorted(chars, key=lambda c: int(c[1:]) if c[1:].isdigit() else 999)
+    # agent-facing kicks (D79)
+    out["kicks"] = sum(1 for t in d.get("kick_t") or [] if t0 <= t < t1)
     # hits
     hp = [x for x in d.get("ev_hit_points") or [] if t0 <= float(x["t"]) < t1]
     out["hits"] = sorted(hp, key=lambda x: (x.get("rank", 10**6), x["t"]))
@@ -310,10 +326,30 @@ def _header(d: Mapping[str, Any]) -> list[str]:
         txt = (f"{sep.get('variant', '?')}, lead/backing split {'yes' if sep.get('lead_backing_split') else 'no'}"
                + (f"; present: {', '.join(main)}" if main else "") + (f"; drum sub-stems: {', '.join(subs)}" if subs else ""))
         out.append(f"| stems | {txt} (meta/separation.json, meta/stems.json) |")
+    kl = _kick_row(d)
+    if kl:
+        out.append(kl)
     return out
 
 
+def _kick_row(d: Mapping[str, Any]) -> str | None:
+    """D79 (UD2): which kick timeline agents cut on, how many kicks, and the two timelines' agreement."""
+    ks, n = d.get("kick_source"), len(d.get("kick_t") or [])
+    if ks is None:
+        return None
+    m = d.get("drums_meta") or {}
+    a = m.get("agreement") or {}
+    what = ("drum-stem kick (events/drum_hits.json drum=kick, bleed-gated)" if ks == "drums"
+            else "mix kick (events/hits.kick.json; fallback, lower quality)")
+    agree = (f"; agreement with the {'mix' if ks == 'drums' else 'drum stem'} {_f(a.get('mix_in_drums'), 2)} / "
+             f"{_f(a.get('drums_in_mix'), 2)} within {_f(a.get('tol_ms'), 0)} ms" if a.get("min") is not None else "")
+    warn = " **QA: the kick timelines disagree**" if a.get("low") else ""
+    return f"| kick | {ks}: {n} kicks, {what}{agree}{warn}; cut on song.kicks() (meta/drums.json) |"
+
+
 LOGLINE_WORDS = 40
+#: words of the user's free-text notes quoted in brief.md (all of them are in meaning/meaning.md)
+NOTES_WORDS = 120
 
 
 def _meaning_block(d: Mapping[str, Any]) -> list[str]:
@@ -345,17 +381,31 @@ def _meaning_block(d: Mapping[str, Any]) -> list[str]:
             out.append(f"| {c['id']} | {desc} {('(' + c['lead_backing'] + ')') if c.get('lead_backing') else ''} | {vtxt} | {_ranges(c.get('section_ids') or [])} |")
     dn = m.get("do_not") or []
     if dn:
-        out += ["", "Do not (the user's words): " + " ".join(f'"{x}"' for x in dn)]
+        out += ["", "Do not (the user's words, from the intent template: the only hard rules): " + " ".join(f'"{x}"' for x in dn)]
+    bad = [u for u in m.get("intent_unparsed") or [] if isinstance(u, Mapping) and u.get("key")]
+    if bad:  # W4A-UD1: a template entry that did not parse is a note now; an agent must know a rule may be missing
+        dn_bad = sum(int(u.get("entries") or 0) for u in bad if u["key"] == "do_not")
+        out += ["", "**Template entries of meaning/intent.md did not parse** (kept as user notes, not fields: "
+                + ", ".join(f"{u['key']} x{u.get('entries', 1)}" for u in bad) + ")."
+                + (f" {dn_bad} of them were typed under do_not: rules the user meant may be missing from the list above; "
+                   "ask the user to fix the template before relying on it." if dn_bad else " Ask the user to fix the template.")]
     notes, refs = m.get("notes") or [], m.get("references") or []
-    if notes or refs:  # the user's other words (free text the intent grammar did not file under a field)
-        bits = []
-        if notes:
-            bits.append(f"{len(notes)} note(s) " + " ".join(f'"{_short(str(x), 12)}"' for x in notes[:3])
-                        + (" ..." if len(notes) > 3 else ""))
-        if refs:
-            bits.append(f"{len(refs)} reference(s) " + "; ".join(_short(str(x), 8) for x in refs[:3])
-                        + (" ..." if len(refs) > 3 else ""))
-        out += ["", "User notes (meaning/meaning.json notes, references): " + " · ".join(bits)]
+    if notes:  # UD1: the user's own prose (free text of intent.md + template notes), verbatim; direction, never rules
+        out += ["", f"User notes ({len(notes)}, user-authored, meaning/meaning.json notes; read them all in meaning/meaning.md; "
+                "direction, never rules):"]
+        budget = NOTES_WORDS
+        for x in notes:
+            words = " ".join(str(x).replace("|", "/").split())
+            if budget <= 0:
+                out.append(f"- ... {len(notes) - notes.index(x)} more")
+                break
+            out.append(f'- "{_short(words, budget)}"')
+            budget -= len(words.split())
+    if refs:
+        out += ["", f"User references ({len(refs)}): " + "; ".join(_short(str(x), 8) for x in refs[:3])
+                + (" ..." if len(refs) > 3 else "")]
+    out.append("Anything that must be obeyed goes in the template of meaning/intent.md (do_not); free-text notes are "
+               "never rules.")
     pal = m.get("palette") or []
     if pal:
         psrc = (m.get("field_sources") or {}).get("palette")
@@ -373,8 +423,8 @@ def _meaning_block(d: Mapping[str, Any]) -> list[str]:
 
 def _section_rows(d: Mapping[str, Any], facts: Sequence[Mapping[str, Any]], sections: Sequence[Mapping[str, Any]],
                   collapse: bool, compact: bool) -> list[str]:
-    head = ("| ID | t s (m:ss.s) | bars | label | grp | energy | vocals | hits | lines | mood | feel |" if compact else
-            "| ID | t s (m:ss.s) | bars | label | grp | energy | instruments | vocals | hits | lines | mood | feel / meaning |")
+    head = ("| ID | t s (m:ss.s) | bars | label | grp | energy | vocals | kicks | hits | lines | mood | feel |" if compact else
+            "| ID | t s (m:ss.s) | bars | label | grp | energy | instruments | vocals | kicks | hits | lines | mood | feel / meaning |")
     out = ["", "## Sections (events/sections.json, events/dynamics.json, events/instruments.json, events/vocal_phrases.json, "
            "events/singing.json, events/hit_points.json, events/mood.json)", head,
            "|" + "---|" * (head.count("|") - 1)]
@@ -405,7 +455,8 @@ def _section_rows(d: Mapping[str, Any], facts: Sequence[Mapping[str, Any]], sect
         cells = [ids, tcell, _bars(s), label, str(s.get("repeat_group", "-")), energy]
         if not compact:
             cells.append(inst)
-        cells += [_vocal_cell(f), hits, lines, _mood_cell(f["mood"]), _feel(f["meaning"], 5 if compact else 8)]
+        kicks = str(sum(facts[j]["kicks"] for j in idx)) if len(idx) > 1 else str(f["kicks"])
+        cells += [_vocal_cell(f), kicks, hits, lines, _mood_cell(f["mood"]), _feel(f["meaning"], 5 if compact else 8)]
         out.append("| " + " | ".join(cells) + " |")
     return out
 
@@ -573,6 +624,8 @@ def render_section(d: Mapping[str, Any], sid: str, allow_lyrics: bool = False,
                 gcount[g["groove_id"]] = gcount.get(g["groove_id"], 0) + 1
             if gcount:
                 L.append("Grooves: " + ", ".join(f"{k} x{v}" for k, v in gcount.items()))
+        if f["kicks"]:
+            L += ["", f"Kicks: {f['kicks']} ({d.get('kick_source')}; song.kicks().between({_f(f['t0'], 2)}, {_f(f['t1'], 2)}))"]
         if f["hits"] or f["holds"]:
             L += ["", "## Hits and holds (events/hit_points.json, events/holds.json)"]
             if f["hits"]:

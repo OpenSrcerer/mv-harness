@@ -169,8 +169,8 @@ function updateValues(force) {
   try { const ct = mv.countAt(t, V.model.grid, items('counts')); rows.push(['count', ct.count == null ? '-' : `${ct.count} sub ${ct.sub} accent ${ct.accent.toFixed(2)} ${ct.eight_id || ''}${ct.partial ? ' partial' : ''}`]); } catch (e) { /* */ }
   try { const bp = mv.beatPos(t, V.model.grid); rows.push(['beatPos', bp.value.toFixed(3) + (bp.in_pulse ? '' : ' (off-pulse)')]); } catch (e) { /* */ }
   try { const sg = V.song.singerAt(t); rows.push(['singerAt', sg.length ? sg.map((x) => `${x.character_id || '?'}/${x.voice_id} mouth ${x.mouth_open.toFixed(2)}`).join(', ') : 'none']); } catch (e) { /* */ }
-  const pulseKick = (() => { try { return V.song.pulse('hits.kick', t, { decay: 0.12 }).toFixed(3); } catch (e) { return null; } })();
-  if (pulseKick != null) rows.push(['pulse(kick, 0.12 s)', pulseKick]);
+  const pulseKick = (() => { try { return V.song.pulse('kick', t, { decay: 0.12 }).toFixed(3); } catch (e) { return null; } })();
+  if (pulseKick != null) rows.push([`pulse(kick, 0.12 s) [${V.song.kickSource}]`, pulseKick]);
   const tbl = h('table', { class: 'vals' }, rows.map(([k, v]) => h('tr', null, h('td', { class: 'k' }, k), h('td', { class: 'v' }, String(v)))));
   box.textContent = '';
   box.append(tbl);

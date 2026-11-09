@@ -33,15 +33,21 @@ Recipes per engine: `references/RECIPES.md`.
 ## 3. The meaning rule (the user is the authority)
 
 - Status line `meaning: pending` and `meaning/intent.md` empty or missing: **show the user the questions in
-  `meaning/interview.md` and wait for their answers.** Write their answers to `meaning/intent.md` only in their words
-  (free text, or the YAML template at the end of the interview).
+  `meaning/interview.md` and wait for their answers.** Write their answers to `meaning/intent.md` only in their words.
+  **Anything that must be obeyed goes in the template** (the YAML block at the end of the interview: characters,
+  `voices` (`V1: C1 Name`), section feel/meaning/movement/camera/palette, `do_not`). Everything else may be free text:
+  it reaches every agent verbatim as the user's notes, but is never parsed into a field or a rule.
 - Draft only after that, or when the user asks: follow `meaning/request.md`, write **`meaning/authored.json`** with
   `"status": "draft"` (schema `meaning/schema.json`; every claim typed lyric|audio|external|speculative and cited by
   id or time; quotes <= 10 words), then run `mvh meaning out/<slug>`. Never overwrite the user's claims; conflicts go
   to `open_questions`. `mvh meaning out/<slug> --draft anthropic` drafts through the Claude API if the user wants that.
-- **Do-not rules** (`meaning.json do_not`, in brief.md verbatim) are hard constraints on everything you render.
-- `meaning.json` `notes` and `references` are the user's other words (free text not filed under a field; counted in
-  brief.md). Read them before you design: they are direction, not drafts.
+- **Do-not rules** (`meaning.json do_not`, from the template only, in brief.md verbatim) are hard constraints on
+  everything you render. When brief.md says **template entries of meaning/intent.md did not parse**
+  (`meaning.json intent_unparsed`), the user's typing broke part of the template: those lines are notes now, and a
+  rule typed under `do_not` may be missing. Ask the user to fix the template before you rely on the rule list.
+- `meaning.json` `notes` are the user's own words, verbatim (intent.md's free text and the template's `notes`; all of
+  them in meaning.md, the first 120 words in brief.md). Read them before you design: they are direction, not drafts
+  and not rules. A note that reads like a rule is an open question: ask the user to put it under `do_not`.
 - `meaning: draft` = an agent's suggestion: say so to the user before building on it. `user` = authored.
 - A `user` section or character can still hold draft text: `meaning.json` `sections[].field_sources` and
   `characters[].field_sources` (and the top-level `field_sources`, incl. `perspective.narrator`/`.addressee`) give
@@ -66,6 +72,7 @@ Recipes per engine: `references/RECIPES.md`.
 |---|---|
 | Dance on the beat / counts | `song.count(t)` -> `{eight_id, count 1..8, sub, accent}`; `song.beatPhase(t)`; `events('grooves')` per bar |
 | Hits and poses | `events('hit_points')` (ranked), `events('holds')`, `song.pulse('drum_hits', t)`, `curve('choreo.accent')` |
+| Cut on the kick | `song.kicks()` / `song.pulse('kick', t)`: ONE kick timeline, picked per song in `manifest.summary.kick_source` (`drums` = the bleed-gated drum-stem kick, the default; `mix` = `hits.kick`, a fallback of lower quality). Never mix `drum_hits` kicks with `hits.kick` yourself. Flag `qa:kick_sources_disagree` (MEGAFAUNA-style sidechained drops): trust `song.kicks()`, prefer bars and tier-1/2 cues for big cuts. The `hits.kick` curve stays the viz-style flash. |
 | Cuts and camera | `events('cues').next(t, {minTier: 2})` (tier 1 sections/drops/builds ... 4 beats), `lead_in_s` to anticipate |
 | Who sings, lip-sync | `song.singerAt(t)` -> `[{character_id, voice_id, lead_backing, line_id, mouth_open}]`; `curve('vocal.mouth_open.V2')` |
 | Karaoke / words | `song.lyricAt(t)` -> line, word, progress; `lyrics/lyrics.json` |

@@ -63,7 +63,7 @@ def make_spec(song) -> dict:
     ]
     float_ids = [c for c in ids if c != "spectrum128"]
     events = sorted(
-        set(song.event_names) | {"beats", "counts", "sections", "cues", "singing", "visemes", "not.a.file"}
+        set(song.event_names) | {"beats", "counts", "sections", "cues", "singing", "visemes", "not.a.file", "kick"}
     )
     tex_ids = [
         c for c in ("hits.kick", "vocal.midi", "rhythm.in_pulse", "mood.valence") if c in ids
@@ -82,6 +82,7 @@ def make_spec(song) -> dict:
             ["onsets.mid", {"decay": 0.5, "unit": "beats", "shape": "smooth"}],
             ["cues", {"decay": 1.0}],
             ["notes.bass", {"decay": 0.3, "shape": "exp"}],
+            ["kick", {"attack": 0.02, "decay": 0.15}],
         ],
         "osc": [
             {"shape": s, "period_beats": pb, "phase": ph}
@@ -152,6 +153,8 @@ def dump(ml, song, spec) -> dict:
             "duration": song.duration,
             "event_names": sorted(song.event_names),
             "channel_ids": sorted(song.channel_ids),
+            "kick_source": song.kick_source,
+            "kicks": [[k["t"], k["vel"], k["conf"], k["source"]] for k in song.kicks().items],
         }
     }
     out["frame_count"] = [song.frame_count(fr) for fr in spec["frame_rules"]]

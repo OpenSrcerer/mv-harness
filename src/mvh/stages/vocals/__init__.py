@@ -32,12 +32,12 @@ STAGE = StageSpec(
     "vocals",
     ('separate_hq', 'stem_activity', 'instruments', 'rhythm', 'lyrics'),
     "main",
-    "1.1.0",
+    "1.2.0",
     override_keys=(),
     outputs=catalog_outputs("vocals"),
     params={'min_voiced_s': 8.0, 'pitch01_ease_s': 0.15, 'rmvpe_gate': 0.3, 'swift_gate': 0.9, 'voice_gate': 0.35,
             'level_floor_db': -55.0, 'lead_gap_db': 20.0, 'level_below_peak_db': 35.0, 'phrase_gap_s': 0.45, 'min_spoken_s': 15.0,
-            'present': None, 'style': None, 'lyric_pad_s': 0.15, 'lyric_min_match': 0.3},
+            'present': None, 'style': None, 'lyric_pad_s': 0.15, 'lyric_min_match': 0.3, 'phrase_pitch_min_share': 0.5},
     models=("rmvpe_onnx", "swift_f0_onnx", "ced_base_onnx"),
     module="M3b",
     description='SwiftF0 + RMVPE on lead_vocals: f0, pitch01, voiced, range, phrases, vocal notes.',
@@ -60,9 +60,10 @@ def _style_mask(ctx, n: int) -> tuple[np.ndarray | None, dict[str, float]]:
     return lab, secs
 
 
-def _lyric_mask(ctx, n: int, pad: float, warnings: list[str], min_match: float = 0.3) -> tuple[np.ndarray, int]:
+def _lyric_mask(ctx, n: int, pad: float, warnings: list[str], min_match: float = 0.3,
+                spans: list[tuple[int, int]] | None = None) -> tuple[np.ndarray, int]:
     """100 Hz mask of the aligned lyric lines (padded), from lyrics/lyrics.json. Empty when lyrics is absent,
-    instrumental, or has no lines."""
+    instrumental, or has no lines. ``spans`` (optional) receives each counted line's (i0, i1) frames (unpadded)."""
     out = np.zeros(n, bool)
     try:
         d = ctx.upstream("lyrics").json("lyrics/lyrics.json")
@@ -104,6 +105,8 @@ def _lyric_mask(ctx, n: int, pad: float, warnings: list[str], min_match: float =
         except (KeyError, TypeError, ValueError):
             continue
         out[max(0, int(round(a * 100))): min(n, int(round(b * 100)))] = True
+        if spans is not None:
+            spans.append((max(0, int(round((a + pad) * 100))), min(n, int(round((b - pad) * 100)))))
         k += 1
     return out, k
 
@@ -125,7 +128,9 @@ def run(ctx) -> StageResult:
     n = -(-n_samples * 100 // sr)
     duration = n_samples / sr
 
-    lyr, n_lines = _lyric_mask(ctx, n, float(prm.get("lyric_pad_s", 0.15)), warnings, float(prm.get("lyric_min_match", 0.3)))
+    line_spans: list[tuple[int, int]] = []
+    lyr, n_lines = _lyric_mask(ctx, n, float(prm.get("lyric_pad_s", 0.15)), warnings, float(prm.get("lyric_min_match", 0.3)),
+                               line_spans)
     lead_name, y = pick_lead_stem(ctx, float(prm.get("lead_gap_db", 20.0)))
     if lead_name != "lead_vocals":
         # the full vocals stem is a rescue for a suspect karaoke split, used only when something else says a voice is
@@ -297,16 +302,33 @@ def run(ctx) -> StageResult:
         vr["style"] = dominant
 
     # ---------------------------------------------------------------- phrases
+    # W4A-VOCPHR: a processed / whispered / half-spoken voice can sing a whole line with almost no pitch the tracker trusts
+    # (MEGAFAUNA: 7.5 of 39.7 s of active, sung line time inside a phrase). Inside an aligned lyric line whose active, loud
+    # lead-stem time is less than ``phrase_pitch_min_share`` pitched, that stem energy is phrase material too, so the
+    # phrase / breath timing follows the singing; such phrases say basis 'pitch+energy' (pitch fields from the voiced frames
+    # when there are any, else from the tracker's low-confidence f0)
+    ph_mask, energy_frames = P.energy_phrase_mask(voiced, active & loud, line_spans, float(prm.get("phrase_pitch_min_share", 0.5)))
+    if energy_frames:
+        notes_prov.append(f"vocal phrases: {energy_frames / 100:.1f} s of lead-stem energy inside sparsely pitched lyric lines "
+                          f"counted as phrase material (basis pitch+energy)")
+    raw_pitch = np.where(np.isfinite(arb.midi), arb.midi, rm_midi)
     ph_items = []
-    for k, (a, b) in enumerate(P.phrases(midi, float(prm.get("phrase_gap_s", 0.45)))):
+    for k, (a, b) in enumerate(P.phrases(np.where(ph_mask, 0.0, np.nan), float(prm.get("phrase_gap_s", 0.45)))):
         seg = midi[a:b]
         seg = seg[np.isfinite(seg)]
+        energy = bool((ph_mask[a:b] & ~voiced[a:b]).any())
+        if seg.size == 0:
+            seg = raw_pitch[a:b]
+            seg = seg[np.isfinite(seg) & (seg > 20)]
+            if seg.size == 0:
+                continue
         notes_in = [x["median"] for x in vnotes if x["i0"] >= a and x["i1"] <= b]
         lo_m = float(np.min(notes_in)) if notes_in else float(np.percentile(seg, 5))
         hi_m = float(np.max(notes_in)) if notes_in else float(np.percentile(seg, 95))
-        ph_items.append({"id": f"VP{k + 1:03d}", "t": round(a / 100, 3), "d": round((b - a) / 100, 3),
+        ph_items.append({"id": f"VP{len(ph_items) + 1:03d}", "t": round(a / 100, 3), "d": round((b - a) / 100, 3),
                          "median_midi": round(float(np.median(seg)), 3), "min_midi": round(lo_m, 3),
-                         "max_midi": round(hi_m, 3), "mean_db": round(float(np.mean(level[a:b])), 2)})
+                         "max_midi": round(hi_m, 3), "mean_db": round(float(np.mean(level[a:b])), 2),
+                         "basis": "pitch+energy" if energy else "pitch"})
 
     # ---------------------------------------------------------------- write
     ctx.writer.curves("vocal", {
@@ -314,7 +336,7 @@ def run(ctx) -> StageResult:
         "vocal.voiced": voiced.astype(np.float32), "vocal.conf": conf.astype(np.float32),
     }, meta={"vocal.pitch01": {"norm": {"lo": norm_lo, "hi": norm_hi}}} if np.isfinite(norm_lo) else None)
     ctx.writer.events("notes.vocals", nitems)
-    ctx.writer.events("vocal_phrases", ph_items)
+    ctx.writer.events("vocal_phrases", ph_items, fields={"basis": {"unit": None, "type": "enum"}})
     tmap = tempo_map_from_ctx(ctx, duration)
     ctx.writer.midi("notes/vocals.mid", smf_bytes({"vocals": nitems}, tmap))
     ctx.writer.json("meta/vocal_range.json", vr)

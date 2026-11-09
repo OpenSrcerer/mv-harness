@@ -22,7 +22,7 @@ PLAN_DEPS = {
     "dynamics": {"loudness", "spectral", "rhythm"},
     "structure": {"allin1", "rhythm", "harmony", "dynamics"},
     "stem_activity": {"ingest", "separate_fast", "separate_hq"},
-    "drums": {"separate_hq", "stem_activity"},
+    "drums": {"separate_hq", "stem_activity", "spectral"},  # W4 UD2 (D79): the kick-source choice compares hits.kick
     "instruments": {"ingest", "separate_fast", "separate_hq", "stem_activity"},
     "notes": {"separate_hq", "stem_activity", "rhythm"},
     "vocals": {"separate_hq", "stem_activity", "instruments", "rhythm", "lyrics"},  # W3 CR-M3b-1 (D67)

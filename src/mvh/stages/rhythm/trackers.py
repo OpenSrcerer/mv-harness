@@ -75,6 +75,12 @@ def dsp_features(mono44k: np.ndarray, n: int, sr: int = 44100) -> dict[str, Any]
     mid = (freqs > 150) & (freqs <= 4000)
     mb = np.log1p(100.0 * S[mid].sum(axis=0))
     snare = np.maximum(0.0, np.diff(mb, prepend=mb[0]))
+    # W4A-S18: percussive (HPSS) 1.5-8 kHz onset flux, the snare's noise burst; read bar-synchronously by the backbeat
+    # feel vote (fusion.backbeat_feel), where a rapped / sung line averages out and the snare's bar position stands out
+    _, P = librosa.decompose.hpss(S, kernel_size=31)
+    hi = (freqs >= 1500) & (freqs < 8000)
+    pb = np.log1p(100.0 * P[hi].sum(axis=0))
+    perc_hi = np.maximum(0.0, np.diff(pb, prepend=pb[0]))
     rms = librosa.feature.rms(y=y, frame_length=1024, hop_length=hop, center=True)[0]
     level_db = 20 * np.log10(np.maximum(rms, 1e-6))
     try:
@@ -86,7 +92,8 @@ def dsp_features(mono44k: np.ndarray, n: int, sr: int = 44100) -> dict[str, Any]
         x = np.asarray(x, np.float64).reshape(-1)
         return x[:n] if len(x) >= n else np.concatenate([x, np.zeros(n - len(x))])
 
-    return {"onset": fit(onset), "kick": fit(kick), "snare": fit(snare), "level_db": fit(level_db), "plp": fit(plp)}
+    return {"onset": fit(onset), "kick": fit(kick), "snare": fit(snare), "level_db": fit(level_db), "plp": fit(plp),
+            "perc_hi": fit(perc_hi)}
 
 
 def librosa_tempo(onset: np.ndarray, sr: int = 44100) -> float | None:

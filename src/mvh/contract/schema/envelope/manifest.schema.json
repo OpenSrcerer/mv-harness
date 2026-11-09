@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://mv-harness.local/schema/envelope/manifest.schema.json",
  "title": "mvh/envelope/manifest",
- "x-contract-version": "1.0.0-rc.2",
+ "x-contract-version": "1.0.0-rc.3",
  "type": "object",
  "properties": {
   "schema": {
@@ -269,6 +269,53 @@
       "required": []
      },
      "description": "per-stage scalars (StageResult.summary)"
+    },
+    "kick_source": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "drums = events/drum_hits drum=kick (agent-facing default); mix = events/hits.kick (fallback, lower quality)",
+     "enum": [
+      "drums",
+      "mix",
+      null
+     ]
+    },
+    "kick_agreement": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "properties": {
+      "mix_in_drums": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "x-unit": "0..1",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "drums_in_mix": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "x-unit": "0..1",
+       "minimum": 0,
+       "maximum": 1
+      },
+      "tol_ms": {
+       "type": "number",
+       "x-unit": "ms"
+      }
+     },
+     "required": [
+      "drums_in_mix",
+      "mix_in_drums",
+      "tol_ms"
+     ]
     }
    },
    "required": [

@@ -89,10 +89,14 @@ def power_mean_db(v: np.ndarray) -> float:
     return float(10.0 * np.log10(np.mean(10.0 ** (np.asarray(v, dtype=np.float64) / 10.0)) + 1e-30))
 
 
-def silence_threshold(integrated: float, rel_lu: float = 30.0, cap: float = -45.0) -> float:
-    """Momentary loudness below which the song is (near) silent: integrated - 30 LU, but at most -45 LUFS and at least
+def silence_threshold(integrated: float, rel_lu: float = 35.0, cap: float | None = None) -> float:
+    """Momentary loudness below which the song is (near) silent: integrated - ``rel_lu`` LU (relative only, so a pure
+    gain change of the master moves the threshold with it, W4V-GAIN-REAL), optionally at most ``cap`` LUFS, and at least
     just above the -70 LUFS floor (digital silence is always silent, even in a song that is silent throughout)."""
-    return max(min(integrated - rel_lu, cap), LUFS_FLOOR + 0.5)
+    thr = integrated - rel_lu
+    if cap is not None:
+        thr = min(thr, float(cap))
+    return max(thr, LUFS_FLOOR + 0.5)
 
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -137,7 +141,7 @@ class Silence:
     digital: bool
 
 
-def detect_silences(inp: Inputs, *, rel_lu: float = 30.0, cap: float = -45.0, min_s: float = 0.3,
+def detect_silences(inp: Inputs, *, rel_lu: float = 35.0, cap: float | None = None, min_s: float = 0.3,
                     min_edge_s: float = 1.0) -> list[Silence]:
     """Stretches where the momentary loudness stays below the silence threshold. The 0.4 s momentary window shrinks a
     silence by 0.2 s on each side, so the run is widened by 0.2 s and its edges are re-measured on the 5 ms envelope.

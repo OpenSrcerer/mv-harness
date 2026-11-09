@@ -1,21 +1,21 @@
-"""R-WORDS round 4, R4-2 (major; the headings part is a regression from the R3-3/R3-4 fix).
+"""R-WORDS round 4, R4-2 (major): ordinary do-not headings (``## What I don't want``, ``## Avoid these``, ...) and
+bulleted / numbered do-not labels (``- Never show: blood``, ``9. **Never show**: blood``) were silently filed as
+``notes`` that never reached the video agent, with no warning.
 
-The fix anchored ``_DO_NOT_HEAD`` to a heading that is a do-not phrase and nothing more (plus a few fixed suffixes).
-Ordinary do-not headings that the pre-fix parser read as rules now fall through to ``notes``:
-``## What I don't want``, ``## Avoid these``, ``## Things I never want to see``, ``## Never show these``.
-A do-not label written as a bullet (``- Never show: blood``), or numbered the way the interview numbers its
-question (``9. **Never show**: blood``), is not a rule either: it is a note, or under a story heading it is folded
-into the summary (grammar rule 3 accepts only label lines that are not bullets).
-``notes`` are not in brief.md (the LLM entry point) and are not hard constraints, so the user's prohibitions never
-reach the video agent. No warning is given.
+Rewritten by ud1-meaning for user decision UD1 (W4): free text is never parsed into do-not rules (only the template's
+``do_not`` is a hard constraint). The finding's intent, that the user's prohibitions never vanish silently, is
+checked under that rule: the text is kept verbatim as a note, the note reaches brief.md, and the meaning stage asks
+the user (an open question, the note not quoted) to move it into the template.
 
 Synthetic text only (no lyrics).
 """
 from __future__ import annotations
 
 import pytest
+from rw_m6b_support import brief_for, source
 
 from mvh.stages.meaning.intent import parse_intent
+from mvh.stages.meaning.stage import build
 
 STORY = "## The story\nTwo keepers wait for a ship.\n\n"
 
@@ -26,10 +26,15 @@ STORY = "## The story\nTwo keepers wait for a ship.\n\n"
     "Things I never want to see",
     "Never show these",
 ])
-def test_common_do_not_headings_give_do_not_rules(heading):
-    o = parse_intent(STORY + f"## {heading}\n- blood\n- lens flares\n")
-    assert o["do_not"] == ["blood", "lens flares"], (
-        f"'## {heading}' bullets became notes, not do_not rules (do_not={o['do_not']}, notes={o['notes']})")
+def test_do_not_headings_are_kept_as_notes_and_flagged(heading):
+    text = STORY + f"## {heading}\n- blood\n- lens flares\n"
+    o = parse_intent(text)
+    assert o["do_not"] == [] and o["notes"][-1] == f"## {heading}\n- blood\n- lens flares", o["notes"]
+    res = build(source(), text, None, {})
+    m = res["meaning"]
+    assert any("never obeyed as a rule" in q and "do_not" in q for q in m["open_questions"]), m["open_questions"]
+    brief = brief_for(res)
+    assert "blood" in brief and "never rules" in brief, "the user's note does not reach brief.md"
 
 
 @pytest.mark.parametrize("line", [
@@ -38,7 +43,11 @@ def test_common_do_not_headings_give_do_not_rules(heading):
     "9. **Never show**: blood",
     "- Avoid: blood",
 ])
-def test_do_not_label_as_a_bullet_is_a_rule(line):
+def test_do_not_label_as_a_bullet_is_a_note(line):
     o = parse_intent(STORY + line + "\n")
-    assert o["do_not"] == ["blood"], (
-        f"a bulleted do-not label is not a do_not rule (do_not={o['do_not']}, notes={o['notes']})")
+    assert o["do_not"] == [] and o["notes"] == ["## The story\nTwo keepers wait for a ship.\n\n" + line], o["notes"]
+
+
+def test_the_template_do_not_is_the_rule():
+    o = parse_intent(STORY + "do_not:\n  - blood\n  - lens flares\n")
+    assert o["do_not"] == ["blood", "lens flares"] and o["notes"] == ["## The story\nTwo keepers wait for a ship."]

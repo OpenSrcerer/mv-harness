@@ -72,6 +72,39 @@ def _env_db(x: np.ndarray, t0: float, t1: float, sr: int = 16000) -> float:
     return 10 * np.log10(max(e, 1e-12))
 
 
+def _backing_activity(ctx, warnings: list[str]) -> list[tuple[float, float]] | None:
+    """backing_vocals segments of stem_activity, or None (no gating) when the events cannot be read."""
+    try:
+        items = ctx.upstream("stem_activity").events("stem_activity").items
+    except Exception as e:  # noqa: BLE001 - a missing optional view: duet spans fall back to the line window
+        warnings.append(f"stem_activity events unavailable ({type(e).__name__}): backing spans are not gated by the stem")
+        return None
+    return sorted((float(x["t"]), float(x["t"]) + float(x["d"])) for x in items if x.get("stem") == "backing_vocals")
+
+
+def backing_window(segs: list[tuple[float, float]] | None, t0: float, t1: float, min_support: float,
+                   min_s: float) -> tuple[float, float, float | None] | None:
+    """Where a line's backing span may sit, judged by the backing_vocals stem activity (S16, W4).
+
+    ``segs``: backing_vocals activity segments (s, e), or None when stem_activity is unavailable (no gating).
+    -> (a, b, support) or None (no backing voice in the stem here). A line whose time is backed at least
+    ``min_support`` keeps the whole line; otherwise the span is trimmed to the hull of the active parts, which must
+    last ``min_s`` and be backed ``min_support`` itself (a short burst under a long line opens no second mouth)."""
+    if segs is None:
+        return t0, t1, None
+    parts = [(max(t0, a), min(t1, b)) for a, b in segs if b > t0 and a < t1]
+    parts = [(a, b) for a, b in parts if b > a]
+    if not parts or t1 <= t0:
+        return None
+    active = sum(b - a for a, b in parts)
+    if active / (t1 - t0) >= min_support:
+        return t0, t1, active / (t1 - t0)
+    a, b = min(x for x, _ in parts), max(y for _, y in parts)
+    if b - a < min_s or active / (b - a) < min_support:
+        return None
+    return a, b, active / (b - a)
+
+
 def run(ctx) -> StageResult:  # noqa: C901
     p = dict(ctx.params)
     warnings: list[str] = []
@@ -254,8 +287,11 @@ def run(ctx) -> StageResult:  # noqa: C901
                       "source": it["source"]})
     # duets: backing voice spans
     n_backing = 0
+    n_unbacked = 0
     if split and np.any(np.abs(back) > 1e-6) and len(E) and k >= 2 and p.get("backing_spans", True):
         bmin = float(p.get("backing_rel_db", -15.0))
+        bsegs = _backing_activity(ctx, warnings)
+        bsup = float(p.get("backing_min_support", 0.5))
         for ln in lines:
             ws = words_by.get(ln["id"], [])
             if not ws:
@@ -263,6 +299,12 @@ def run(ctx) -> StageResult:  # noqa: C901
             t0, t1 = ws[0]["t"], max(x["t"] + x["d"] for x in ws)
             if t1 - t0 < min_item:
                 continue
+            win = backing_window(bsegs, t0, t1, bsup, min_item)
+            if win is None:
+                n_unbacked += 1
+                continue
+            t0, t1 = win[0], win[1]
+            ws = [x for x in ws if x["t"] < t1 and x["t"] + x["d"] > t0] or ws
             bl, ll = _env_db(back, t0, t1), _env_db(lead, t0, t1)
             if bl < -45.0 or bl - ll < bmin:
                 continue
@@ -330,7 +372,7 @@ def run(ctx) -> StageResult:  # noqa: C901
     doc = {"n_voices": len(voices_all), "method": method, "n_source": n_source, "voices": meta_voices,
            # additive (docs/contract/decisions/M5.md)
            "model": emb.name, "k_selection": k_info, "centroid_cos": sim_mat, "items": len(items), "embedded_items": len(emb_items),
-           "backing_spans": n_backing, "forced_lines": n_forced, "stem": stem_name, "review_spans": sum(1 for s in out_spans if s["review"])}
+           "backing_spans": n_backing, "backing_unbacked_lines": n_unbacked, "forced_lines": n_forced, "stem": stem_name, "review_spans": sum(1 for s in out_spans if s["review"])}
     span_fields = {"role": {"unit": None, "type": "enum", "description": "lead or backing"},
                    "source": {"unit": None, "type": "enum", "description": "embedding, hint, neighbour, override, intent"}}
     ctx.writer.events("voice_spans", out_spans, fields=span_fields)

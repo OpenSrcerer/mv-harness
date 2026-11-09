@@ -22,7 +22,7 @@ from mvh.runner.spec import StageResult
 from . import emotion as emo
 from .anchor import anchor_claim
 from .cites import MAX_QUOTE_WORDS, check_claims, collect_ids, cut_lyric_runs
-from .intent import parse_intent
+from .intent import RULE_WORDS, parse_intent
 from .singing import build_characters, char_num, join_singing, voice_num
 from .source import CtxSource, Source
 
@@ -53,6 +53,22 @@ def _read_json(p) -> Any:
 
 
 # ============================================================================================ stage entry
+def intent_unparsed(intent: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """[{key, entries}] of the template entries of intent.md that did not parse (their lines are notes now)."""
+    n: dict[str, int] = {}
+    for k in intent.get("unparsed_keys") or []:
+        n[str(k)] = n.get(str(k), 0) + 1
+    return [{"key": k, "entries": v} for k, v in n.items()]
+
+
+def unparsed_question(unparsed: list[dict[str, Any]]) -> str:
+    keys = ", ".join(f"{u['key']} ({u['entries']})" for u in unparsed)
+    rules = any(u["key"] == "do_not" for u in unparsed)
+    return ("Template entries of meaning/intent.md did not parse and were kept as free-text notes, which are never "
+            f"obeyed: {keys}." + (" Some of them were typed under do_not: they are NOT hard rules until fixed."
+                                  if rules else "") + " Fix them in the template (the meaning stage warnings say why).")
+
+
 def run(ctx) -> StageResult:
     src = CtxSource(ctx)
     intent_text = _read_text(ctx.external("intent"))
@@ -396,6 +412,16 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
     if intent["present"] and not has_user:
         warnings.append("meaning/intent.md exists but no answer was recognised (see the template in meaning/interview.md)")
     open_q = list(dict.fromkeys(questions))
+    free = set(intent.get("free_notes") or [])
+    rule_like = [k + 1 for k, n in enumerate(intent.get("notes") or []) if n in free and RULE_WORDS.search(str(n))]
+    if rule_like:  # UD1: free text is never a rule; say so instead of guessing (the note is not quoted: NF5)
+        open_q.append(f"{len(rule_like)} free-text note(s) of meaning/intent.md (meaning.json note"
+                      f"{'s' if len(rule_like) > 1 else ''} {', '.join(map(str, rule_like[:8]))}) "
+                      "read like a rule (never / avoid / don't). Free text is never obeyed as a rule: anything that must "
+                      "be obeyed goes in the template, under do_not.")
+    unparsed = intent_unparsed(intent)
+    if unparsed:  # W4A-UD1: a template entry that did not parse is a note now, never obeyed: say so where agents read
+        open_q.insert(0, unparsed_question(unparsed))
     if sing["stats"]["review"]:
         open_q.append(f"{sing['stats']['review']} lyric line(s) have a low-confidence singer; check them in the viewer "
                       "(Lyrics & singers lane) or list them under line_singers.")
@@ -404,7 +430,8 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
             open_q.append(f"draft asks: {q.strip()}")
     for r in (d.get("do_not") or [])[:10]:
         if isinstance(r, str) and r.strip() and r.strip() not in global_dn:
-            open_q.append(f"draft suggests a do-not rule (not applied until you add it to intent.md): {r.strip()}")
+            open_q.append(f"draft suggests a do-not rule (not applied until you add it under do_not in the template of "
+                          f"meaning/intent.md): {r.strip()}")
     if status == "pending":
         open_q.insert(0, "The meaning is pending: answer meaning/interview.md in meaning/intent.md (the user), or let an "
                          "agent draft the gaps into meaning/authored.json after the user has seen the questions.")
@@ -416,6 +443,8 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         "open_questions": open_q, "palette_names": palette_names, "field_sources": dict(sorted(gsrc.items())),
         "intent_form": intent["form"], "draft_used": draft is not None,
         "references": references, "notes": user_notes,
+        # additive (docs/contract/decisions/W4-words.md): template entries that did not parse, kept as notes
+        "intent_unparsed": unparsed,
     }
     meaning, final_probs = check_claims(meaning, known | set(chars) | {m["id"] for m in motifs}, duration, status="user")
     # check_claims stamps one status on everything; restore the per-claim origin

@@ -206,3 +206,12 @@ def test_texture(ml, golden):
 def test_spectrum_rows(ml, golden):
     for t, s, rows in golden["spectrum_rows"]["cases"]:
         assert ml.spectrum_rows(t, s, golden["spectrum_rows"]["n_frames"]) == rows
+
+
+def test_kick_items_and_pulse(ml, golden):
+    """D79 (UD2): the agent-facing kick items of both sources, and pulse over them (golden section 6b)."""
+    K = golden["kick"]
+    assert ml.kick_items("drums", K["drum_hits"]) == K["drums"]
+    assert ml.kick_items("mix", K["hits_kick"]) == K["mix"]
+    for src, t, kw, y in K["pulse"]:
+        close(ml.pulse(t, K[src], None, **kw), y, f"kick pulse {src} {t} {kw}")

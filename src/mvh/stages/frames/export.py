@@ -29,7 +29,7 @@ DEFAULT_CURVES = (
     "vocal.mouth_open.*", "mood.valence", "mood.arousal",
 )
 EVENT_COLUMNS = ("section_id", "beat", "downbeat", "bar", "beat_phase", "count", "sub", "eight_id", "line_id", "singer",
-                 "cue_tier", "cue_id", "hit")
+                 "cue_tier", "cue_id", "hit", "kick")
 DEFAULT_EVENTS = EVENT_COLUMNS
 
 
@@ -284,4 +284,8 @@ def event_columns(names: Sequence[str], r: cv.FrameRule, n: np.ndarray, centres:
     if "hit" in names and ev.get("hit_points") is not None:
         hf = in_frame(ev.get("hit_points") or [])
         out["hit"] = [len(hf.get(int(k), [])) for k in n]
+    if "kick" in names and ev.get("kick") is not None:
+        # D79 (UD2): the agent-facing kick (meta/drums.json kick_source): the loudest kick vel in the frame, 0 without one
+        kf = in_frame(ev.get("kick") or [])
+        out["kick"] = [round(max((float(x["vel"]) for x in kf.get(int(k), [])), default=0.0), 4) for k in n]
     return out

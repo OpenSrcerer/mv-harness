@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -24,7 +26,7 @@ import numpy as np
 from . import registry
 from .catalog import CONTRACT_VERSION
 
-__all__ = ["ChannelData", "assemble", "read_index", "read_channel", "read_matrix", "channel_order_key"]
+__all__ = ["ChannelData", "pack", "index_bytes", "assemble", "read_index", "read_channel", "read_matrix", "channel_order_key"]
 
 
 @dataclass
@@ -43,10 +45,31 @@ def channel_order_key(cid: str) -> tuple[int, str]:
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
+    """Unique temp file next to the target, then os.replace retried on PermissionError (W4P-2: a fixed
+    ``<name>.tmp`` collided between two writers and was left behind when the replace failed)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(data)
-    os.replace(tmp, path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        for k in range(12):
+            try:
+                os.replace(tmp, path)
+                break
+            except PermissionError:
+                if k == 11:
+                    raise
+                time.sleep(min(0.05 * (2**k), 2.0))
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def index_bytes(index: Mapping[str, Any]) -> bytes:
+    """curves/index.json exactly as ``assemble`` writes it."""
+    return (json.dumps(index, ensure_ascii=False, indent=1, allow_nan=False) + "\n").encode("utf-8")
 
 
 def assemble(out_dir: Path | str, entries: Iterable[ChannelData], *, write: bool = True) -> dict[str, Any]:
@@ -55,6 +78,19 @@ def assemble(out_dir: Path | str, entries: Iterable[ChannelData], *, write: bool
     Unknown channel ids raise KeyError (add them to the registry first: that is a contract change).
     Length mismatches within one file raise ValueError."""
     out = Path(out_dir)
+    index, blobs = pack(entries)
+    if write:
+        for rel, data in blobs.items():
+            _atomic_write(out / rel, data)
+        _atomic_write(out / "curves/index.json", index_bytes(index))
+    return index
+
+
+def pack(entries: Iterable[ChannelData]) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """(curves/index.json document, {song-relative path: bytes} of every curve file), writing nothing.
+
+    W4P-2: the runner writes the files itself, so a file held open by a reader keeps its old version."""
+    blobs: dict[str, bytes] = {}
     per_file: dict[str, list[ChannelData]] = {}
     for e in entries:
         c = registry.channel(e.id)
@@ -69,8 +105,7 @@ def assemble(out_dir: Path | str, entries: Iterable[ChannelData], *, write: bool
             if arr.ndim != 2:
                 raise ValueError(f"{fid} must be 2-D [frames x k]")
             n, k = arr.shape
-            if write:
-                _atomic_write(out / cf.path, arr.tobytes())
+            blobs[cf.path] = arr.tobytes()
             finfo: dict[str, Any] = {"path": cf.path, "dtype": cf.dtype, "layout": cf.layout, "rate_hz": cf.rate_hz,
                                      "n_frames": int(n), "n_channels": int(k), "quant": {"scale": 1 / 255, "offset": 0.0}}
             meta = dict(e.meta or {})
@@ -93,17 +128,12 @@ def assemble(out_dir: Path | str, entries: Iterable[ChannelData], *, write: bool
             if np.isinf(v).any():
                 raise ValueError(f"{e.id}: inf values are not allowed (floor dB channels)")
             blocks.append(v)
-        data = b"".join(b.tobytes() for b in blocks)
-        if write:
-            _atomic_write(out / cf.path, data)
+        blobs[cf.path] = b"".join(b.tobytes() for b in blocks)
         index["files"][fid] = {"path": cf.path, "dtype": cf.dtype, "layout": cf.layout, "rate_hz": cf.rate_hz,
                                "n_frames": int(n or 0), "n_channels": len(chans)}
         for j, e in enumerate(chans):
             index["channels"].append(_entry(e.id, fid, 4 * int(n or 0) * j, int(n or 0), cf.rate_hz, dict(e.meta or {})))
-    if write:
-        txt = json.dumps(index, ensure_ascii=False, indent=1, allow_nan=False) + "\n"
-        _atomic_write(out / "curves/index.json", txt.encode("utf-8"))
-    return index
+    return index, blobs
 
 
 def _entry(cid: str, fid: str, off: int, n: int, rate: float, meta: dict[str, Any]) -> dict[str, Any]:

@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://mv-harness.local/schema/events/onsets.high.schema.json",
  "title": "mvh/events/onsets.high",
- "x-contract-version": "1.0.0-rc.2",
+ "x-contract-version": "1.0.0-rc.3",
  "description": "high-band flux onsets (centred threshold)",
  "allOf": [
   {

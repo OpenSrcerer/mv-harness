@@ -19,6 +19,9 @@ become do-not rules (hard constraints on every frame per SKILL.md) and the chara
 R3-4 (major): ``_DO_NOT_HEAD`` is searched anywhere in a heading, so a title heading such as ``# Never Let Me Go``
 or ``# Don't Stop Me Now: my notes`` (``don't`` was added by the N2 fix) turns the story, the character lines and
 the section notes under it into do-not rules.
+
+UD1 (W4, user decision): the template is the only source of fields and do-not rules; free text is the user's notes,
+kept verbatim and never parsed. R3-1 and R3-2 stand as written; R3-3 and R3-4 are restated under that rule.
 """
 from __future__ import annotations
 
@@ -88,28 +91,42 @@ def test_template_example_comments_never_become_user_claims(case: str) -> None:
     assert not problems, f"{case}: " + "; ".join(problems) + f" (status {m['status']}, intent_form {m['intent_form']})"
 
 
-# ------------------------------------------------------------------------------------------------ R3-3
-def test_do_not_label_does_not_swallow_the_bullets_after_it() -> None:
+# ------------------------------------------------------------------------------------------------ R3-3 (UD1)
+# Rewritten by ud1-meaning (W4, user decision UD1): free text is never a do-not rule or a field. R3-3 was about
+# free text being swallowed into hard constraints; under UD1 nothing in free text is a constraint at all, so the
+# findings' intent becomes: the user's lines are kept verbatim (as notes), no rule or character is invented from
+# them, and the same answers written in the template give exactly the rule and the characters.
+def test_do_not_label_and_bullets_in_free_text_are_notes_not_rules() -> None:
     text = "Never show: blood\n\n- C1 The Keeper = V1\n- C2 The Tide = V2\n"
-    m = build(source(), text, None, {})["meaning"]
-    names = {c["id"]: (c["name"], c["provenance"]["status"]) for c in m["characters"]}
-    assert m["do_not"] == ["blood"] and names.get("C1") == ("The Keeper", "user"), (
-        f"do_not {m['do_not']}; characters {names}: the character bullets became do-not rules")
+    r = build(source(), text, None, {})
+    m = r["meaning"]
+    user_chars = [c["id"] for c in m["characters"] if c["provenance"]["status"] == "user"]
+    assert m["do_not"] == [] and not user_chars, (f"free text became rules {m['do_not']} or characters {user_chars}")
+    assert m["notes"] == [text.strip()], m["notes"]  # no heading: the whole free text is one verbatim note
+    assert any("never obeyed as a rule" in q for q in m["open_questions"])
+    tmpl = "do_not:\n  - blood\ncharacters:\n- C1 The Keeper = V1\n- C2 The Tide = V2\n"
+    t = build(source(), tmpl, None, {})["meaning"]
+    names = {c["id"]: (c["name"], c["provenance"]["status"]) for c in t["characters"]}
+    assert t["do_not"] == ["blood"] and names.get("C1") == ("The Keeper", "user") and not t["notes"], (t["do_not"], names)
 
 
-def test_do_not_label_does_not_swallow_section_note_bullets() -> None:
+def test_avoid_label_and_section_bullets_in_free_text_are_notes() -> None:
     text = "A keeper waits for the light.\n\nAvoid: lens flares\n\n- Chorus: wide shots\n- Bridge: one candle\n"
     m = build(source(), text, None, {})["meaning"]
-    feels = {s["section_id"]: s["feel"] for s in m["sections"] if (s.get("field_sources") or {}).get("feel") == "user"}
-    assert m["do_not"] == ["lens flares"] and feels, (
-        f"do_not {m['do_not']}; user section feels {feels}: the section notes became do-not rules")
+    feels = {s["section_id"] for s in m["sections"] if (s.get("field_sources") or {}).get("feel") == "user"}
+    assert m["do_not"] == [] and not feels, (m["do_not"], feels)
+    assert m["notes"] == [text.strip()], m["notes"]
+    tmpl = "do_not: [lens flares]\nsections:\n- Chorus: wide shots\n- Bridge: one candle\n"
+    t = build(source(), tmpl, None, {})["meaning"]
+    feels = {s["section_id"] for s in t["sections"] if (s.get("field_sources") or {}).get("feel") == "user"}
+    assert t["do_not"] == ["lens flares"] and feels, (t["do_not"], feels)
 
 
-# ------------------------------------------------------------------------------------------------ R3-4
+# ------------------------------------------------------------------------------------------------ R3-4 (UD1)
 @pytest.mark.parametrize("title", ["Never Let Me Go", "Don't Stop Me Now: my notes"])
-def test_title_heading_with_a_do_not_word_is_not_a_do_not_block(title: str) -> None:
+def test_title_heading_with_a_do_not_word_is_a_note_not_a_rule(title: str) -> None:
     text = f"# {title}\n\nA keeper waits for the light. The tide takes it.\n\nC1 The Keeper = V1\nChorus: wide shots\n"
     m = build(source(), text, None, {})["meaning"]
-    c1 = next(c for c in m["characters"] if c["id"] == "C1")
-    assert not m["do_not"] and c1["name"] == "The Keeper", (
-        f"heading '# {title}': do_not {m['do_not']}, C1 {c1['name']!r} (a plain title heading such as '# Lanterns' gives no do_not and C1 'The Keeper')")
+    assert not m["do_not"], f"heading '# {title}': do_not {m['do_not']}"
+    assert m["notes"] == [f"# {title}\nA keeper waits for the light. The tide takes it.\n\nC1 The Keeper = V1\n"
+                          "Chorus: wide shots"], m["notes"]

@@ -589,10 +589,15 @@ class MeterPath:
 
 
 def decode_meter(score: np.ndarray, *, meters: Sequence[int] = (3, 4), theta: float | None = None,
-                 switch_cost: float = 1.25, break_cost: float = 4.0, meter_bias: Mapping[int, float] | None = None) -> MeterPath:
+                 switch_cost: float = 1.25, break_cost: float = 4.0, meter_bias: Mapping[int, float] | None = None,
+                 late_bias: float = 0.0) -> MeterPath:
     """Viterbi over beats: states (meter m, position p). A downbeat (p = 1) on beat i earns score[i] - theta;
     meter switches cost switch_cost x g and bars ending early break_cost x g, where g is the median gain of the
-    beats scoring above theta (so the costs scale with the evidence). Any start state is allowed (pickups)."""
+    beats scoring above theta (so the costs scale with the evidence). Any start state is allowed (pickups).
+    ``late_bias`` (W4V-GAIN-BEATS): an irregular transition (meter switch or early bar end) at beat i costs another
+    late_bias x g x (n - 1 - i) / n, so where the evidence cannot place it (a drumless break, flat scores) the
+    irregular bar sits as late as possible, against the next strong downbeat, instead of wherever 1e-4 of model noise
+    tips a near-tie (a -12 dB copy moved MEGAFAUNA's 3-beat bars from 91 s to 62 s)."""
     s = np.asarray(score, float)
     n = len(s)
     if n == 0:
@@ -612,6 +617,7 @@ def decode_meter(score: np.ndarray, *, meters: Sequence[int] = (3, 4), theta: fl
     for k, (m, p) in enumerate(states):
         dp[0, k] = (s[0] - th + bias.get(m, 0.0)) if p == 1 else 0.0
     for i in range(1, n):
+        late = late_bias * g * (n - 1 - i) / n
         for k, (m, p) in enumerate(states):
             em = (s[i] - th + bias.get(m, 0.0)) if p == 1 else 0.0
             best, arg, isbrk = NEG, -1, False
@@ -624,10 +630,10 @@ def decode_meter(score: np.ndarray, *, meters: Sequence[int] = (3, 4), theta: fl
                     q = idx[(m2, p2)]
                     c = dp[i - 1, q]
                     if p2 == m2:
-                        c -= 0.0 if m2 == m else switch_cost
+                        c -= 0.0 if m2 == m else switch_cost + late
                         b_ = False
                     elif p2 >= 2:
-                        c -= break_cost + (0.0 if m2 == m else switch_cost)
+                        c -= break_cost + late + (0.0 if m2 == m else switch_cost)
                         b_ = True
                     else:
                         continue
@@ -734,6 +740,99 @@ def feel_labels(beats: np.ndarray, tracker_beats: Mapping[str, Sequence[float] |
             lab[i:j] = "normal"
         i = j
     return lab
+
+
+def backbeat_feel(beats: np.ndarray, position: np.ndarray, meter: np.ndarray, in_pulse: np.ndarray, flux: np.ndarray, *,
+                  fps: float = FPS, win_bars: int = 8, enter: float = 1.5, leave: float = 1.3, min_bars: int = 6,
+                  min_run_beats: int = 16, min_over_offbeat: float = 1.4, flux_mid: np.ndarray | None = None,
+                  mid_min: float = 1.25) -> tuple[np.ndarray, dict[str, Any]]:
+    """Half-time backbeat (W4A-S18 / W3C-3): in 4/4 the snare normally lands on beats 2 and 4; in a half-time groove it
+    lands on beat 3 (the dance pulse is half the grid tempo). Per beat, the percussive high-band onset flux (snare noise
+    burst) is read within +-30 ms; over a window of +-``win_bars`` in-pulse 4/4 bars the mean at beat 3 is compared with
+    the mean at beats 2 and 4. ratio >= ``enter`` starts a half-time run, ratio < ``leave`` ends it (hysteresis); runs
+    shorter than ``min_run_beats`` are dropped. Beat 3 must also stand out from the off-beat 8ths (mean flux at beat 3 >=
+    ``min_over_offbeat`` x the mean at the '&' midpoints): a voice or a guitar alone (an a cappella) has no backbeat.
+    W4 verifier N4: a snare has a body as well as a noise burst, so a run is kept only when the 150-4000 Hz onset flux
+    (``flux_mid``) over the run's own 4/4 beats also has beat 3 >= ``mid_min`` x mean(beats 2, 4); hats or a high synth
+    alone on beat 3 do not make a backbeat (measured: Newton 1.91, Versatile's runs 1.79 / 1.34; Versatile's hat-only
+    outro 1.12, MEGAFAUNA's drumless break 1.02). Returns (bool per beat, report)."""
+    b = np.asarray(beats, float)
+    n = len(b)
+    out = np.zeros(n, bool)
+    rep: dict[str, Any] = {"basis": "percussive 1.5-8 kHz onset flux of the mix, bar-synchronous (4/4 bars)", "enter": enter,
+                           "leave": leave}
+    if n < 16 or flux is None or not len(flux):
+        rep["ratio"] = None
+        return out, rep
+    f = np.asarray(flux, float)
+    def peak_at(t: float) -> float:
+        k = int(round(t * fps))
+        a, e = max(0, k - 3), min(len(f), k + 4)
+        return float(f[a:e].max()) if e > a else 0.0
+
+    v = np.array([peak_at(t) for t in b])
+    v_and = np.array([peak_at(0.5 * (b[i] + b[i + 1])) if i + 1 < n else 0.0 for i in range(n)])
+    ok = np.asarray(in_pulse, bool) & (np.asarray(meter) == 4)
+    pos = np.asarray(position, int)
+
+    def ratio(sel: np.ndarray) -> tuple[float | None, dict[int, float]]:
+        m = {q: float(np.mean(v[sel & (pos == q)])) if np.any(sel & (pos == q)) else 0.0 for q in (1, 2, 3, 4)}
+        n_bars = int(np.sum(sel & (pos == 1)))
+        den = 0.5 * (m[2] + m[4])
+        if n_bars < min_bars or den <= 1e-9:
+            return None, m
+        off = float(np.mean(v_and[sel])) if np.any(sel) else 0.0
+        m["and"] = off
+        if off > 1e-9 and m[3] < min_over_offbeat * off:
+            return 0.0, m          # beat 3 does not stand out: no backbeat to read
+        return m[3] / den, m
+
+    r_all, m_all = ratio(ok)
+    tot = sum(m_all[q] for q in (1, 2, 3, 4)) or 1.0
+    rep["ratio"] = None if r_all is None else round(float(r_all), 3)
+    rep["profile"] = {str(q): round(m_all[q] / tot, 3) for q in (1, 2, 3, 4)}
+    rep["min_over_offbeat"] = min_over_offbeat
+    idx = np.arange(n)
+    half = False
+    r_beat = np.full(n, np.nan)
+    for i in range(n):
+        sel = ok & (np.abs(idx - i) <= 4 * win_bars)
+        r, _ = ratio(sel)
+        if r is None:
+            out[i] = half and ok[i]
+            continue
+        r_beat[i] = r
+        half = r >= enter if not half else r >= leave
+        out[i] = half
+    i = 0
+    while i < n:
+        j = i
+        while j < n and out[j] == out[i]:
+            j += 1
+        if out[i] and j - i < min_run_beats:
+            out[i:j] = False
+        elif out[i] and flux_mid is not None and len(flux_mid):
+            fm = np.asarray(flux_mid, float)
+            run = np.zeros(n, bool)
+            run[i:j] = True
+            run &= ok
+
+            def _pk(t: float) -> float:
+                k = int(round(t * fps))
+                a, e = max(0, k - 3), min(len(fm), k + 4)
+                return float(fm[a:e].max()) if e > a else 0.0
+
+            mm = {q: [_pk(t) for t in b[run & (pos == q)]] for q in (2, 3, 4)}
+            den = 0.5 * (np.mean(mm[2]) + np.mean(mm[4])) if mm[2] and mm[4] else 0.0
+            r_mid = float(np.mean(mm[3]) / den) if den > 1e-9 and mm[3] else 0.0
+            if r_mid < mid_min:
+                out[i:j] = False
+                rep.setdefault("dropped_runs", []).append({"t": round(float(b[i]), 3), "beats": int(j - i),
+                                                           "mid_ratio": round(r_mid, 3)})
+        i = j
+    rep["mid_min"] = mid_min
+    rep["half_time_beats"] = int(out.sum())
+    return out, rep
 
 
 def tempo_segments(beats: np.ndarray, in_pulse: np.ndarray, feel: np.ndarray, duration: float, *, change: float = 0.04,

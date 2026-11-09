@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from . import interview_text as IV
 from .emotion import audio_word
 from .singing import char_num
 
@@ -59,7 +60,8 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
     (global fields, characters, line singers, palette, do_not, motifs, symbolism, references, notes and each
     section's own fields and do_not rules), so parsing the template gives the same claims as the file it came from
     (grammar: ``intent.py``; round trip: tests/unit/meaning/test_intent_grammar.py)."""
-    L = ["```yaml", "# mvh-intent v1: copy this block into meaning/intent.md (with or without the markdown fence) and fill it in. Empty = no answer.",
+    L = ["```yaml", "# mvh-intent v2: copy this block into meaning/intent.md (with or without the markdown fence) and fill it in. Empty = no answer.",
+         "# Anything that must be obeyed goes here (do_not = the only hard rules); free text outside the block is read as your notes.",
          "# Times are in seconds of audio/mix.flac; keep t0/t1 so the notes follow the sections if they move.",
          "# Hex colours can be typed as they are ([#1b2a49, night blue]); a comment needs two spaces before its '#'.",
          f"logline: {_q(intent.get('logline'))}", f"summary: {_q(intent.get('summary'))}",
@@ -79,6 +81,8 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
         L.append(f"  {c['id']}: {{name: {_q(ic.get('name'))}, "
                  f"description: {_q(ic.get('description'))}, voices: [{', '.join(said)}], "
                  f"lead_backing: {_q(ic.get('lead_backing'))}}}{note}")
+    nv = intent.get("n_voices")
+    L.append(f"voices:{' ' + str(int(nv)) if nv else ''}   # which character sings each voice (V1: C1 Name), or the number of singers")
     L.append("line_singers:   # optional per-line fixes, lead first: {L005: C1+C2}")
     for lid, cs in sorted((intent.get("line_singers") or {}).items()):
         L.append(f"  {lid}: {'+'.join(cs)}")
@@ -131,11 +135,7 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
     artist = ident.get("artist")
     lines = fc["lines"]
     st = fc["stats"]
-    out = [f"# Interview: {title}" + (f" - {artist}" if artist else ""), "",
-           "The harness found the facts below. **You are the authority on what the song means**: answer in "
-           "`meaning/intent.md` (free text is fine, or copy the template at the end). `mvh analyze` never edits "
-           "that file. An agent may draft the gaps into `meaning/authored.json` only after you have seen these "
-           "questions; your answers always win over its draft.", ""]
+    out = [f"# Interview: {title}" + (f" - {artist}" if artist else ""), "", IV.PREAMBLE, ""]
     status = meaning.get("status")
     out.append(f"Current meaning status: **{status}**" + (" (answers recognised in intent.md)" if status == "user" else "") + ".")
     out.append("")
@@ -167,7 +167,8 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
                         + (f"; now mapped to {_char_name(fc, vid)}" if _char_name(fc, vid) else ""))
         ask(f"**Who sings to whom?** {len(voices)} voice(s) were found (play each in the viewer's Lyrics & singers lane):")
         out.extend(desc)
-        out.append("   Which character is each voice? Is any voice a narrator or announcer (rap battles often open with one)?")
+        out.append("   Which character is each voice? Is any voice a narrator or announcer (rap battles often open with one)? "
+                   "Map them in the template (`characters` or `voices`).")
     elif lines:
         ask("No separate voices were detected. Is it one singer throughout? If not, who sings which lines?")
     if st.get("review"):
@@ -199,23 +200,25 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
         + (" ..." if len(fc["sections"]) > 24 else "")
         + (". EDM roles: " + ", ".join(roles) if roles else "")
         + (f". {len(tier1)} tier-1 cues (section starts, drops, builds) are in events/cues.json" if tier1 else "")
-        + ". For each: feel, what it means, movement/choreography, camera.")
+        + ". For each: feel, what it means, movement/choreography, camera. Put them under `sections` in the template.")
     mom = sorted(fc["moments"], key=lambda m: m.get("rank", 99))[:5]
     if mom:
         ask("**The top moments**: " + "; ".join(f"#{m.get('rank')} {_mmss(float(m['t']))} {m.get('kind')} ({m.get('cue_id')})" for m in mom)
             + ". What should happen on screen at each?")
-    ask("**Colours**: which palette belongs to the song (hex codes or words like 'night blue')? Per-section colours?")
-    ask("**Never show**: what must never appear on screen? (copied verbatim to every agent)")
+    ask("**Colours**: which palette belongs to the song (hex codes or words like 'night blue')? Per-section colours? "
+        "(template: `palette`, `sections.*.palette`)")
+    ask("**Never show**: " + IV.NEVER_SHOW_Q)
     if intent.get("present"):
         got = [k for k in ("logline", "summary", "setting", "tone", "themes", "palette", "do_not", "motifs") if intent.get(k)]
         out.append("")
         out.append(f"Already answered in intent.md: {', '.join(got) or 'nothing recognised yet'}; "
                    f"{len(intent.get('characters') or {})} character(s), {len(intent.get('sections') or [])} section note(s), "
-                   f"{len(intent.get('line_singers') or {})} line singer fix(es).")
+                   f"{len(intent.get('line_singers') or {})} line singer fix(es); "
+                   f"{len(intent.get('free_notes') or [])} free-text note(s) (read as your notes, never as rules).")
     oq = [x for x in meaning.get("open_questions") or [] if not x.startswith("The meaning is pending")]
     if oq:
         out += ["", "## Open questions", ""] + [f"- {x}" for x in oq[:15]]
-    out += ["", "## Template (copy into meaning/intent.md)", "", yaml_template(fc, intent, meaning), ""]
+    out += ["", IV.TEMPLATE_HEADING, "", IV.TEMPLATE_INTRO, "", yaml_template(fc, intent, meaning), ""]
     return "\n".join(out)
 
 
@@ -248,7 +251,10 @@ def request_md(fc: Mapping[str, Any], meaning: Mapping[str, Any], gaps: list[str
         "the questions in `meaning/interview.md` and wait for their answers. Draft only after that (or when they ask you to).", "",
         "## Read", "",
         "- `meaning/input.json`: the facts you may cite (sections, voices, characters, moods, hooks, cues, moments, and `facts.gaps`).",
-        "- `meaning/intent.md`: the user's answers (never contradict them; conflicts become `open_questions`).",
+        "- `meaning/intent.md`: the user's answers (never contradict them; conflicts become `open_questions`). Its template",
+        "  holds the user's fields and do-not rules; its free text is the user's own notes (`meaning.json notes`): draft",
+        "  the gaps consistently with those notes, and never turn a note into a do-not rule (anything that must be obeyed",
+        "  goes in the template, which only the user fills in; suggest rules in `open_questions`).",
     ]
     if lyrics_to_agents:
         out.append("- `lyrics/lines.tsv`: the lyric lines (id, time, section, singer, text). Quote at most 10 words per citation.")
@@ -330,7 +336,13 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
     if meaning.get("references"):
         out += ["", "## References (user)", ""] + [f"- {r}" for r in meaning["references"]]
     if meaning.get("notes"):
-        out += ["", "## Notes (user)", ""] + [f"- {r}" for r in meaning["notes"][:30]]
+        out += ["", "## Notes (user)", "",
+                "The user's own words, verbatim (free text of meaning/intent.md and the template's `notes`). Read them "
+                "as direction, never as rules: anything that must be obeyed goes in the template (`do_not`).", ""]
+        for r in meaning["notes"][:60]:
+            out += ["> " + ln if ln.strip() else ">" for ln in str(r).splitlines()] + [""]
+        if len(meaning["notes"]) > 60:
+            out.append(f"... {len(meaning['notes']) - 60} more in meaning/meaning.json notes")
     out += ["", "## Never show", ""] + ([f"- {r}" for r in meaning.get("do_not") or []] or ["- (no rules yet)"])
     if orphans:
         out += ["", f"## Orphaned claims ({len(orphans)})", "", "Claims whose section no longer exists (meaning/orphans.json):"]

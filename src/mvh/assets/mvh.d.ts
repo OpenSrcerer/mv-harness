@@ -1,4 +1,4 @@
-// Type declarations for lib/mvh.js (mv-harness contract v1.0.0-rc.2). Semantics: docs/CONTRACT.md §9.
+// Type declarations for lib/mvh.js (mv-harness contract v1.0.0-rc.3). Semantics: docs/CONTRACT.md §9.
 // Every time is in seconds from the first sample of audio/mix.flac. Helpers never return NaN.
 
 export const VERSION: string;
@@ -216,12 +216,20 @@ export class VizState {
 }
 
 export type HelperName = 'beatPos' | 'beatPhase' | 'barPhase' | 'osc' | 'pulse' | 'count' | 'lyricAt' | 'vocalAt' | 'singerAt' |
-  'meaningAt' | 'spectrumAt' | 'spectrumWindow' | 'vizState';
+  'meaningAt' | 'spectrumAt' | 'spectrumWindow' | 'vizState' | 'kicks';
+
+/** D79 (user decision UD2): which kick timeline agents cut on. */
+export type KickSource = 'drums' | 'mix';
+/** One agent-facing kick: drums = events/drum_hits (drum = kick, vel / conf as stored); mix = events/hits.kick
+ * (vel = the hit envelope value env, conf = kick_conf). */
+export interface KickItem extends EventItem { t: number; vel: number; conf: number; source: KickSource; }
+export function kickItems(source: KickSource, items: ArrayLike<EventItem>): KickItem[];
 export const HELPER_NEEDS: Readonly<Record<HelperName, string[]>>;
 
 /**
  * What ensure()/include accept: 'all'; 'curves:*' / 'events:*'; 'curves:<file id>' (core, stems, vocal, chroma12,
- * instruments_1hz, mood_1hz, spectrum128); 'events:<name>'; 'lyrics'; 'meaning'; 'spectrum'; 'helper:<HelperName>';
+ * instruments_1hz, mood_1hz, spectrum128); 'events:<name>'; 'kick' (the agent-facing kick file); 'lyrics'; 'meaning';
+ * 'spectrum'; 'helper:<HelperName>';
  * or a bare curve file id, channel id or events name.
  */
 export type ResourceSpec = string | string[];
@@ -236,6 +244,12 @@ export class Song {
   readonly eventNames: string[];
   readonly channelIds: string[];
   readonly beats: BeatItem[];
+  /** 'drums' (the quality-gated DrumSep kick stem, the default) or 'mix' (hits.kick, the fallback): manifest
+   * summary.kick_source. Cut on song.kicks(), not on a raw file. */
+  readonly kickSource: KickSource;
+  /** The agent-facing kicks (Events named 'kick'); events('kick') and pulse('kick', t) return the same.
+   * Browsers: ensure('kick') (or 'helper:kicks') first. */
+  kicks(): Events<KickItem>;
   hasCurve(id: string): boolean;
   resolve(spec: ResourceSpec): string[];
   /** Load resources so the next synchronous calls are safe (Remotion: inside delayRender/calculateMetadata). */
@@ -243,6 +257,7 @@ export class Song {
   isLoaded(spec: ResourceSpec): boolean;
 
   curve(id: string): Curve;
+  /** Events by name; 'kick' = kicks() (the agent-facing kick source). */
   events<T extends EventItem = EventItem>(name: string): Events<T>;
   frameCount(fr: FrameRuleLike): number;
 

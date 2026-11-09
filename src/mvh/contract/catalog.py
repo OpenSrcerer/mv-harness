@@ -19,7 +19,7 @@ from typing import Any
 from .ids import DRUM_SUBSTEMS, ID_KINDS, PITCHED_SOURCES, STEM_NAMES
 from .registry import CHANNELS, CURVE_FILES
 
-CONTRACT_VERSION = "1.0.0-rc.2"
+CONTRACT_VERSION = "1.0.0-rc.3"
 SCHEMA_BASE = "https://mv-harness.local/schema/"
 
 # ============================================================================ schema building blocks
@@ -392,7 +392,11 @@ MANIFEST = obj({
         "true_peak_dbtp": nullable(num("dBTP")),
         "vocal_range": nullable(obj({"low": string("note name"), "high": string("note name")})),
         "instrumentation": arr(string(), max_items=16), "palette": arr(HEX, max_items=12),
-    }, opt={"stages": mapof(obj(), "per-stage scalars (StageResult.summary)")}),
+    }, opt={"stages": mapof(obj(), "per-stage scalars (StageResult.summary)"),
+            # D79 (UD2): which kick timeline agents use, and how well the two agree (meta/drums.json has the evidence)
+            "kick_source": nullable(string("drums = events/drum_hits drum=kick (agent-facing default); mix = events/hits.kick "
+                                           "(fallback, lower quality)", enum=["drums", "mix"])),
+            "kick_agreement": nullable(obj({"mix_in_drums": nullable(P01), "drums_in_mix": nullable(P01), "tol_ms": num("ms")}))}),
     "files": arr(obj({"path": string(), "kind": string(enum=["curve", "matrix", "events", "table", "audio", "midi", "text", "json"]),
                       "stage": string()}, opt={"events": string("events name when the path is not events/<name>.json")})),
     "warnings": arr(string()),
@@ -542,6 +546,19 @@ FILE_SCHEMAS: dict[str, dict] = {
         "voices": arr(obj({"id": idref("voice"), "seconds": num("s"), "n_lines": integer(minimum=0),
                            "proposed_character_id": nullable(idref("character")), "hint": nullable(string("speaker label from the lyrics source"))})),
     }),
+    # D79 (UD2): the agent-facing kick source and the evidence for it (written by drums)
+    "files/drums": obj({
+        "kick_source": string("drums = events/drum_hits drum=kick; mix = events/hits.kick", enum=["drums", "mix"]),
+        "reason": string(),
+        "drums": obj({"path": string(enum=["drumsep", "classifier", "none"]), "n": integer(minimum=0),
+                      "vel_median": nullable(P01), "fast_gap_share": nullable(P01), "checks_failed": arr(string())},
+                     opt={"candidates": integer(minimum=0), "kept_share": nullable(num()), "low_rise_share": nullable(P01),
+                          "raw_fast_gap_share": nullable(P01),
+                          "dropped": mapof(integer(minimum=0)), "recovered": mapof(integer(minimum=0))}),
+        "mix": obj({"n": integer(minimum=0)}, opt={"kick_conf_median": P01}),
+        "agreement": obj({"tol_ms": num("ms"), "mix_in_drums": nullable(P01), "drums_in_mix": nullable(P01), "min": nullable(P01),
+                          "low": boolean(), "threshold": P01}),
+    }, opt={"override": nullable(string(enum=["drums", "mix"]))}),
     "files/grooves": obj({"grooves": arr(obj({
         "id": idref("groove"), "n_bars": integer(minimum=1), "bars": arr(integer(minimum=0)), "swing": num("ratio"), "syncopation": P01,
         "prototype": obj({k: arr(P01, min_items=16, max_items=16) for k in ("kick", "snare", "hat", "perc")})}))}),
@@ -582,7 +599,14 @@ FILE_SCHEMAS: dict[str, dict] = {
         })),
         "palette": arr(HEX), "tone": nullable(string()), "do_not": arr(string("the user's words, verbatim")),
         "open_questions": arr(string()),
-    }, opt={"provenance": ref("envelope/provenance")}),
+    }, opt={"provenance": ref("envelope/provenance"),
+            # D78 (UD1): the user's own words, verbatim (intent.md's free text and the template's notes); never rules
+            "notes": arr(string("the user's own words, verbatim: free text of meaning/intent.md and the template's "
+                                "notes; direction, never a field or a rule")),
+            "references": arr(string()),
+            "field_sources": obj(desc="per top-level field: user (intent template / notes) | draft (authored.json)"),
+            "intent_form": string("how meaning/intent.md was read: none | yaml (template) | text (notes) | yaml+text, "
+                                  "+viewer when the viewer block is present")}),
     "files/meaning_input": obj({"schema_version": SEMVER, "song": obj({"title": nullable(string()), "artist": nullable(string()),
                                                                      "duration_s": num("s")}),
                                 "sections": arr(obj({"id": idref("section"), "t": T, "d": D, "label": string()})),
@@ -697,6 +721,9 @@ FILES: list[FileDef] = [
     _f("meta/key.json", "harmony", "json", "files/key", "global key and method agreement"),
     _f("meta/structure.json", "structure", "json", "files/structure", "repeat groups and phrase length"),
     _f("meta/stems.json", "stem_activity", "json", "files/stems", "per-stem presence and level statistics"),
+    _f("meta/drums.json", "drums", "json", "files/drums",
+       "the agent-facing kick source (drums | mix), its reason, the drum-stem kick's reliability and the two kick timelines' "
+       "agreement (D79, UD2)", required=False),
     _f("meta/instruments.json", "instruments", "json", "files/instruments", "instrument summary and vocal style"),
     _f("notes/notes.json", "notes", "json", "files/notes_index", "per-source note statistics and file index"),
     _f("notes/notes.mid", "notes", "midi", None, "one track per source (bass, piano, guitar, other); tempo map from the beat grid"),
@@ -737,7 +764,7 @@ RUNNER_FILES: list[FileDef] = [
     _f("lib/mvh.glsl", "_runner", "text", None, "GLSL sampler mvhCurve"),
     _f("schema/{name}.schema.json", "_runner", "json", None, "copies of the contract schemas"),
     _f("overrides.json", "_user", "json", "envelope/overrides", "user corrections (viewer edit mode or by hand)", required=False),
-    _f("meaning/intent.md", "_user", "text", None, "the user's answers (free text or the YAML template); never overwritten", required=False),
+    _f("meaning/intent.md", "_user", "text", None, "the user's answers: the interview template (fields, do-not rules) + free text (notes, never parsed); never overwritten", required=False),
     _f("meaning/authored.json", "_user", "json", "files/meaning",
        "a meaning draft written by an agent or LLM (status draft); an input, never overwritten", required=False),
 ]
@@ -780,7 +807,7 @@ CONSUMES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
     "stem_activity": [("audio:mix", ()), ("audio:fast:{stem}", ()), ("audio:{stem}", ()),
                       ("file:meta/separation.json", ("stems", "lead_backing_split"))],
     "drums": [("audio:drums", ()), ("audio:drums_{sub}", ()), ("curve:stem.drums.active", ()),
-              ("file:meta/stems.json", ("stems",))],
+              ("file:meta/stems.json", ("stems",)), ("events:hits.kick", ("t",))],
     "instruments": [("audio:mix", ()), ("audio:{stem}", ()), ("audio:fast:{stem}", ()), ("curve:stem.{stem}.active", ()),
                     ("file:meta/stems.json", ("stems",))],
     "notes": [("audio:{stem}", ()), ("curve:stem.{stem}.active", ()), ("file:meta/stems.json", ("stems",)),
@@ -844,9 +871,11 @@ CONSUMES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
               ("events:counts", ("id", "t", "section_id", "len", "partial")), ("events:grooves", ("bar", "groove_id")),
               ("events:holds", ("id", "t", "d", "kind")), ("events:moments", ("rank", "t", "cue_id", "kind", "description")),
               ("events:cues", ("id", "t", "kind", "tier")), ("events:singing", ("t", "d", "character_id", "voice_id")),
-              ("file:meta/voices.json", ("voices",)), ("file:meaning/orphans.json", ("orphans",)), ("events:visemes", ("t",))],
+              ("file:meta/voices.json", ("voices",)), ("file:meaning/orphans.json", ("orphans",)), ("events:visemes", ("t",)),
+              ("file:meta/drums.json", ("kick_source", "agreement")), ("events:drum_hits", ("t", "drum")), ("events:hits.kick", ("t",))],
     "viewer": [("curve:*", ()), ("matrix:spectrum128", ()), ("events:*", ()), ("file:lyrics/lyrics.json", ("lines", "words")),
-               ("file:meaning/meaning.json", ("sections", "characters", "do_not")), ("audio:preview", ()), ("audio:{stem}", ())],
+               ("file:meaning/meaning.json", ("sections", "characters", "do_not")), ("audio:preview", ()), ("audio:{stem}", ()),
+               ("file:meta/drums.json", ("kick_source",))],
     "frames": [("curve:*", ()), ("events:*", ())],
 }
 

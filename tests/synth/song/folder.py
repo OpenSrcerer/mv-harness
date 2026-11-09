@@ -1870,26 +1870,33 @@ def build_folder(out_dir: Path, *, log=print) -> dict[str, Any]:
 # ================================================================================================ meaning
 INTENT_MD = """# What this song means to me (meaning/intent.md)
 
-<!-- Synthetic fixture: an example of the user's answers to meaning/interview.md. Invented for tests. -->
+<!-- Synthetic fixture: an example of the user's answers to meaning/interview.md. Invented for tests.
+     UD1: the template below is the only source of fields and do-not rules; the prose around it is the user's notes. -->
 
 ## The story
-Two figures keep a harbour town lit through one long night. The Lamplighter (the low voice, V1) walks the river
-with paper lanterns; the Tide (the high voice, V2) answers him from the water. In the choruses they finally sing
+Two figures keep a harbour town lit through one long night. The Lamplighter (the low voice) walks the river
+with paper lanterns; the Tide (the high voice) answers him from the water. In the choruses they finally sing
 together. The silence before the drop is the moment the last lantern goes out - and then the whole harbour lights up.
 
-## Characters
-- C1 The Lamplighter = voice V1 (the low voice). Lead.
-- C2 The Tide = voice V2 (the high voice). Answers in the verse, harmony in the choruses.
+## My answers
+```yaml
+# mvh-intent v2
+logline: "Two figures keep a harbour town lit through one long night."
+characters:
+  C1: {name: "The Lamplighter", description: "the low voice", voices: [V1], lead_backing: lead}
+  C2: {name: "The Tide", description: "the high voice; answers in the verse, harmony in the choruses", voices: [V2], lead_backing: backing}
+palette: [night blue, lantern amber, harbour blue, rust red, paper white]
+do_not:
+  - "Never show fire burning a person or a boat."
+  - "No text on screen except the lyrics."
+sections:
+  intro: "slow drift over dark water"
+  verse: "call and response, cut between the two characters on each line"
+  build: "everything tightens and speeds up; the 3/4 bar is a stumble"
+  drop: "wide shots, every lantern at once"
+```
 
-## Look and feel
-- Palette: night blue, lantern amber, harbour blue, rust red, paper white.
-- Intro: slow drift over dark water. Verse: call and response, cut between the two characters on each line.
-- Build: everything tightens and speeds up; the 3/4 bar is a stumble.
-- Drop: wide shots, every lantern at once.
-
-## Never show
-- Never show fire burning a person or a boat.
-- No text on screen except the lyrics.
+The 3/4 bar in the build should feel like a stumble, not a mistake.
 """
 
 

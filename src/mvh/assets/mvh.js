@@ -1,4 +1,4 @@
-/* mvh.js - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.2).
+/* mvh.js - loader and helpers for an mv-harness song folder (contract v1.0.0-rc.3).
  *
  * ES module, no dependencies. Works in browsers (fetch), Node (loadSync / fs) and Remotion (call
  * `await load(...)` / `await song.ensure(...)` first; afterwards every helper is synchronous).
@@ -13,8 +13,8 @@
  * fps is a number (taken literally) or [num, den] (e.g. [24000, 1001]). Helpers never return NaN.
  */
 
-export const VERSION = '1.0.0-rc.2';
-export const CONTRACT_VERSION = '1.0.0-rc.2';
+export const VERSION = '1.0.0-rc.3';
+export const CONTRACT_VERSION = '1.0.0-rc.3';
 export const EPS = 1e-9;
 export const POLICIES = Object.freeze(['linear', 'mean', 'max', 'hold']);
 export const CURVE_RATE_HZ = 100;
@@ -651,6 +651,7 @@ export const HELPER_NEEDS = Object.freeze({
   meaningAt: ['events:sections', 'meaning'],
   spectrumAt: ['curves:spectrum128'], spectrumWindow: ['curves:spectrum128'],
   vizState: ['curves:core', 'curves:spectrum128', 'events:onsets.bass', 'events:onsets.mid', 'events:onsets.high'],
+  kicks: ['events:drum_hits', 'events:hits.kick'],
 });
 const SNAKE = { beat_pos: 'beatPos', beat_phase: 'beatPhase', bar_phase: 'barPhase', lyric_at: 'lyricAt', vocal_at: 'vocalAt',
   singer_at: 'singerAt', meaning_at: 'meaningAt', spectrum_at: 'spectrumAt', spectrum_window: 'spectrumWindow', viz_state: 'vizState' };
@@ -693,6 +694,21 @@ export class Events {
 }
 
 const EMPTY_EVENTS = (name) => new Events(name, { items: [] }, false);
+
+/** Kick items of the agent-facing source (D79): {t, vel, conf, source}; drums = drum_hits drum=kick, mix = hits.kick
+ * (vel = the hit envelope value env, conf = kick_conf). */
+export function kickItems(source, items) {
+  const out = [];
+  for (const it of items || []) {
+    if (source === 'drums') {
+      if (it.drum !== 'kick') continue;
+      out.push({ t: +it.t, vel: clamp(+(it.vel ?? 1), 0, 1), conf: clamp(+(it.conf ?? 1), 0, 1), source: 'drums' });
+    } else {
+      out.push({ t: +it.t, vel: clamp(+(it.env ?? 1), 0, 1), conf: clamp(+(it.kick_conf ?? 0.5), 0, 1), source: 'mix' });
+    }
+  }
+  return out;
+}
 
 // ============================================================================================ Song
 export class Song {
@@ -767,6 +783,7 @@ export class Song {
       if (!need) throw new RangeError(`mvh: unknown helper '${h}'`);
       return need;
     }
+    if (s === 'kick' || s === 'events:kick') return [`events:${this._kickEventsName()}`];
     if (s.startsWith('curves:') || s.startsWith('events:') || s in JSON_FILES) return [s];
     if (s in this.index.files) return [`curves:${s}`];
     if (this._chan.has(s)) return [`curves:${this._chan.get(s).file}`];
@@ -824,6 +841,7 @@ export class Song {
 
   // ------------------------------------------------------------------ events
   events(name) {
+    if (name === 'kick') return this.kicks();
     let e = this._events.get(name);
     if (e) return e;
     const env = this._get(`events:${name}`);
@@ -833,6 +851,28 @@ export class Song {
   }
 
   get beats() { return this.events('beats').items; }
+
+  // ------------------------------------------------------------------ kick (D79, user decision UD2)
+  /** The agent-facing kick timeline: 'drums' (events/drum_hits, drum = kick: the quality-gated DrumSep kick stem) or
+   * 'mix' (events/hits.kick, the fallback, lower quality). manifest summary.kick_source; older folders: drums when
+   * drum_hits is listed. */
+  get kickSource() {
+    const ks = this.manifest.summary && this.manifest.summary.kick_source;
+    if (ks === 'drums' || ks === 'mix') return ks;
+    return this.eventNames.includes('drum_hits') ? 'drums' : 'mix';
+  }
+  _kickEventsName() { return this.kickSource === 'drums' ? 'drum_hits' : 'hits.kick'; }
+  /** The kicks agents cut on, from kickSource: Events of {t, vel, conf, source}. song.events('kick') and
+   * song.pulse('kick', t) use it too. */
+  kicks() {
+    let e = this._events.get('#kick');
+    if (e) return e;
+    const src = this.events(this._kickEventsName());
+    e = new Events('kick', { kind: 'event', items: kickItems(this.kickSource, src.items),
+      provenance: { kick_source: this.kickSource, from: src.name } }, src.exists);
+    this._events.set('#kick', e);
+    return e;
+  }
 
   // ------------------------------------------------------------------ frames
   frameCount(fr) { return frameCount(this.duration, fr); }

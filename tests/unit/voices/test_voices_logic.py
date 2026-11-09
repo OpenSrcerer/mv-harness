@@ -19,23 +19,28 @@ def test_parse_intent_fixture():
 
 
 def test_parse_intent_forms():
+    """UD1 (D78): the voices stage reads intent.md through the meaning stage's parser: the template only."""
     txt = """<!-- C9 is a comment and must not count -->
-## Characters
+## Our notes
+Free text never maps or counts: C5 is V1, voices: 7, L001: C2.
+
+characters:
 - C1 Newton (voice V2)
 - C2 Nye = voice V1
 - C3 The announcer
-voices: 4
-## Singers per line
-L007: V3
-L012 = C1+C2
-V4 -> C3
+voices:
+- V4 -> C3
+line_singers:
+  L012: C1+C2
 """
     it = parse_intent(txt)
-    assert it["n_characters"] == 3 and it["n_voices"] == 4
+    assert it["n_characters"] == 3 and it["n_voices"] is None
     assert it["voice_to_character"] == {"V1": "C2", "V2": "C1", "V4": "C3"}
-    assert it["line_voice"] == {"L007": "V3"} and it["line_characters"] == {"L012": ["C1", "C2"]}
+    assert it["line_voice"] == {} and it["line_characters"] == {"L012": ["C1", "C2"]}
+    assert parse_intent("voices: 4\n")["n_voices"] == 4
     assert parse_intent(None)["n_characters"] is None
-    assert parse_intent("## Characters\n- the girl\n- the boy\n")["n_characters"] == 2
+    # free text (a markdown list of people) is the user's notes, not a character count
+    assert parse_intent("## Characters\n- the girl\n- the boy\n")["n_characters"] is None
 
 
 def _blobs(sizes, dim=64, spread=0.25, seed=0):

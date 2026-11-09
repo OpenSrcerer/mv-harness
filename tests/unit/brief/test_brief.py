@@ -145,6 +145,23 @@ def test_pending_and_orphans_lines():
     assert "meaning:orphans=1" in text and "**Warning**" in text
 
 
+def test_user_notes_and_the_obey_line_ud1(synth_run):
+    """UD1 (D78): the user's free text reaches brief.md verbatim as notes (direction, never rules), the do-not line names
+    the template as the only source of rules, and the brief says where anything that must be obeyed goes."""
+    dr, _song = synth_run
+    text = _brief(dr)
+    assert "User notes (2, user-authored" in text and '"## The story Two figures keep a harbour town lit' in text
+    assert "Do not (the user's words, from the intent template: the only hard rules)" in text
+    assert "Anything that must be obeyed goes in the template of meaning/intent.md (do_not)" in text
+    d = _fake(4, False)
+    long_note = " ".join(f"w{i}" for i in range(300))
+    d["meaning"] = {"status": "user", "characters": [], "sections": [], "notes": [long_note, "second note"],
+                    "field_sources": {"notes": "user"}}
+    t2, info = render_brief(d)
+    assert '"w0 w1' in t2 and "w119 ..." in t2 and "w120" not in t2 and "- ... 1 more" in t2
+    assert info["tokens"] <= MAX_TOKENS
+
+
 REAL = ("megafauna", "versatile", "jeremy", "newton-vs-nye")
 
 

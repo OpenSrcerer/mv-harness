@@ -179,6 +179,25 @@ def phrases(midi: np.ndarray, gap_s: float = 0.45, min_s: float = 0.3) -> list[t
     return [(a, b) for a, b in out if (b - a) / RATE >= min_s]
 
 
+def energy_phrase_mask(voiced: np.ndarray, energy: np.ndarray, line_spans: Sequence[tuple[int, int]],
+                       min_share: float = 0.5, min_frames: int = 30) -> tuple[np.ndarray, int]:
+    """Phrase material (W4A-VOCPHR): the voiced frames, plus, inside each aligned lyric line (frame span) whose stem-energy
+    frames (``energy``: lead stem active and loud) are less than ``min_share`` pitched, those energy frames. A line with
+    < ``min_frames`` energy frames adds nothing. Returns (mask, frames added)."""
+    v = np.asarray(voiced, bool)
+    mask = v.copy()
+    en = np.asarray(energy, bool)
+    added = 0
+    for a, b in line_spans:
+        e = en[a:b]
+        if int(e.sum()) < min_frames:
+            continue
+        if float((v[a:b] & e).sum()) / float(e.sum()) < min_share:
+            added += int((e & ~mask[a:b]).sum())
+            mask[a:b] |= e
+    return mask, added
+
+
 REGISTERS_MALE = ((50.0, "bass"), (58.0, "baritone"), (999.0, "tenor"))
 REGISTERS_FEMALE = ((64.0, "alto"), (69.0, "mezzo"), (999.0, "soprano"))
 

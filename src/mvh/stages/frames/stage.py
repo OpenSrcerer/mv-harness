@@ -79,6 +79,14 @@ def run(ctx) -> StageResult:
         ev["singing"] = src.events("singing")
         ev["cues"] = src.events("cues")
         ev["hit_points"] = src.events("hit_points")
+        if "kick" in ev_names:
+            from mvh.contract.conventions import kick_items
+
+            ks = (src.json("meta/drums.json") or {}).get("kick_source")
+            drum_rows = src.events("drum_hits") or []
+            if ks not in ("drums", "mix"):
+                ks = "drums" if any(x.get("drum") == "kick" for x in drum_rows) else "mix"
+            ev["kick"] = kick_items(ks, drum_rows if ks == "drums" else (src.events("hits.kick") or []))
         lyr = src.json("lyrics/lyrics.json")
         ev["lines"] = [{k: v for k, v in ln.items() if k in ("id", "t", "d")} for ln in (lyr or {}).get("lines") or []] if lyr else None
     files = []

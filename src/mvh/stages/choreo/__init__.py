@@ -36,12 +36,19 @@ STAGE = StageSpec(
     "choreo",
     ('rhythm', 'structure', 'drums', 'spectral', 'vocals', 'harmony', 'dynamics'),
     "main",
-    "1.1.0",
+    "1.3.1",
     override_keys=(),
     outputs=catalog_outputs("choreo"),
     params={'hit_window_s': 0.03, 'vocal_window_s': 0.06, 'min_hold_vocal_s': 0.7, 'hit_point_min_kinds': 3,
             'groove_similarity': 0.75, 'groove_hat_weight': 0.25, 'groove_hat_min_vel': 0.3,
-            'groove_near_credit': 0.5, 'accent_release_s': 0.12},
+            'groove_near_credit': 0.5, 'accent_release_s': 0.12,
+            # W4A-S17 noisy-kit consolidation (consolidate_grooves)
+            'groove_noise_singletons': 0.2, 'groove_min_bars': 3, 'groove_absorb_similarity': 0.6, 'groove_absorb_min_vel': 0.3,
+            # W4V-KICKCURVE-CHOREO (UD2.1/2.2): under kick_source = mix the kick rows come from hits.kick, velocity =
+            # strength / the song's p98 strength, clipped to [floor, 1] (the drums.kick curve uses the same scale)
+            'mix_kick_vel_floor': 0.2,
+            # a bar is a groove bar only with at least one hit this strong (W4 round 2: bleed-level hits in an a cappella)
+            'groove_min_hit_vel': 0.15},
     module="M2",
     description='Eight-counts per phrase/section with accents, grooves, hit points, holds, movement density; tables/*.csv.',
 )
@@ -114,6 +121,85 @@ def _lhl_sum(on: list[bool], w: list[int]) -> float:
     return s
 
 
+def _groove_vec(pat: dict[str, list[float]], vmin: float, hat_w: float) -> np.ndarray:
+    """Velocity-weighted, +-1-step blurred onset vector (kick / snare hits below ``vmin`` dropped, hat / perc x ``hat_w``)."""
+    out = []
+    for r in ROWS:
+        v = np.asarray(pat[r], float)
+        if r in ("kick", "snare"):
+            v = np.where(v >= vmin, v, 0.0)
+        b = v + 0.5 * np.r_[v[1:], 0.0] + 0.5 * np.r_[0.0, v[:-1]]
+        out.append((1.0 if r in ("kick", "snare") else hat_w) * b)
+    return np.concatenate(out)
+
+
+def consolidate_grooves(rows: list[dict[str, Any]], sections: list[dict[str, Any]], p) -> dict[str, Any]:
+    """W4A-S17: on a noisy kit transcription (a share of one-bar grooves >= ``groove_noise_singletons``) the exact-step
+    clustering gives nearly one groove per bar. Then every groove used by fewer than ``groove_min_bars`` bars joins the
+    groove of its own repeat group (sections of the same material) whose mean velocity-weighted, blurred pattern is the
+    most similar, when that cosine is >= ``groove_absorb_similarity``. Clean kits (the synthetic song: 15 % one-bar
+    grooves, its fills are real) are left as they are. Mutates the rows' ``groove_id``; returns a report."""
+    from collections import Counter
+
+    cnt = Counter(g["groove_id"] for g in rows)
+    share = sum(1 for v in cnt.values() if v == 1) / max(1, len(rows))
+    rep: dict[str, Any] = {"singleton_share": round(share, 3), "threshold": float(p.get("groove_noise_singletons", 0.2)),
+                           "applied": False, "merged": 0}
+    if share < rep["threshold"]:
+        return rep
+    vmin = float(p.get("groove_absorb_min_vel", 0.3))
+    hw = float(p.get("groove_hat_weight", 0.25))
+    thr = float(p.get("groove_absorb_similarity", 0.6))
+    min_bars = int(p.get("groove_min_bars", 3))
+    V = [_groove_vec(g["pattern"], vmin, hw) for g in rows]
+
+    def key_of(t: float):
+        for s_ in sections:
+            if s_["t"] - 1e-3 <= t < s_["t"] + s_["d"] - 1e-3:
+                return s_.get("repeat_group") or s_.get("id")
+        return None
+
+    key = [key_of(float(g["t"]) + 0.01) for g in rows]
+
+    def cos(a: np.ndarray, b: np.ndarray) -> float:
+        na, nb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
+        return float(a @ b / (na * nb)) if na > 0 and nb > 0 else 0.0
+
+    merged = 0
+    for _ in range(4 * len(rows)):
+        cl: dict[str, list[int]] = {}
+        for i, g in enumerate(rows):
+            cl.setdefault(g["groove_id"], []).append(i)
+        done = True
+        for c in sorted((c for c, m in cl.items() if len(m) < min_bars), key=lambda c: min(cl[c])):
+            keys = {key[i] for i in cl[c]}
+            cands = [b for b, m in cl.items() if b != c and any(key[i] in keys for i in m)]
+            if not cands:
+                continue
+            mv = np.mean([V[i] for i in cl[c]], axis=0)
+            sims = {b: cos(mv, np.mean([V[i] for i in cl[b] if key[i] in keys], axis=0)) for b in cands}
+            best = max(sorted(sims), key=lambda b: sims[b])
+            if sims[best] >= thr:
+                for i in cl[c]:
+                    rows[i]["groove_id"] = best
+                merged += 1
+                done = False
+                break
+        if done:
+            break
+    rep.update({"applied": True, "merged": merged, "min_bars": min_bars, "similarity": thr, "min_vel": vmin, "within": "repeat_group"})
+    return rep
+
+
+def mix_kick_rows(items: list[dict[str, Any]], floor: float = 0.2) -> list[dict[str, Any]]:
+    """hits.kick events as drum-hit kick rows (W4V-KICKCURVE-CHOREO): vel = strength / p98 strength, clipped to
+    [floor, 1], the scale of the drums stage's drums.kick curve under kick_source = mix."""
+    st = np.array([float(i.get("strength", 1.0)) for i in items], dtype=np.float64)
+    ref = float(np.percentile(st, 98)) if st.size else 1.0
+    return [{"t": float(i["t"]), "drum": "kick", "vel": float(np.clip(v / max(ref, 1e-9), floor, 1.0))}
+            for i, v in zip(items, st)]
+
+
 def own_drum_hits(mono: np.ndarray, sr: int) -> list[dict[str, Any]]:
     """Fallback drum classifier: percussive (HPSS) band onsets of the mix (kick / snare / hat)."""
     import librosa
@@ -177,10 +263,29 @@ def run(ctx) -> StageResult:  # noqa: C901
 
     # ------------------------------------------------------------------ evidence
     hits = _opt(lambda: [{"t": float(h["t"]), "drum": h["drum"], "vel": float(h["vel"])} for h in ctx.events("drum_hits").items])
-    if not hits:
+    # W4A-ACAP: the drums stage ran on a separated drum stem and found nothing: the song has no drums (an a cappella), so
+    # there are no drum rows, grooves or 'drum' hit points; the own mix classifier is only for a missing drums stage
+    # (or one that had no drum stem at all)
+    dmeta = _opt(lambda: ctx.upstream("drums").json("meta/drums.json"), None) or {}
+    stem_path = ((dmeta.get("drums") or {}).get("path")) if isinstance(dmeta, dict) else None
+    no_drums = hits is not None and not hits and stem_path in ("drumsep", "classifier")
+    if no_drums:
+        hits = []
+        notes.append(f"drum hits: none (the drums stage found no hit on the separated drum stem, path {stem_path})")
+    elif not hits:
         hits = own_drum_hits(x, sr)
         fallbacks.append("drums:own_hpss")
         notes.append("drum hits: own HPSS band classifier on the mix (drums stage output unavailable)")
+    kick_source = str(dmeta.get("kick_source") or "drums") if isinstance(dmeta, dict) else "drums"
+    if kick_source == "mix" and "drums:own_hpss" not in fallbacks and not no_drums:
+        mk = _opt(lambda: list(ctx.events("hits.kick").items), None)
+        if mk is not None:
+            n_stem = sum(1 for h in hits if h["drum"] == "kick")
+            hits = [h for h in hits if h["drum"] != "kick"] + mix_kick_rows(mk, float(p.get("mix_kick_vel_floor", 0.2)))
+            notes.append(f"kick rows: {len(mk)} agent kicks from events/hits.kick (meta/drums.json kick_source = mix); "
+                         f"the {n_stem} drum-stem kick hits are not used (UD2)")
+        else:
+            warnings.append("kick_source = mix but events/hits.kick is unavailable: drum-stem kick rows kept")
     hits.sort(key=lambda h: h["t"])
     # cymbals: a cymbal that repeats on the grid (>= 3 within +-2 beats) is a ride (time-keeping, hat row); an isolated
     # one is a crash (accent, perc row, the 'cymbal' hit-point kind). drum_hits only says 'cymbal' (contract enum).
@@ -297,6 +402,7 @@ def run(ctx) -> StageResult:  # noqa: C901
     # ------------------------------------------------------------------ grooves (per bar)
     bar_items = [b for b in bars if b["bar"] >= 1]
     groove_rows = []
+    gmin = float(p.get("groove_min_hit_vel", 0.15))
     for b in bar_items:
         k0 = int(b["first_beat"])
         nbeats = int(b["n_beats"])
@@ -318,8 +424,8 @@ def run(ctx) -> StageResult:  # noqa: C901
             if 0 <= step < min(16, nbeats * 4):
                 row = "hat" if h.get("cym") == "ride" else ROW_OF.get(h["drum"], "perc")
                 pat[row][step] = max(pat[row][step], round(h["vel"], 3))
-                n_hit += 1
-        if n_hit == 0:
+                n_hit += 1 if float(h["vel"]) >= gmin else 0
+        if n_hit == 0:      # empty, or only ghost-level hits (bleed: an a cappella's 0.04 / 0.1 'hats'): no groove bar
             continue
         sw = 1.0
         # per beat: the off-beat hit nearest to the '&' (0.42..0.72 of the beat); straight 16ths keep 0.5
@@ -377,6 +483,21 @@ def run(ctx) -> StageResult:  # noqa: C901
         for r in ROWS:
             best["on_sum"][r] = best["on_sum"][r] + on[r]
         g["groove_id"] = best["id"]
+    consolidation = None
+    if not noisy and groove_rows:
+        consolidation = consolidate_grooves(groove_rows, sections, p)
+        if consolidation["applied"]:
+            # rebuild the prototypes from the consolidated ids, numbered again in order of first use
+            order: dict[str, str] = {}
+            for g in groove_rows:
+                order.setdefault(g["groove_id"], make_id("groove", len(order) + 1))
+            by: dict[str, dict[str, Any]] = {}
+            for g in groove_rows:
+                g["groove_id"] = order[g["groove_id"]]
+                by.setdefault(g["groove_id"], {"id": g["groove_id"], "members": []})["members"].append(g)
+            protos = list(by.values())
+            notes.append(f"grooves: noisy kit ({consolidation['singleton_share']:.0%} one-bar grooves): one- and two-bar grooves "
+                         f"joined the most similar groove of their repeat group ({consolidation['merged']} merges)")
     groove_meta = []
     for pr in protos:
         mem = pr["members"]
@@ -533,8 +654,12 @@ def run(ctx) -> StageResult:  # noqa: C901
     w.events("grooves", groove_items)
     w.events("hit_points", hit_points)
     w.events("holds", holds)
-    w.json("meta/grooves.json", {"grooves": groove_meta, "source": "drum_hits" if "drums:own_hpss" not in fallbacks else "own_hpss",
-                                 "dominant": max(groove_meta, key=lambda g: g["n_bars"])["id"] if groove_meta else None})
+    gdoc: dict[str, Any] = {"grooves": groove_meta, "source": "drum_hits" if "drums:own_hpss" not in fallbacks else "own_hpss",
+                            "dominant": max(groove_meta, key=lambda g: g["n_bars"])["id"] if groove_meta else None}
+    if consolidation is not None:
+        gdoc["consolidation"] = consolidation      # additive (W4A-S17)
+    gdoc["kick_rows"] = "hits.kick" if any(nt.startswith("kick rows: ") for nt in notes) else "drum_hits"  # additive (W4V)
+    w.json("meta/grooves.json", gdoc)
     beat_rows = []
     for i, b in enumerate(beats):
         s, ph = sec_of[i], phr_of[i]

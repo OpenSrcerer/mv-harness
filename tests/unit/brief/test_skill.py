@@ -62,6 +62,8 @@ def test_recipes_only_use_real_helpers():
 def test_recipes_name_real_events_and_channels():
     text = _read(SKILL / "SKILL.md") + _read(SKILL / "references" / "RECIPES.md")
     for name in set(re.findall(r"events\('([\w.]+)'\)", text)) | set(re.findall(r"pulse\('([\w.]+)'", text)):
+        if name == "kick":
+            continue  # D79: the lib's alias for song.kicks() (the agent-facing kick source), not an events file
         catalog.event_def(name)  # raises KeyError for an unknown events name
     for cid in set(re.findall(r"curve\('([\w.]+)'\)", text)) | set(re.findall(r'curve\("([\w.]+)"\)', text)):
         assert registry.match_channel(cid) is not None, cid

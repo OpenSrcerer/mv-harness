@@ -21,6 +21,9 @@ with a lowercase template key as the unfenced template. A free-text answer such 
 rust red`` followed by section notes (``chorus: ...``) parses as YAML: ``#f2a541, rust red`` becomes a YAML comment
 (two of three colours lost) and the section notes are unknown YAML keys (dropped). No warning. The same file with
 ``Logline:`` capitalised keeps all of it (free text).
+
+UD1 (W4, user decision): the interview template is the only source of fields and do-not rules; free text is the
+user's notes, kept verbatim, never parsed. N1 and N3 stand as written; N2 and N4 are restated under that rule.
 """
 from __future__ import annotations
 
@@ -74,25 +77,26 @@ def test_untouched_template_of_a_real_instrumental_fixture_is_not_an_answer(slug
     assert res["meaning"]["status"] == "pending", f"real-{slug}: untouched template -> status {res['meaning']['status']!r}"
 
 
-# ------------------------------------------------------------------------------------------------ N2
-def test_bold_never_show_label_from_the_interview_is_a_rule_not_a_feel():
-    # the interview prints the question as '**Never show**: ...'; the user mirrors that label
-    o = parse_intent("**Never show**\n- Chorus: never show the singers' faces.\n")
-    feels = [(s["key"], s["feel"]) for s in o["sections"]]
-    assert o["do_not"], "the user's Never-show rule was not recognised as a do_not rule"
-    assert not feels, f"the prohibition became a section feel: {feels}"
+# ------------------------------------------------------------------------------------------------ N2 (UD1)
+# Rewritten by ud1-meaning (W4, user decision UD1). N2 asked that a prohibition never become a section feel or the
+# logline. Under UD1 free text is never parsed at all: the answer is kept verbatim as the user's note, it is not a
+# do-not rule (only the template's do_not is), and the meaning stage asks the user to move it into the template.
+@pytest.mark.parametrize("text", [
+    "**Never show**\n- Chorus: never show the singers' faces.\n",
+    "Never show: the singers' faces in the chorus.\n",
+    "## Don'ts\n- Chorus: never show the singers' faces.\n",
+])
+def test_never_show_answer_in_free_text_is_a_note_never_a_feel_or_logline(text):
+    o = parse_intent(text)
+    assert o["notes"] == [text.strip()], o["notes"]
+    assert o["do_not"] == [] and o["sections"] == [] and o["logline"] is None and o["summary"] is None
+    m = build(source(), text, None, {})["meaning"]
+    assert any("never obeyed as a rule" in q for q in m["open_questions"]), m["open_questions"]
 
 
-def test_single_line_never_show_answer_is_a_rule_not_the_logline():
-    o = parse_intent("Never show: the singers' faces in the chorus.\n")
-    assert o["do_not"], "a 'Never show: ...' answer was not recognised as a do_not rule"
-    assert not (o["logline"] or "").lower().startswith("never show"), "the prohibition became the user's logline"
-
-
-def test_donts_heading_is_a_do_not_block():
-    o = parse_intent("## Don'ts\n- Chorus: never show the singers' faces.\n")
-    assert o["do_not"] and not o["sections"], (
-        f"'## Don'ts' is not read as a do-not block: do_not={len(o['do_not'])}, feels={[s['key'] for s in o['sections']]}")
+def test_never_show_answer_in_the_template_is_a_rule_not_a_feel():
+    o = parse_intent("do_not:\n  - \"Chorus: never show the singers' faces.\"\n")
+    assert o["do_not"] == ["Chorus: never show the singers' faces."] and o["sections"] == [] and not o["notes"]
 
 
 # ------------------------------------------------------------------------------------------------ N3
@@ -116,20 +120,20 @@ def test_unfenced_template_followed_by_a_markdown_note_keeps_the_template_answer
     assert not comment_feels, f"template comments became the user's feel for {len(comment_feels)} section(s)"
 
 
-# ------------------------------------------------------------------------------------------------ N4
+# ------------------------------------------------------------------------------------------------ N4 (UD1)
 FREE = ("logline: two lovers on opposite banks\n"
         "palette: night blue, #f2a541, rust red\n"
         "chorus: lanterns rise over the water\n"
         "drop: strobes and white light\n")
 
 
-def test_lowercase_free_text_answers_are_not_lost_as_yaml():
-    cap = parse_intent(FREE.replace("logline:", "Logline:", 1))  # same answers, read as free text
+def test_lowercase_template_keys_keep_every_answer():
+    """Rewritten for UD1: ``logline:`` / ``palette:`` (column 0, lower case) are the unfenced template and keep all three
+    colours; ``chorus:`` / ``drop:`` are not template keys, so those lines are free text, kept verbatim as one note
+    (never section feels, never lost). The capitalised ``Logline:`` line is free text too."""
     low = parse_intent(FREE)
-    assert len(cap["palette"]) == 3 and {s["key"] for s in cap["sections"]} == {"chorus", "drop"}  # control
-    lost = []
-    if len(low["palette"]) < 3:
-        lost.append(f"palette {len(low['palette'])}/3 colours")
-    if {s["key"] for s in low["sections"]} != {"chorus", "drop"}:
-        lost.append(f"section notes {sorted(s['key'] for s in low['sections'])}")
-    assert not lost or low["warnings"], f"answers silently lost when the first key is lowercase: {lost}"
+    assert low["logline"] == "two lovers on opposite banks" and len(low["palette"]) == 3, low
+    assert low["notes"] == ["chorus: lanterns rise over the water\ndrop: strobes and white light"] and not low["sections"]
+    cap = parse_intent(FREE.replace("logline:", "Logline:", 1))
+    assert cap["logline"] is None and cap["notes"][0] == "Logline: two lovers on opposite banks"
+    assert len(cap["palette"]) == 3  # 'palette:' still starts a template region

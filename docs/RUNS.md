@@ -28,6 +28,7 @@ In Windows PowerShell 5.1 never add `2>&1` to a native command (it turns stderr 
 | `mvh view <folder>` | Serves `viewer.html` on 127.0.0.1 with a token; edit mode writes `overrides.json` and the managed block of `meaning/intent.md`, and can start a re-run. `viewer.html` also opens read-only from file://. |
 | `mvh brief <folder> [--section S05]` | Prints brief.md, or a <= 1.5k-token zoom of one section. |
 | `mvh frames <folder> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` | One row per video frame (`frames/24fps.csv`, `frames/24_f1fps.csv` with `--frame0 1`). |
+| `mvh pack <folder> <dest>` | Copies what a web page or a video project loads (manifest, brief, lib/, curves/, events/, meta/, lyrics/, meaning/, lipsync/, notes/, tables/, artwork/, audio/) to `dest`: no stems/, .cache/ or viewer.html (`--with-stems`, `--with-viewer` add them). Section 8. |
 | `mvh meaning <folder>` | Re-merges `intent.md` + `authored.json`, re-anchors claims to the current sections, refreshes singing / lines / brief. |
 | `mvh models fetch\|verify\|list` | The pinned models of `models.lock.json`. |
 | `mvh doctor` | Environment check. |
@@ -155,7 +156,22 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
   seconds (all cache hits) and re-finalises the folder. Code changes are NOT in the key: after editing a stage's code,
   bump its version or use `--force <stage>` (or `--from <stage>` for it and everything downstream).
 - **`--only a,b`** runs just those stages; their dependencies must be cached and current, otherwise the runner says
-  which upstream is stale and runs nothing for that stage.
+  which upstream is stale and runs nothing for that stage. Stages a run leaves stale or not run keep their previous
+  files in the folder, curves included (W4D-1); `manifest.files` keeps listing those files (W4VP-1),
+  `status.stages` marks the stages stale / pending / failed and a manifest warning names them
+  (`outputs and curves of stages not current in this run kept from their previous run: ...`).
+- **Moving or renaming the song file (W4P-1).** The ingest key hashes the file's bytes, not its name or path. A
+  renamed or moved file with the same bytes is a cache hit (`mvh analyze "<new path>" --out <folder>` also records
+  the new path for later re-runs). If the recorded file is gone, `mvh analyze <folder>` reuses the cached canonical
+  audio and warns; only a run that must decode the song again (`--force ingest`, a new ingest version) fails, with the
+  relink command `mvh analyze "<new path>" --out <folder>`. `meta/source.json file_name` keeps the name of the first
+  analysis.
+- **One run per folder (W4P-2).** `mvh analyze`, `mvh meaning`, `mvh frames` and the viewer's Re-run take
+  `<folder>/.cache/song.lock`; a second run on the same folder prints `another mvh run is working on this song folder
+  ... waiting` and starts when the first ends. A lock whose process died, or whose pid now belongs to a process
+  that started after the lock was written (a pid reused after a power cut or reboot), is removed by the next run.
+  `MVH_SONG_LOCK_TIMEOUT=<seconds>` bounds the wait (every verb, `mvh analyze`, `mvh meaning`, `mvh frames`, then
+  exits 75 with one message).
 - **Corrections (R19).** Open `mvh view out/<slug>`, switch to edit mode and:
   - move / add / remove section boundaries and relabel sections (`overrides.json structure.boundaries/labels`, anchored by
     time). Edits are applied locally: no boundary the user did not touch moves (D68);
@@ -185,7 +201,9 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
 | Separation falls back to CPU | ROCm venv missing or failing; `mvh doctor` shows why; `run.json` records `variant`. |
 | Lyrics grade D, `lyrics:lrclib_offline` | Offline run without a cached LRCLIB answer: run online once, or pass `--lyrics`. |
 | identity `identity:offline` | MusicBrainz unreachable: tags only, no credits. |
-| A file is open in another program | The runner warns (`stale ... is open in another program; not removed`) and continues; close it and re-run. |
+| A file is open in another program | The runner warns (`... is open in another program; the song folder keeps its previous version`, or `stale ... not removed`) and continues; curves/index.json keeps the held curve file's previous entries, so the folder stays consistent. Close the program and re-run. |
+| `ingest needs its input file ..., which is missing` | The song file moved and ingest had to run again: `mvh analyze "<new path>" --out <folder>` (same bytes: nothing else re-runs). |
+| `another mvh run is working on this song folder` | Two runs on one folder (e.g. the viewer's Re-run and a terminal): the second waits. If no mvh process is running, the lock is stale and is removed automatically. |
 | Power cut / crash mid-run | Re-run the same command: finished stages are cache hits; stale locks clear themselves. |
 | `viewer.html` shows an error banner | Lane errors are listed in the banner; the data files are intact. Re-run `--force viewer` after fixing the input. |
 | Two runs differ | Expected only for `drumsep_device: "auto"`; with defaults every file but run.json and `.cache` is byte-identical (gate step "determinism"). |
@@ -212,3 +230,18 @@ important ones in its status line.
 | Notes | `degraded:notes`, `fallback:piano:basic_pitch` (piano transcribed by basic-pitch). | Piano notes are approximate. |
 | Manifest size | `manifest:stage_summaries_trimmed` on every real song (the manifest sits at about 2.75-2.85k of its 3k-token cap). | Read the per-stage files for details. |
 | Model licences | run.json `licences`: five separation models are still recorded as unclear or unverified. | Check them before publishing a video commercially. |
+
+## 8. Using a song folder in a page or video project
+
+- **Serve it over HTTP with Range support.** `load('song/')` (lib/mvh.js) fetches the files, so a page opened from
+  `file://` cannot load a song (viewer.html is the exception: it inlines its data). The server must honour HTTP
+  `Range` requests, or the browser cannot seek in `audio/mix.flac`: `audio.currentTime = 84` silently stays at 0.
+  Python's `python -m http.server` has no Range support; `npx http-server`, `npx serve`, Vite, Remotion's dev server
+  and nginx do. `mvh view <folder>` serves the viewer itself (with Range) on 127.0.0.1.
+- **Ship only what a page loads.** A song folder is 1-2.5 GB, mostly `stems/` and `.cache/`; a page needs about 7 MB of
+  data plus `audio/mix.flac`. `mvh pack out/<slug> my-site/public/song` copies manifest.json, brief.md, lib/,
+  curves/, events/, meta/, lyrics/, meaning/, lipsync/, notes/, tables/, artwork/, schema/ and audio/ (mix.flac,
+  preview.opus) and never stems/, .cache/ or viewer.html (`--with-stems` / `--with-viewer` add them). The manifest
+  still lists the stems; a page that asks for one gets a 404. Re-pack after every re-run.
+- Lyric text is in lyrics/ and meaning/; with `--no-lyrics-to-agents` analyze keeps it out of the agent-facing files,
+  but lyrics/ still holds it: leave lyrics/ out of a public bundle if the text must not be published.

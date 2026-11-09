@@ -158,3 +158,10 @@ test('texture: wrapped layout, texels, sampling equals curve.at', () => {
 test('spectrum rows', () => {
   for (const [t, s, rows] of G.spectrum_rows.cases) assert.deepEqual(mvh.spectrumRows(t, s, G.spectrum_rows.n_frames), rows);
 });
+
+test('kick: kickItems of both sources and pulse over them (D79)', () => {
+  const K = G.kick;
+  assert.deepEqual(mvh.kickItems('drums', K.drum_hits), K.drums);
+  assert.deepEqual(mvh.kickItems('mix', K.hits_kick), K.mix);
+  for (const [src, t, kw, y] of K.pulse) close(mvh.pulse(t, K[src], null, kw), y, `kick pulse ${src} ${t} ${JSON.stringify(kw)}`);
+});

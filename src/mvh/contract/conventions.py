@@ -33,7 +33,7 @@ CURVE_RATE_HZ = 100
 __all__ = [
     "EPS", "POLICIES", "CURVE_RATE_HZ", "FrameRule", "frame_rule", "time_of", "frame_centre", "frame_window",
     "frame_of", "frame_count", "n_curve_frames", "samples_in_frame", "lerp_at", "hold_at", "nan_aware_at",
-    "curve_at", "curve_frame", "beat_pos", "beat_phase", "bar_phase", "count_at", "SUB_NAMES",
+    "curve_at", "curve_frame", "beat_pos", "beat_phase", "bar_phase", "count_at", "SUB_NAMES", "kick_items",
     "event_at", "event_all_at", "event_next", "event_prev", "merge_cues", "CUE_KIND_PRIORITY", "event_between", "event_in_frame", "singer_at",
     "texture_layout", "texture_data", "texture_sample", "pulse", "osc", "vocal_at", "flash_samples",
     "iter_frames", "spectrum_rows",
@@ -490,6 +490,25 @@ def _shape(d: float, shape: str) -> float:
     if shape == "smooth":
         return 0.0 if d >= 1 else 1.0 - d * d * (3.0 - 2.0 * d)
     raise ValueError(shape)
+
+
+def kick_items(source: str, items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """D79 (user decision UD2): the agent-facing kick items ``{t, vel, conf, source}`` of a song whose manifest says
+    ``summary.kick_source = source``. ``drums``: the events/drum_hits rows with drum = kick (vel, conf as stored);
+    ``mix``: events/hits.kick (vel = the hit envelope value ``env``, conf = ``kick_conf``, default 0.5). Values are
+    clamped to [0, 1]; missing vel / env read 1, missing conf (drums) 1."""
+    def c01(v: float) -> float:
+        return min(1.0, max(0.0, float(v)))
+
+    out: list[dict[str, Any]] = []
+    for it in items:
+        if source == "drums":
+            if it.get("drum") != "kick":
+                continue
+            out.append({"t": float(it["t"]), "vel": c01(it.get("vel", 1.0)), "conf": c01(it.get("conf", 1.0)), "source": "drums"})
+        else:
+            out.append({"t": float(it["t"]), "vel": c01(it.get("env", 1.0)), "conf": c01(it.get("kick_conf", 0.5)), "source": "mix"})
+    return out
 
 
 def pulse(t: float, items: Sequence[Mapping[str, Any]], beats=None, attack: float = 0.0, decay: float = 0.25,

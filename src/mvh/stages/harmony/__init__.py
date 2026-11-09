@@ -16,12 +16,14 @@ STAGE = StageSpec(
     "harmony",
     ('ingest', 'rhythm'),
     "main",
-    "1.1.0",
+    "1.2.0",
     override_keys=(),
     outputs=catalog_outputs("harmony"),
     params={
         'key_window_s': 30.0, 'key_hop_s': 5.0, 'key_min_region_s': 20.0, 'key_override': '',
         'chord_dict': 'submission', 'snap_max_beat_frac': 0.5, 'hpss_margin': 2.0,
+        # W4V-GAIN (W4-AN-9): chroma and the chord model read the mix scaled to this integrated loudness (null = master)
+        'analysis_lufs': -10.0,
     },
     models=("skey_onnx", "lv_chordia_ismir2019_chordnet"),
     module="M4",
@@ -59,6 +61,11 @@ def run(ctx) -> StageResult:
 
     y = ctx.audio("mix", sr=SR, mono=True).samples
     y = np.asarray(y, np.float32).reshape(-1)
+    from mvh.stages.loudness.level import mix_gain
+
+    a_gain, _, _ = mix_gain(ctx, ctx.params.get("analysis_lufs", -10.0))
+    if a_gain != 1.0:
+        y = (y * np.float32(a_gain)).astype(np.float32)
     beats = list(ctx.events("beats").items)
     bars = list(ctx.events("bars").items)
 

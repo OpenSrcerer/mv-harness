@@ -34,7 +34,8 @@ function frameList(r, cnt, spanS) {
 
 export function dump(song, spec) {
   const T = spec.times;
-  const out = { meta: { duration: song.duration, event_names: [...song.eventNames].sort(), channel_ids: [...song.channelIds].sort() } };
+  const out = { meta: { duration: song.duration, event_names: [...song.eventNames].sort(), channel_ids: [...song.channelIds].sort(),
+    kick_source: song.kickSource, kicks: song.kicks().items.map((k) => [k.t, k.vel, k.conf, k.source]) } };
   out.frame_count = spec.frame_rules.map((fr) => song.frameCount(fr));
   out.curve_at = Object.fromEntries(spec.curve_ids.map((id) => [id, T.map((t) => song.curve(id).at(t))]));
   out.curve_frame = [];

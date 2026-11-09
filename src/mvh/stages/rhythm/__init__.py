@@ -37,12 +37,20 @@ STAGE = StageSpec(
     "rhythm",
     ('ingest', 'allin1', 'spectral'),
     "main",
-    "1.0.0",
+    "1.2.0",
     override_keys=('rhythm.beat_offset_s', 'rhythm.bpm', 'rhythm.downbeat_phase'),
     outputs=catalog_outputs("rhythm"),
     params={'snap_window_s': 0.025, 'tempo_ratios': [1, 2, 0.5, 1.5, 0.6667, 1.3333, 0.75],
             'use_models': True, 'tempo_tolerance': 0.2, 'snap_min_rise_db': 15.0, 'snap_mode': 'nearest', 'meters': [3, 4],
-            'meter_switch_cost': 1.25, 'bar_break_cost': 4.0, 'beat_tol_s': 0.07},
+            'meter_switch_cost': 1.25, 'bar_break_cost': 4.0, 'beat_tol_s': 0.07,
+            'backbeat_half_enter': 1.5, 'backbeat_half_leave': 1.3,
+            # W4V-GAIN-BEATS (W4-AN-9): the trackers and DSP features read the mix scaled to this integrated loudness
+            # (one pure gain; null = the master level), so the grid does not depend on the master level
+            'analysis_lufs': -10.0,
+            # W4V-GAIN-BEATS: tie-break for irregular bars where the evidence is flat (fusion.decode_meter late_bias)
+            'meter_late_bias': 0.25,
+            # W4 verifier N4: a half-time run also needs a beat-3 body in the 150-4000 Hz flux (fusion.backbeat_feel)
+            'backbeat_mid_min': 1.25},
     models=("beat_this", "madmom_downbeats_blstm"),
     module="M2",
     description='Fuse beat_this, allin1 and tempogram/ACF: tempo arbitration, sub-frame beats, tempo grid, meter, pickups, pulse regions, QA.',
@@ -144,6 +152,12 @@ def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline
     sr = int(mix.sr)
     if x.size == 0:
         raise StageError("empty mix")
+    from mvh.stages.loudness.level import mix_gain
+
+    a_gain, a_gain_db, a_lufs = mix_gain(ctx, p.get("analysis_lufs", -10.0))
+    if a_gain != 1.0:
+        x = (x * np.float32(a_gain)).astype(np.float32)
+    notes.append(f"analysis level: mix {a_lufs:.2f} LUFS, gain {a_gain_db:+.2f} dB -> {p.get('analysis_lufs', -10.0)} LUFS")
     duration = x.size / sr
     n = -(-x.size * 100 // sr)
     from .trackers import (
@@ -294,7 +308,8 @@ def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline
     n_voters = max(1, len(tracker_db) + (1 if dacts else 0))
     def _decode(sc):
         return fu.decode_meter(sc, meters=tuple(int(m) for m in p.get("meters", [3, 4])), theta=None,
-                               switch_cost=float(p.get("meter_switch_cost", 1.25)), break_cost=float(p.get("bar_break_cost", 4.0)))
+                               switch_cost=float(p.get("meter_switch_cost", 1.25)), break_cost=float(p.get("bar_break_cost", 4.0)),
+                               late_bias=float(p.get("meter_late_bias", 0.25)))
 
     mp = _decode(score)
     if len(beats) and len(tracker_db) >= 2:
@@ -367,6 +382,13 @@ def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline
 
     # ------------------------------------------------------------------ feel, tempo segments, pulse regions
     feel = fu.feel_labels(beats, {k: v.get("beats") for k, v in trk.items()})
+    # W4A-S18: a half-time backbeat (snare on 3 of 4/4) also makes the feel half_time (the trackers only see tempo levels)
+    bb_half, bb_rep = fu.backbeat_feel(beats, mp.position, mp.meter, in_pulse, feats.get("perc_hi"),
+                                       enter=float(p.get("backbeat_half_enter", 1.5)), leave=float(p.get("backbeat_half_leave", 1.3)),
+                                       flux_mid=feats.get("snare"), mid_min=float(p.get("backbeat_mid_min", 1.25)))
+    if bb_half.any():
+        feel = np.where((feel == "normal") & bb_half, "half_time", feel).astype(object)
+        notes.append(f"feel: half-time backbeat on {int(bb_half.sum())} beats (snare-band ratio beat 3 / beats 2+4 = {bb_rep.get('ratio')})")
     segs = fu.tempo_segments(beats, in_pulse, feel, duration)
     pr = pulse_regions(beats, in_pulse, duration)
     ip_beats = beats[in_pulse]
@@ -456,6 +478,9 @@ def run(ctx) -> StageResult:  # noqa: C901 - one linear pipeline
                          "n_beats": int(len(trk[k]["beats"])) if trk[k].get("beats") is not None else 0} for k in trk},
         "pairwise_beat_f": pair_f,
         "feel_shares": {k: round(v / max(1e-9, duration), 3) for k, v in sorted(dur_feel.items())},
+        "backbeat": bb_rep,
+        "analysis_level": {"mix_lufs": round(float(a_lufs), 2), "gain_db": round(float(a_gain_db), 2),
+                           "target_lufs": p.get("analysis_lufs", -10.0)},
         "pulse": {"in_pulse_share": round(float(sum(r["d"] for r in pr if r["in_pulse"]) / duration), 3),
                   "n_regions": len(pr), "n_virtual_beats": int((~in_pulse).sum())},
         "override_hint": hint,

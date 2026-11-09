@@ -1,12 +1,13 @@
 """R-WORDS round 5, R5-1 (major; regression from the grammar-v2/v3 rewrite).
 
 A field or do-not label written in bold WITH THE COLON INSIDE THE BOLD (``**Story:**``, ``**Never show:**``,
-``**Palette:**``), the most common markdown way to write a label, on a line of its own with the answer below it,
-gives the value ``*``. The label regexes (``_LABEL``, ``_DO_NOT_INLINE``, ``_PALETTE``) end with
-``:\\s*\\**\\s*(\\S.*?)``: the closing ``**`` is split, one ``*`` is eaten by ``\\**`` and the other is taken as the
-value. So the user's logline and summary become ``*`` (at user precedence, first line of brief.md), a do-not rule
-``*`` is copied verbatim to every agent, the palette is ``['*']`` unparsed, and the real answer below the label falls
-to notes or is folded into the story summary. The pre-rewrite parser read ``**Never show:**`` + bullets as rules.
+``**Palette:**``) on a line of its own, with the answer below it, gave the value ``*``: the user's logline became
+``*`` (first line of brief.md), a do-not rule ``*`` was copied to every agent and the real answer fell to notes.
+
+Rewritten by ud1-meaning for user decision UD1 (W4): markdown labels in free text are not parsed at all. The free
+text is the user's notes, verbatim; no field or rule can take a garbled value from it. The finding's intent (never a
+``*`` value, never a lost answer) is checked under that rule, and the template is shown to give the same answers as
+fields and rules.
 
 Synthetic text only (no lyrics).
 """
@@ -22,36 +23,36 @@ STORY = "## The story\nTwo keepers wait for a ship.\n\n"
 
 
 @pytest.mark.parametrize("label", ["**Never show:**", "**Avoid:**", "**Don't:**", "- **Never show:**"])
-def test_bold_colon_do_not_label_lists_its_bullets(label):
+def test_bold_colon_do_not_label_and_its_bullets_are_one_verbatim_note(label):
     body = "\n  - blood\n  - lens flares\n" if label.startswith("- ") else "\n- blood\n- lens flares\n"
     o = parse_intent(STORY + label + body)
-    assert "*" not in o["do_not"], f"'{label}' produced the do-not rule '*' (do_not={o['do_not']})"
-    assert o["do_not"] == ["blood", "lens flares"], (
-        f"'{label}' + bullets: do_not={o['do_not']}, notes={o['notes']}, summary={o['summary']!r}")
+    assert o["do_not"] == [] and "*" not in o["do_not"]
+    assert o["notes"] == [STORY.strip() + "\n\n" + label + body.rstrip("\n")], o["notes"]
 
 
 @pytest.mark.parametrize("label,field", [("**Story:**", "summary"), ("**Setting:**", "setting"), ("**Tone:**", "tone")])
-def test_bold_colon_field_label_takes_the_text_below(label, field):
+def test_bold_colon_field_label_is_a_note_never_a_star_value(label, field):
     text = ("## Intro\n\n" if field != "summary" else "") + f"{label}\nTwo keepers wait for a ship that never returns.\n"
     o = parse_intent(text)
-    assert o[field] != "*", f"'{label}' on its own line gave {field} = '*'"
-    assert o[field] and "Two keepers wait" in o[field], f"{field}={o[field]!r}"
+    assert o[field] is None and o["logline"] is None, f"'{label}' gave {field} = {o[field]!r}"
+    assert any(f"{label}\nTwo keepers wait" in n for n in o["notes"]), o["notes"]
 
 
-def test_bold_colon_palette_label_takes_its_bullets():
+def test_bold_colon_palette_label_is_a_note_and_the_template_palette_is_read():
     o = parse_intent("**Palette:**\n- night blue\n- rust red\n")
-    assert o["palette_unparsed"] != ["*"], "'**Palette:**' gave the unparsed palette item '*'"
-    assert o["palette_names"] == ["night blue", "rust red"], (
-        f"palette={o['palette']} names={o['palette_names']} unparsed={o['palette_unparsed']} notes={o['notes']}")
+    assert o["palette"] == [] and o["palette_unparsed"] == [] and o["notes"] == ["**Palette:**\n- night blue\n- rust red"]
+    t = parse_intent("palette:\n- night blue\n- rust red\n")
+    assert t["palette_names"] == ["night blue", "rust red"] and not t["notes"]
 
 
-def test_bold_colon_story_label_does_not_reach_brief_as_star():
-    """End to end on the synthetic song: the logline the video agent reads first must not be '*'."""
+def test_bold_colon_labels_never_reach_brief_as_star():
+    """End to end on the synthetic song: brief.md never shows a '*' value and carries the user's note."""
     res = build(source(), "**Story:**\nTwo keepers wait for a ship that never returns.\n\n**Never show:**\n- blood\n",
                 None, {})
     m = res["meaning"]
-    assert m["logline"] != "*" and "*" not in (m.get("do_not") or []), (
-        f"meaning.json logline={m['logline']!r} do_not={m.get('do_not')} (field_sources={m.get('field_sources')})")
+    assert m["logline"] != "*" and "*" not in (m.get("do_not") or []), (m["logline"], m.get("do_not"))
+    assert m["field_sources"].get("logline") != "user" and m["do_not"] == []
     brief = brief_for(res)
     bad = [ln for ln in brief.splitlines() if ln.rstrip().endswith(": *") or ln.strip() in ("- *", "* *")]
     assert not bad, f"brief.md carries the '*' value: {bad[:3]}"
+    assert "Two keepers wait" in brief, "the user's note does not reach brief.md"

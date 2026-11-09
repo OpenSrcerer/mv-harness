@@ -16,6 +16,9 @@ R2-3 (major, regression of the F3 fix): ``_looks_like_template`` takes any file 
 lowercase template key for the template. A free-text answer ``palette: night blue, #f2a541, rust red`` then parses
 as YAML: ``#f2a541, rust red`` is a YAML comment (two of three colours lost) and the ``chorus:`` note is an unknown
 key (dropped), with no warning. Before the fix the free-text parser kept all of it.
+
+UD1 (W4): the template is the only source of fields; free text is the user's notes. R2-3's test is restated under
+that rule (nothing lost: the colours through the template's tolerances, the ``chorus:`` line as a note).
 """
 from __future__ import annotations
 
@@ -62,8 +65,14 @@ def test_template_answers_survive_free_text_around_them(variant: str) -> None:
     assert not problems, f"{variant}: " + "; ".join(problems) + f" (intent_form={m['intent_form']}, status={m['status']})"
 
 
-def test_lowercase_palette_line_is_not_taken_for_the_template() -> None:
+def test_lowercase_palette_line_keeps_every_colour_and_the_line_after_it() -> None:
+    """Rewritten for UD1 (W4, ud1-meaning). R2-3 asked that this text lose nothing. Under UD1 a column-0 lower-case
+    template key (``palette:``) IS the unfenced template, and the template's tolerances keep all three colours
+    (``#f2a541`` is a value, not a comment). ``chorus:`` is not a template key, so that line is free text: it is
+    kept verbatim as the user's note and is never turned into a section feel."""
     r = parse_intent("palette: night blue, #f2a541, rust red\nchorus: wide shots, every lantern at once\n")
-    assert len(r["palette"]) == 3 and any(s["key"] == "chorus" for s in r["sections"]), (
-        f"free-text answer read as YAML (form {r['form']!r}): palette {r['palette']}, section notes "
-        f"{[s['key'] for s in r['sections']]}, warnings {r['warnings']}")
+    assert len(r["palette"]) == 3 and not r["palette_unparsed"], (
+        f"palette {r['palette']} unparsed {r['palette_unparsed']} (form {r['form']!r}, warnings {r['warnings']})")
+    assert r["notes"] == ["chorus: wide shots, every lantern at once"] and r["sections"] == [], (
+        f"the free-text line was dropped or parsed: notes {r['notes']}, sections {[s['key'] for s in r['sections']]}")
+    assert not r["warnings"]

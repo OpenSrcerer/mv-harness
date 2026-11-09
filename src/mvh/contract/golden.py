@@ -250,6 +250,18 @@ def build() -> dict:
         for t in (0.4, 0.5, 0.55, 0.75, 0.99, 1.0, 1.05, 1.2, 2.0)
         for kw in ({}, {"attack": 0.1, "decay": 0.2, "shape": "linear"}, {"decay": 0.5, "unit": "beats", "shape": "smooth"})]}
 
+    # 6b. the agent-facing kick (D79, UD2) --------------------------------------------------------------
+    drum_rows = [{"t": 0.5, "drum": "kick", "vel": 0.9, "conf": 0.8}, {"t": 0.5, "drum": "hat", "vel": 0.4, "conf": 0.9},
+                 {"t": 1.0, "drum": "kick", "vel": 1.2, "conf": 1.0}, {"t": 1.25, "drum": "snare", "vel": 0.7, "conf": 1.0},
+                 {"t": 1.5, "drum": "kick", "vel": 0.3, "conf": 0.55}]
+    mix_rows = [{"t": 0.502, "strength": 1.4, "env": 0.95, "kick_conf": 0.9}, {"t": 1.003, "strength": 2.0, "env": 1.0},
+                {"t": 1.26, "strength": 0.4, "env": 0.3, "kick_conf": 0.62}]
+    kd, km = cv.kick_items("drums", drum_rows), cv.kick_items("mix", mix_rows)
+    g["kick"] = {"drum_hits": drum_rows, "hits_kick": mix_rows, "drums": kd, "mix": km,
+                 "pulse": [[src, t, kw, cv.pulse(t, kd if src == "drums" else km, None, **kw)]
+                           for src in ("drums", "mix") for t in (0.5, 0.6, 1.0, 1.1, 1.26, 1.5, 1.7)
+                           for kw in ({}, {"attack": 0.02, "decay": 0.15})]}
+
     # 7. singerAt with three voices --------------------------------------------------------------------
     sg = singing()
     mc = mouth_curves()
@@ -383,6 +395,13 @@ def render_md(g: dict) -> str:
     a("`inFrame(n, fr)` uses `frame_of(item.t) == n`: " + "; ".join(
         f"{_fmt_fr(fr)} n={n} -> {ids}" for fr, n, ids in g["events"]["in_frame"] if ids) + ".\n")
     a("`pulse`: items " + _j(g["pulse"]["items"]) + "; cases are [t, options, value] (defaults attack 0, decay 0.25 s, exp shape).\n")
+
+    a("### Agent-facing kick (`kick`, D79)\n")
+    a("`kickItems(source, items)` maps the file named by the manifest's `summary.kick_source` to {t, vel, conf, source}: "
+      "drums = drum_hits rows with drum = kick (vel, conf as stored, clamped to 0..1); mix = hits.kick (vel = env, "
+      "conf = kick_conf, default 0.5). drum_hits " + _j(g["kick"]["drum_hits"]) + " -> " + _j(g["kick"]["drums"])
+      + "; hits.kick " + _j(g["kick"]["hits_kick"]) + " -> " + _j(g["kick"]["mix"])
+      + ". `pulse` cases [source, t, options, value] are in the JSON (items = the kick items above).\n")
 
     a("## 7. singerAt with three voices (`singer_at`)\n")
     a("Input: " + _j(g["singer_at"]["singing"]) + " and per-voice `vocal.mouth_open.V1..V3` curves (450 samples, in the JSON).\n")

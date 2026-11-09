@@ -26,10 +26,14 @@ song = mvh.load("out/<slug>", fr={"fps": 24, "frame0": 1})
 const c = song.count(t);            // {eight_id, count 1..8, sub 0..3 (1 e & a), phase, accent, partial, lead_in, in_pulse}
 if (c.count !== null) pose = keyPoseFor(c.eight_id, c.count) ; // restart choreography at every phrase/section start
 const hit = song.pulse('hit_points', t, { attack: 0.02, decay: 0.3 });   // 0..1 flash, weighted by strength
-const kick = song.curve('drums.kick').frame(frame, fr);                  // max-pooled: never misses a hit at 24 fps
+const kick = song.pulse('kick', t, { attack: 0.005, decay: 0.15 });    // song.kicks(): THE kick timeline (UD2)
+const kickHere = song.kicks().inFrame(frame, fr).length > 0;           // cut exactly on the frame of a kick
 const hold = song.events('holds').at(t);                                 // {item: {kind: vocal_note|chord|decay|silence}, progress}
 const groove = song.events('grooves').at(t)?.item;                       // per bar: groove_id, swing, syncopation, 16-step pattern
 ```
+- Kicks: always `song.kicks()` / `song.pulse('kick', t)`: one timeline picked per song (`manifest.summary.kick_source`:
+  `drums` = the bleed-gated drum-stem kick, `mix` = `hits.kick`, the lower-quality fallback). Never mix `drum_hits`
+  kicks with `hits.kick`, and never use the raw `drums.kick` stem curve as the kick (on some songs it is hat bleed).
 - `count === null` outside counts; `partial` counts (len 4/6) close a phrase early; `E000` is the 5-6-7-8 lead-in.
 - In `in_pulse: false` regions (silences, rubato intros) the grid is virtual: freeze or drift instead of dancing.
 - Section energy: `song.events('edm_roles').at(t)?.item.role` (build/drop/breakdown), `song.curve('dyn.intensity').at(t)`,
@@ -66,8 +70,12 @@ const cutsHere = song.events('cues').inFrame(frame, fr, { minTier: 3 });   // cu
 const m = song.meaningAt(t);   // {section_id, feel, meaning, emotion {lyric, audio, agree}, palette_hint[], movement_hint,
                                //  camera_hint, characters_present[], do_not[], provenance {source, status}}
 const meaning = await (await fetch('out/<slug>/meaning/meaning.json')).json();   // characters, palette, do_not
-const palette = m.palette_hint.length ? m.palette_hint : meaning.palette;          // hex
+const palette = m.palette_hint.length ? m.palette_hint                              // hex: the section's (user / draft)
+  : meaning.palette.length ? meaning.palette                                       // the song's (user / draft)
+  : song.manifest.summary.palette;                                                 // cover-art palette (meta/source.json)
 ```
+- While the meaning is `pending` (every new song) the only colours are the cover-art palette
+  (`manifest.summary.palette`, also in brief.md): use it as a placeholder and say so to the user; it is not their direction.
 - `provenance.status === 'draft'` means an agent wrote it: keep it, but tell the user.
 - `provenance.status` is per section, so it can say `user` while single fields are the draft's. Read the per-field
   origin from `meaning.json`: `sections[].field_sources` (`{feel: 'user', camera_hint: 'draft', ...}`),
@@ -102,7 +110,18 @@ export const Video = () => {
   return <><Audio src={staticFile('song/audio/mix.flac')} />{/* ...use song.count(t), song.singerAt(t)... */}</>;
 };
 ```
-Copy the song folder to `public/song/`. Everything after `load` is synchronous, so frames render deterministically.
+Copy the web subset of the song folder to `public/song/` (see "Serving a song folder" below). Everything after `load` is
+synchronous, so frames render deterministically.
+
+## Serving a song folder to a browser page
+
+- `load('out/<slug>/')` fetches files: it does not work from `file://`. Serve the folder over HTTP.
+- The server must support HTTP `Range` requests, or seeking the audio fails silently (`audio.currentTime = 84` stays at
+  0 and the clip plays from 0:00). `python -m http.server` has no Range support; dev servers such as Vite's or
+  Remotion's `public/` do.
+- Ship only what a page reads (about 15 MB plus the mix): `manifest.json`, `lib/`, `curves/`, `events/`, `lyrics/`,
+  `lipsync/`, `meaning/`, `meta/`, `tables/` and `audio/mix.flac`. Leave out `stems/` (about 600 MB of separated
+  stems), `.cache/` (stage cache, hundreds of MB) and `viewer.html`; they are for re-runs and the viewer, not for pages.
 
 ## three.js / WebGL
 

@@ -36,3 +36,7 @@ envs/sep/*.log
 
 # stray gate logs at the repo root
 /out_*.log
+
+# agent scratch at the repo root
+/*.pkl
+/*.npy

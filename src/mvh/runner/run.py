@@ -41,7 +41,7 @@ from mvh.io.paths import home, repo_root
 
 from . import locks
 from . import overrides as ovr
-from .cache import SongCache, diff_inputs, env_lock_hash, file_hash, key_of
+from .cache import SongCache, canon, diff_inputs, env_lock_hash, file_hash, key_of
 from .spec import StageSpec, check_dag, load_stage_specs, topo_order
 from .threads import thread_env
 
@@ -116,6 +116,10 @@ class StageState:
 
 
 RUN_SETTINGS = "_run.json"
+#: W4P-1: ``param:`` external inputs keyed on their content only. The song file's name is not part of the
+#: ingest key (meta/source.json still records it), so a rename or move of the same bytes is a cache hit.
+#: (``param:lyrics`` keeps its name in the key: the extension selects the lyrics parser.)
+CONTENT_ONLY_PARAMS = ("input",)
 
 
 def load_run_settings(song_dir: Path) -> dict[str, Any]:
@@ -186,12 +190,69 @@ class Runner:
             else:
                 p = self.s.song_dir / e.path.split("#", 1)[0]
             if p is not None and p.is_file():
-                out[e.name] = (
-                    {"sha256": file_hash(p), "name": p.name} if e.path.startswith("param:") else file_hash(p)
-                )
+                if not e.path.startswith("param:"):
+                    out[e.name] = file_hash(p)
+                elif e.path[6:] in CONTENT_ONLY_PARAMS:
+                    out[e.name] = {"sha256": file_hash(p)}
+                else:
+                    out[e.name] = {"sha256": file_hash(p), "name": p.name}
             else:
                 out[e.name] = None
         return out
+
+    def missing_inputs(self, spec: StageSpec) -> list[tuple[str, str | None]]:
+        """Required ``param:`` inputs of the stage whose file is gone: [(param name, recorded path or None)]."""
+        out = []
+        for e in spec.external_inputs:
+            if e.required and e.path.startswith("param:"):
+                v = self.s.params_ext.get(e.path[6:])
+                if not v or not Path(v).is_file():
+                    out.append((e.path[6:], v))
+        return out
+
+    def relink_hint(self) -> str:
+        return f'mvh analyze "<new path of the song file>" --out "{self.s.song_dir}"'
+
+    def _content_equivalent(
+        self, spec: StageSpec, ki: Mapping[str, Any]
+    ) -> tuple[str, dict[str, Any], dict[str, Any], list[str]] | None:
+        """W4P-1: the stage's latest committed entry when it differs from ``ki`` only in how its content-only
+        inputs are named or located: an older key that also hashed the file name, a renamed or moved file with
+        the same bytes, or a recorded file that no longer exists (its cached result is all the folder has).
+        Returns (pre_key, done record, latest key_inputs, names of the missing inputs)."""
+        names = [
+            e.name for e in spec.external_inputs
+            if e.path.startswith("param:") and e.path[6:] in CONTENT_ONLY_PARAMS
+        ]
+        if not names:
+            return None
+        sc = self.cache.stage(spec.name)
+        lat = sc.latest() or {}
+        old_ki, pre = lat.get("key_inputs"), lat.get("pre_key")
+        if not isinstance(old_ki, dict) or not isinstance(pre, str) or not pre:
+            return None
+        rec = sc.done(pre)
+        if rec is None or self._damaged(sc.dir(pre), rec):
+            return None
+
+        def norm(k: Mapping[str, Any]) -> dict[str, Any]:
+            d = json.loads(canon(k))
+            ext = dict(d.get("external") or {})
+            for n in names:
+                v = ext.get(n)
+                ext[n] = v.get("sha256") if isinstance(v, dict) else v
+            d["external"] = ext
+            return d
+
+        a, b = norm(old_ki), norm(ki)
+        if any(not a["external"].get(n) for n in names):
+            return None
+        missing = [n for n in names if b["external"].get(n) is None]
+        for n in missing:
+            b["external"][n] = a["external"][n]  # the recorded file is gone: its cached result stands in
+        if canon(a) != canon(b):
+            return None
+        return pre, rec, dict(old_ki), missing
 
     def key_inputs(self, spec: StageSpec, upstream_keys: Mapping[str, str]) -> dict[str, Any]:
         from . import models as mdl
@@ -297,6 +358,25 @@ class Runner:
             st.record, st.key = rec, rec.get("key", pre)
             st.status = {"ok": "done"}.get(rec.get("status", "ok"), rec.get("status", "done"))
             st.reason = "cached"
+            return st
+        same = self._content_equivalent(spec, ki)
+        if same is not None:
+            # W4P-1: same bytes under another name or path (or the recorded file is gone): keep the established
+            # entry and key, so nothing downstream re-runs. A forced re-run also keeps this key.
+            pre0, rec0, ki0, missing = same
+            st.pre_key, st.key_inputs = pre0, ki0
+            st.record, st.key = rec0, rec0.get("key", pre0)
+            st.status = {"ok": "done"}.get(rec0.get("status", "ok"), rec0.get("status", "done"))
+            if missing:
+                gone = [Path(v).name if v else "?" for _, v in self.missing_inputs(spec)]
+                st.reason = "cached (the recorded input file is missing; its cached result is used)"
+                w = (f"{name}: the song file {', '.join(repr(g) for g in gone)} recorded for this folder is "
+                     "missing (moved, renamed or deleted); the cached canonical audio is used. To relink it: "
+                     'mvh analyze "<new path>" --out <this folder>')
+                if w not in self.warnings:
+                    self.warnings.append(w)
+            else:
+                st.reason = "cached (same content; the input file was renamed or moved)"
             return st
         failed = sc.failed()
         if failed and failed.get("pre_key") == pre:
@@ -629,6 +709,20 @@ class Runner:
                         remaining.remove(n)
                         progressed = True
                         continue
+                    gone = self.missing_inputs(spec)
+                    if gone:
+                        what = ", ".join(f"{k} file {v!r}" if v else f"{k} file (none recorded)" for k, v in gone)
+                        # W4VP-4: resolve() said the cached result is used; this stage must run instead
+                        self.warnings[:] = [w for w in self.warnings
+                                            if not (w.startswith(f"{n}: the song file ")
+                                                    and "the cached canonical audio is used" in w)]
+                        st.status = "failed"
+                        st.reason = (f"{n} needs its {what}, which is missing (moved, renamed or deleted). "
+                                     f"Relink it: {self.relink_hint()}")
+                        self.s.say(f"{n}: failed - {st.reason}")
+                        remaining.remove(n)
+                        progressed = True
+                        continue
                     n_threads = st.threads or 1
                     if running and used + n_threads > budget:
                         continue
@@ -709,13 +803,15 @@ def analyze(settings: Settings, specs: Mapping[str, StageSpec] | None = None) ->
     from . import finalize
 
     settings.song_dir.mkdir(parents=True, exist_ok=True)
-    r = Runner(settings, specs)
-    _write_run_settings(settings)
-    errs = ovr.validate(r.overrides) if r.overrides else []
-    if errs:
-        r.warnings.append("overrides.json does not match mvh/envelope/overrides: " + "; ".join(errs[:3]))
-    r.run()
-    out = finalize.finalize(r)
+    # W4P-2: one run per song folder; a second analyze / meaning / frames / viewer Re-run waits for this one
+    with locks.song_lock(settings.song_dir, f"mvh:{settings.slug}", say=settings.say):
+        r = Runner(settings, specs)
+        _write_run_settings(settings)
+        errs = ovr.validate(r.overrides) if r.overrides else []
+        if errs:
+            r.warnings.append("overrides.json does not match mvh/envelope/overrides: " + "; ".join(errs[:3]))
+        r.run()
+        out = finalize.finalize(r)
     return out
 
 

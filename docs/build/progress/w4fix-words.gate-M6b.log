@@ -1,0 +1,293 @@
+mvh-env: repo=C:\Users\OpenSrcerer\Desktop\playground\mv-harness threads=3 offline=True ffmpeg=C:\Users\OpenSrcerer\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe
+[gate] target=M6b unit=[tests/unit/contract, tests/unit/meaning, tests/unit/brief, tests/unit/frames] review=[tests/review/M6b, tests/review/m6b]
+[gate] fixture      PASS (0.0s) tests/contract/synth/.done.json present
+........................................................................ [ 80%]
+..................                                                       [100%]
+90 passed in 2.31s
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+........................................................................ [ 34%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+........................................................................ [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+........................................................................ [ 94%]
+......................................ssss                               [100%]
+830 passed, 4 skipped in 3.71s
+.........ssss....                                                        [100%]
+13 passed, 4 skipped in 2.43s
+........................................ssss..                           [100%]
+42 passed, 4 skipped in 1.93s
+[gate] unit         PASS (15.6s) pytest exit codes: contract=0 meaning=0 brief=0 frames=0
+........................................................................ [ 72%]
+............................                                             [100%]
+100 passed in 3.00s
+........................................................................ [ 72%]
+............................                                             [100%]
+100 passed in 2.99s
+[gate] review       PASS (8.5s) pytest exit codes: M6b=0 m6b=0
+multiple-imports-on-one-line: [*] Multiple imports on one line
+   --> src\mvh\stages\structure\__init__.py:645:5
+    |
+643 |         return cue, ev, conf
+644 |
+645 |     import os, sys as _sys  # TEMP debug
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+646 |     if os.environ.get("MVH_DEBUG_STRUCTURE"):
+647 |         print("DBG bars", [(k, round(float(starts[k]), 1), round(float(drive_bar[k]), 2), round(float(bass_b[k, 0] if bass_b.ndim > 1…
+    |
+help: Split imports
+    |
+644 |
+    -     import os, sys as _sys  # TEMP debug
+645 +     import os
+646 +     import sys as _sys  # TEMP debug
+647 |     if os.environ.get("MVH_DEBUG_STRUCTURE"):
+    |
+
+unsorted-imports: [*] Import block is un-sorted or un-formatted
+   --> src\mvh\stages\structure\__init__.py:645:5
+    |
+643 |         return cue, ev, conf
+644 |
+645 |     import os, sys as _sys  # TEMP debug
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+646 |     if os.environ.get("MVH_DEBUG_STRUCTURE"):
+647 |         print("DBG bars", [(k, round(float(starts[k]), 1), round(float(drive_bar[k]), 2), round(float(bass_b[k, 0] if bass_b.ndim > 1…
+    |
+help: Organize imports
+    |
+644 |
+    -     import os, sys as _sys  # TEMP debug
+645 +     import os  # TEMP debug
+646 +     import sys as _sys
+647 |     if os.environ.get("MVH_DEBUG_STRUCTURE"):
+    |
+
+Found 2 errors.
+[*] 2 fixable with `--fix`.
+[gate] ruff         FAIL (0.1s) ruff check src tests (exit 1)
+checked 71 schemas
+[gate] contract     PASS (0.3s) python -m mvh.contract.gen --check
+valid: 116 files checked, 0 errors, 0 warnings
+[gate] validate     PASS (1.1s) mvh validate tests/contract/synth
+[mvh] analyze synth: 25 stages, threads=3, cores=8, profile=max
+[mvh] ingest: running (threads=3)
+[mvh] ingest: done 1.2s
+[mvh] identity: running (threads=3)
+[mvh] loudness: running (threads=3)
+[mvh] identity: done 0.4s
+[mvh] separate_fast: running (threads=3)
+[mvh] loudness: done 2.5s
+[mvh] separate_hq: running (threads=3)
+[mvh] separate_fast: done 15.5s
+[mvh] allin1: running (threads=3)
+[mvh] allin1: done 15.4s
+[mvh] spectral: running (threads=3)
+[mvh] spectral: done 3.1s
+[mvh] rhythm: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:rhythm); retry every 2s
+[mvh] rhythm: done 132.5s
+[mvh] dynamics: running (threads=3)
+[mvh] dynamics: done 2.9s
+[mvh] harmony: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:harmony); retry every 2s
+[mvh] separate_hq: done 217.0s
+[mvh] stem_activity: running (threads=3)
+[mvh] stem_activity: done 4.0s
+[mvh] drums: running (threads=3)
+[mvh] drums: done 4.7s
+[mvh] instruments: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:instruments); retry every 2s
+[mvh] harmony: done 59.1s
+[mvh] notes: running (threads=3)
+[mvh] notes: degraded 8.5s
+[mvh] structure: running (threads=3)
+[mvh] structure: done 6.1s
+[mvh] lyrics: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:lyrics); retry every 2s
+[mvh] instruments: done 41.4s
+[mvh] mood: running (threads=3)
+[mvh] mood: done 1.3s
+[mvh] lyrics: done 67.6s
+[mvh] vocals: running (threads=3)
+[mvh] voices: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:vocals); retry every 2s
+[mvh.locks] waiting for a heavy slot (mvh:synth:voices); retry every 2s
+[mvh] voices: done 46.4s
+[mvh] lipsync: running (threads=3)
+[mvh] lipsync: done 15.9s
+[mvh] vocals: done 86.3s
+[mvh] choreo: running (threads=3)
+[mvh] choreo: done 0.6s
+[mvh] cues: running (threads=3)
+[mvh] cues: done 0.5s
+[mvh] meaning: running (threads=3)
+[mvh] meaning: done 0.5s
+[mvh] brief: running (threads=3)
+[mvh] viewer: running (threads=3)
+[mvh] brief: done 0.3s
+[mvh] viewer: done 0.8s
+{"manifest": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\manifest.json", "brief": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\brief.md", "viewer": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\viewer.html", "warnings": ["identity: identity lookup skipped: offline (no cached response)", "notes: piano stem active but CED finds no piano: transcribed with basic-pitch (synth keys or bleed)"], "pending": []}
+valid: 119 files checked, 0 errors, 0 warnings
+[gate] e2e          PASS (404.1s) mvh analyze + validate -> C:\Users\OPENSR~1\AppData\Local\Temp\mvh-gate-dda89004\synth song
+✔ vizState addendum cases (15.7999ms)
+✔ lyricAt: singer / voice_ids join (lead first) (1.9983ms)
+✔ meaningAt: section entry by id, else by time; global + section do_not (1.2801ms)
+✔ textureData fills NaN-aware channels with the held value (1.0985ms)
+✔ spectrumWindow bytes (0.5145ms)
+✔ mvh.glsl declares the contract signature (0.3664ms)
+✔ golden texture cases: mvhCurve equals textureSample and curve.at (0.9826ms)
+✔ wrapped sampling equals curve.at for every width, rate and row wrap (linear and hold) (68.1619ms)
+✔ float32 time input (GPU uniforms) stays within float32 resolution of curve.at (1.3931ms)
+✔ the transpiled check is not vacuous: an off-by-one row index is caught (0.3322ms)
+✔ r8 textures: the sampler reads value/255 of the packed bytes (1.0294ms)
+✔ golden file copy in src/mvh/assets/golden is current (0.9469ms)
+✔ frames: time_of, frame_centre, frame_window, frame_of, roundtrip, frame_count (2.1496ms)
+✔ curve: at() and frame() under all four policies; samples_in_frame (4.689ms)
+✔ flash rule: the event frame carries the peak (0.1941ms)
+✔ voicing: NaN-aware sampling, vocalAt, NaN-aware frames (0.9286ms)
+✔ beats: beat_pos, beat_phase, bar_phase, count (pickup bar, odd section), no beats, osc (1.0247ms)
+✔ events: at, next, prev, between, inFrame (0.53ms)
+✔ pulse: defaults, attack + linear, beats unit + smooth (0.2811ms)
+✔ singerAt: three voices, duet overlap, backing (0.3821ms)
+✔ texture: wrapped layout, texels, sampling equals curve.at (1.4225ms)
+✔ spectrum rows (0.2102ms)
+✔ kick: kickItems of both sources and pulse over them (D79) (0.3064ms)
+✔ kicks follow the manifest kick_source = drums (4.8292ms)
+✔ kicks follow the manifest kick_source = mix (3.2341ms)
+✔ kick source is inferred for older folders (7.5067ms)
+✔ browser-style load: ensure("kick") loads just the chosen file (16.62ms)
+✔ loadSync: curves, policies, events sorted, missing files are empty (6.526ms)
+✔ helpers never return NaN on a dense grid (34.8929ms)
+✔ async load from a path with include; ensure accepts helper names (3.8693ms)
+✔ URL mode (browser / Remotion): lazy parts must be ensured, then everything is synchronous (2.8622ms)
+✔ textureData: wrap layout info, r32f and r8 (2.1334ms)
+✔ spectrumAt / spectrumWindow: nearest row, oldest first, zero rows outside (1.7825ms)
+✔ vizState: viz field names and shapes, onset frame, pulse decay, recentBeats (3.1999ms)
+✔ frame rules: rational fps, frame0, validation (0.4466ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 145.7921
+[gate] lib-node     PASS (0.2s) node --test (5 files)
+183 files hashed
+[mvh] analyze synth: 25 stages, threads=3, cores=8, profile=max
+[mvh] ingest: running (threads=3)
+[mvh] ingest: done 1.2s
+[mvh] identity: running (threads=3)
+[mvh] loudness: running (threads=3)
+[mvh] identity: done 0.4s
+[mvh] separate_fast: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:separate_fast); retry every 2s
+[mvh] loudness: done 2.5s
+[mvh] separate_hq: running (threads=3)
+[mvh] separate_hq: done 182.0s
+[mvh] spectral: running (threads=3)
+[mvh] spectral: done 3.5s
+[mvh] separate_fast: done 262.2s
+[mvh] allin1: running (threads=3)
+[mvh] stem_activity: running (threads=3)
+[mvh] stem_activity: done 4.0s
+[mvh] drums: running (threads=3)
+[mvh] drums: done 4.6s
+[mvh] instruments: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:instruments); retry every 2s
+[mvh] allin1: done 16.2s
+[mvh] rhythm: running (threads=3)
+[mvh] rhythm: done 16.4s
+[mvh] dynamics: running (threads=3)
+[mvh] dynamics: done 2.5s
+[mvh] harmony: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:harmony); retry every 2s
+[mvh] instruments: done 50.9s
+[mvh] notes: running (threads=3)
+[mvh] notes: degraded 8.6s
+[mvh] harmony: done 95.9s
+[mvh] structure: running (threads=3)
+[mvh] structure: done 6.6s
+[mvh] lyrics: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:lyrics); retry every 2s
+[mvh] mood: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:mood); retry every 2s
+[mvh] mood: done 47.3s
+[mvh] lyrics: done 82.3s
+[mvh] vocals: running (threads=3)
+[mvh] voices: running (threads=3)
+[mvh.locks] waiting for a heavy slot (mvh:synth:voices); retry every 2s
+[mvh] vocals: done 6.3s
+[mvh] choreo: running (threads=3)
+[mvh] choreo: done 0.6s
+[mvh] cues: running (threads=3)
+[mvh] cues: done 0.5s
+[mvh] voices: done 40.4s
+[mvh] lipsync: running (threads=3)
+[mvh] meaning: running (threads=3)
+[mvh] meaning: done 0.5s
+[mvh] lipsync: done 15.3s
+[mvh] brief: running (threads=3)
+[mvh] viewer: running (threads=3)
+[mvh] brief: done 0.3s
+[mvh] viewer: done 0.7s
+{"manifest": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\manifest.json", "brief": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\brief.md", "viewer": "C:\\Users\\OpenSrcerer\\AppData\\Local\\Temp\\mvh-gate-dda89004\\synth song\\viewer.html", "warnings": ["identity: identity lookup skipped: offline (no cached response)", "notes: piano stem active but CED finds no piano: transcribed with basic-pitch (synth keys or bleed)"], "pending": []}
+183 files hashed
+differs: brief.md
+differs: curves/core.f32
+differs: events/counts.json
+differs: events/cues.json
+differs: events/decay_tails.json
+differs: events/dynamics.json
+differs: events/edm_roles.json
+differs: events/grooves.json
+differs: events/hit_points.json
+differs: events/hits.kick.json
+differs: events/holds.json
+differs: events/impacts.json
+differs: events/moments.json
+differs: events/mood.json
+differs: events/notes.vocals.json
+differs: events/phrases.json
+differs: events/sections.json
+differs: events/silences.json
+differs: events/singing.json
+differs: events/stops.json
+differs: events/vocal_phrases.json
+differs: events/voice_activity.json
+differs: events/voice_spans.json
+differs: lipsync/phonemes.json
+differs: lipsync/visemes.json
+differs: lyrics/lyrics.json
+differs: manifest.json
+differs: meaning/meaning.json
+differs: meta/drums.json
+differs: meta/dynamics.json
+differs: meta/structure.json
+differs: meta/tempo.json
+differs: viewer.html
+33 of 183 files differ
+[gate] determinism  FAIL (543.5s) analyze --force twice, diff all but run.json/.cache
+
+gate M6b summary
+
+Step        Result Seconds Detail                                                                                     
+----        ------ ------- ------                                                                                     
+fixture     PASS         0 tests/contract/synth/.done.json present                                                    
+unit        PASS      15.6 pytest exit codes: contract=0 meaning=0 brief=0 frames=0                                   
+review      PASS       8.5 pytest exit codes: M6b=0 m6b=0                                                             
+ruff        FAIL       0.1 ruff check src tests (exit 1)                                                              
+contract    PASS       0.3 python -m mvh.contract.gen --check                                                         
+validate    PASS       1.1 mvh validate tests/contract/synth                                                          
+e2e         PASS     404.1 mvh analyze + validate -> C:\Users\OPENSR~1\AppData\Local\Temp\mvh-gate-dda89004\synth song
+lib-node    PASS       0.2 node --test (5 files)                                                                      
+determinism FAIL     543.5 analyze --force twice, diff all but run.json/.cache                                        
+
+
+GATE FAILED: ruff, determinism
+M6b rc=1

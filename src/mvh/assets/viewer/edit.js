@@ -19,7 +19,7 @@ const Edit = (() => {
     }
     delete out.schema; delete out.schema_version;
     if (!Object.keys(out).length) return out;
-    return Object.assign({ schema: 'mvh/overrides', schema_version: (V.bundle.info || {}).contract || '1.0.0-rc.2' }, out);
+    return Object.assign({ schema: 'mvh/overrides', schema_version: (V.bundle.info || {}).contract || '1.0.0-rc.3' }, out);
   };
   async function api(path, body, method) {
     let r;

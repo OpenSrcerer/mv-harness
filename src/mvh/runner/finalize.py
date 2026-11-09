@@ -64,35 +64,179 @@ def _read(p: Path) -> Any:
         return json.load(fh)
 
 
+def _last_good(runner: "Runner", name: str) -> tuple[Path, dict[str, Any]] | None:
+    """The stage's last committed cache entry (``latest.json``) when this run did not leave it current: a
+    stale, pending (not run) or failed stage keeps its previous outputs in the song folder (publish is never
+    undone for them), so its curves stay too (W4D-1)."""
+    sc = runner.cache.stage(name)
+    lat = sc.latest() or {}
+    pre = lat.get("pre_key")
+    if not isinstance(pre, str) or not pre:
+        return None
+    rec = sc.done(pre)
+    if not rec or (rec.get("status", "ok") not in ("ok", "done", "degraded", "skipped")):
+        return None
+    if name not in runner.cache.published():
+        return None  # unpublished (e.g. after a validation failure): its outputs left the folder
+    return sc.dir(pre), rec
+
+
+def _timebase(song: Path) -> tuple[int, int] | None:
+    """(n_samples, sample_rate) of the current canonical audio (meta/source.json), if any."""
+    src = _meta(song, "meta/source.json") or {}
+    try:
+        n, sr = int(src["n_samples"]), int(src["sample_rate"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return (n, sr) if sr > 0 else None
+
+
+def _fits(entries: list[curvefile.ChannelData], tb: tuple[int, int]) -> bool:
+    """Every kept channel has the length its file's rate implies for the current audio."""
+    from mvh.contract.conventions import n_curve_frames
+
+    for e in entries:
+        cf = registry.CURVE_FILES[registry.channel(e.id).file]
+        if _n_frames(e) != n_curve_frames(tb[0], tb[1], int(cf.rate_hz)):
+            return False
+    return True
+
+
+def _stage_entries(d: Path, rec: dict[str, Any]) -> list[curvefile.ChannelData]:
+    out: list[curvefile.ChannelData] = []
+    for fid, chans in rec.get("curves", {}).items():
+        for cid, info in chans.items():
+            v = np.fromfile(d / MVH_DIR / "curves" / fid / f"{cid}.f32", dtype="<f4")
+            out.append(curvefile.ChannelData(cid, v, dict(info.get("meta", {}))))
+    for fid, info in rec.get("matrices", {}).items():
+        if not info.get("public"):
+            continue
+        cf = registry.CURVE_FILES[fid]
+        dt = np.uint8 if cf.dtype == "u8" else "<f4"
+        a = np.fromfile(d / MVH_DIR / "matrices" / f"{fid}.bin", dtype=dt)
+        out.append(curvefile.ChannelData(fid, a.reshape(info["shape"]), dict(info.get("meta", {}))))
+    return out
+
+
+def _n_frames(e: curvefile.ChannelData) -> int:
+    v = np.asarray(e.values)
+    return int(v.shape[0]) if v.ndim == 2 else int(v.size)
+
+
 def pack_curves(runner: "Runner") -> dict[str, Any] | None:
+    """Pack curves/*.f32|u8 + curves/index.json from every stage's channels.
+
+    * Current stages (done / degraded / skipped in this run) contribute their entry; a stage this run left
+      stale, pending or failed contributes its last committed entry, matching the events and meta files it
+      keeps in the folder (W4D-1: a scoped run on a stale folder used to delete every such curve file).
+      Kept channels whose length no longer fits the current timebase (a different song in the folder) are
+      dropped with a warning. build_manifest lists the kept stages' files and names the stages (W4VP-1).
+    * A file is deleted only when no stage, current or kept, produces it any more.
+    * Files are written through mvh.io.atomic (unique temp names, retried replace) and only when their bytes
+      changed. A file held open by another program keeps its previous version, and curves/index.json keeps
+      that file's previous entries, so the folder stays self-consistent (W4P-2); a warning names the file.
+    """
+    song = runner.s.song_dir
     entries: list[curvefile.ChannelData] = []
+    tb = _timebase(song)
     for name in runner.order:
         st = runner.states[name]
-        if st.status not in OK or not st.record:
+        if st.status in OK and st.record:
+            entries += _stage_entries(runner.cache.stage(name).dir(st.pre_key or ""), st.record)
             continue
-        d = runner.cache.stage(name).dir(st.pre_key or "")
-        for fid, chans in st.record.get("curves", {}).items():
-            for cid, info in chans.items():
-                v = np.fromfile(d / MVH_DIR / "curves" / fid / f"{cid}.f32", dtype="<f4")
-                entries.append(curvefile.ChannelData(cid, v, dict(info.get("meta", {}))))
-        for fid, info in st.record.get("matrices", {}).items():
-            if not info.get("public"):
-                continue
-            cf = registry.CURVE_FILES[fid]
-            a = np.fromfile(
-                d / MVH_DIR / "matrices" / f"{fid}.bin", dtype=np.uint8 if cf.dtype == "u8" else "<f4"
+        if st.status in OK:
+            continue
+        lg = _last_good(runner, name)
+        if lg is None:
+            continue
+        try:
+            old = _stage_entries(*lg)
+        except (OSError, KeyError, ValueError) as e:
+            runner.warnings.append(f"{name}: previous curves unreadable ({type(e).__name__}); dropped")
+            continue
+        if not old:
+            continue
+        if tb is not None and not _fits(old, tb):
+            runner.warnings.append(
+                f"{name}: previous curves do not fit the current audio; dropped until it runs"
             )
-            entries.append(curvefile.ChannelData(fid, a.reshape(info["shape"]), dict(info.get("meta", {}))))
-    song = runner.s.song_dir
+            continue
+        entries += old
     produced = {registry.channel(e.id).file for e in entries}
     for fid, cf in registry.CURVE_FILES.items():
         if fid not in produced and (song / cf.path).exists():
-            atomic.unlink_retry(song / cf.path)
+            try:
+                atomic.unlink_retry(song / cf.path)
+            except PermissionError:
+                runner.warnings.append(f"_runner: stale {cf.path} is open in another program; not removed")
+    idx_p = song / "curves" / "index.json"
     if not entries:
-        if (song / "curves" / "index.json").exists():
-            atomic.unlink_retry(song / "curves" / "index.json")
+        if idx_p.exists():
+            try:
+                atomic.unlink_retry(idx_p)
+            except PermissionError:
+                runner.warnings.append(
+                    "_runner: stale curves/index.json is open in another program; not removed"
+                )
         return None
-    return curvefile.assemble(song, entries)
+    index, blobs = curvefile.pack(entries)
+    held: list[str] = []
+    for rel, data in blobs.items():
+        if not _write_if_changed(song / rel, data):
+            held.append(rel)
+    if held:
+        index = _keep_held_entries(song, index, held, runner)
+    if not _write_if_changed(idx_p, curvefile.index_bytes(index)):
+        runner.warnings.append(
+            "_runner: curves/index.json is open in another program and keeps its previous version; the curve "
+            "files may not match it until mvh analyze runs again"
+        )
+    return index
+
+
+def _write_if_changed(path: Path, data: bytes) -> bool:
+    """False when the file is held open by another program (its previous version stays)."""
+    try:
+        if path.is_file() and path.stat().st_size == len(data) and path.read_bytes() == data:
+            return True
+    except OSError:
+        pass
+    try:
+        atomic.write_bytes(path, data)
+    except PermissionError:
+        return False
+    return True
+
+
+def _keep_held_entries(
+    song: Path, index: dict[str, Any], held: list[str], runner: "Runner"
+) -> dict[str, Any]:
+    """Swap the index entries of held curve files for their previous ones (the held file is the old one)."""
+    try:
+        old = _read(song / "curves" / "index.json")
+    except (OSError, ValueError):
+        old = None
+    fid_of = {cf.path: fid for fid, cf in registry.CURVE_FILES.items()}
+    for rel in held:
+        fid = fid_of.get(rel)
+        if old and fid in old.get("files", {}):
+            index["files"][fid] = old["files"][fid]
+            index["channels"] = [c for c in index["channels"] if c.get("file") != fid] + [
+                c for c in old.get("channels", []) if c.get("file") == fid
+            ]
+            runner.warnings.append(
+                f"_runner: {rel} is open in another program; the song folder keeps its previous version "
+                "(close the program and run mvh analyze again)"
+            )
+        else:
+            index["files"].pop(fid, None)
+            index["channels"] = [c for c in index["channels"] if c.get("file") != fid]
+            runner.warnings.append(f"_runner: {rel} is open in another program and could not be written")
+    order = list(registry.CURVE_FILES)
+    index["files"] = {f: index["files"][f] for f in order if f in index["files"]}
+    index["channels"].sort(key=lambda c: (order.index(c["file"]) if c.get("file") in order else 1 << 30,
+                                          curvefile.channel_order_key(c["id"])))
+    return index
 
 
 def copy_lib(song_dir: Path) -> list[str]:
@@ -152,6 +296,32 @@ def key_flags(key: dict[str, Any]) -> list[str]:
     return [str(f) if str(f).startswith("key:") else f"key:{f}" for f in key.get("flags", []) or []]
 
 
+def kick_info(song: Path) -> tuple[str | None, dict[str, Any] | None, list[str]]:
+    """D79 (user decision UD2): the agent-facing kick source from meta/drums.json (the drums stage's per-song
+    choice), the agreement of the two kick timelines and the QA flags. Without meta/drums.json (no drums stage
+    output) the mix kick (events/hits.kick) is the source when it exists."""
+    d = _meta(song, "meta/drums.json")
+    if d and d.get("kick_source") in ("drums", "mix"):
+        a = d.get("agreement") or {}
+        agree = {"mix_in_drums": a.get("mix_in_drums"), "drums_in_mix": a.get("drums_in_mix"),
+                 "tol_ms": a.get("tol_ms", 30.0)}
+        # a mix choice is already flagged by the drums stage's fallback (fallback:drums:kick_source_mix)
+        return d["kick_source"], agree, ["qa:kick_sources_disagree"] if a.get("low") else []
+    if (song / "events" / "hits.kick.json").is_file():
+        return "mix", None, ["fallback:drums:kick_source_mix"]
+    return None, None, []
+
+
+def _kept_curves(index: dict[str, Any] | None, rec: dict[str, Any]) -> bool:
+    """The packed index carries at least one channel of this (kept) cache entry."""
+    if not index:
+        return False
+    ids = {c.get("id") for c in index.get("channels", [])}
+    mine = {cid for chans in rec.get("curves", {}).values() for cid in chans}
+    mine |= {fid for fid, info in rec.get("matrices", {}).items() if info.get("public")}
+    return bool(ids & mine)
+
+
 def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str]) -> dict[str, Any]:
     song = runner.s.song_dir
     src = _meta(song, "meta/source.json") or {}
@@ -187,6 +357,8 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
             flags.append(f"failed:{name}")
     flags += [str(f) for f in (tempo.get("qa") or {}).get("flags", [])]
     flags += key_flags(key)
+    kick_source, kick_agree, kick_flags = kick_info(song)
+    flags += kick_flags
 
     vocal_range = None
     if vr.get("present") and isinstance(vr.get("lowest"), dict) and isinstance(vr.get("highest"), dict):
@@ -199,12 +371,27 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
 
     files: list[dict[str, Any]] = []
     pub = runner.cache.published()
+    kept: list[str] = []
     for name in runner.order:
         st = runner.states[name]
-        if st.status not in OK or not st.record:
+        if st.status in OK and st.record:
+            rec, current = st.record, True
+        elif st.status in OK:
             continue
-        outs = st.record.get("outputs", {})
+        else:
+            # W4VP-1 (D34): a stage this run left stale, pending or failed keeps its last committed outputs
+            # in the folder (publish is never undone for it; pack_curves keeps its curves): they stay listed
+            lg = _last_good(runner, name)
+            if lg is None:
+                continue
+            rec, current = lg[1], False
+        outs = rec.get("outputs", {})
+        n_kept = 0
         for rel in pub.get(name, []):
+            if not current:
+                if not (song / rel).is_file():
+                    continue
+                n_kept += 1
             info = outs.get(rel, {})
             e: dict[str, Any] = {"path": rel, "kind": info.get("kind", "json"), "stage": name}
             ev = info.get("events")
@@ -215,6 +402,13 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
                 if rel != f"events/{name_ev}.json":
                     e["events"] = name_ev
             files.append(e)
+        if not current and (n_kept or _kept_curves(index, rec)):
+            kept.append(name)
+    if kept:
+        runner.warnings.append(
+            "outputs and curves of stages not current in this run kept from their previous run: "
+            + ", ".join(kept)
+        )
     if index:
         for fid, f in index["files"].items():
             files.append(
@@ -275,6 +469,8 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
             "vocal_range": vocal_range,
             "instrumentation": instr,
             "palette": list(src.get("palette", []))[:12],
+            "kick_source": kick_source,
+            "kick_agreement": kick_agree,
             "stages": stage_summaries,
         },
         "files": files,

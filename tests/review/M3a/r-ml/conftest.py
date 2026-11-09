@@ -22,7 +22,7 @@ import pytest  # noqa: E402
 from m3a_rml_util import MONO_SPAN  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[4]
-STAGES = "ingest,separate_fast,separate_hq,stem_activity,drums"
+STAGES = "ingest,separate_fast,separate_hq,stem_activity,spectral,drums"  # drums depends on spectral since D79 (UD2)
 
 
 def pytest_configure(config):

@@ -1,5 +1,6 @@
-"""The intent grammar (meaning/intent.py, v2): property-style checks over the interview template's variants, the exact
-round trip of user claims through the template, and the free-text rules. Synthetic fixture only (invented lyrics)."""
+"""The intent grammar (meaning/intent.py, mvh-intent v2, UD1): checks over the interview template's variants, the exact
+round trip of user claims through the template, and the rule that free text is the user's notes (never fields or
+rules). Synthetic fixture only (invented lyrics)."""
 from __future__ import annotations
 
 import itertools
@@ -102,12 +103,12 @@ def ev_sections(synth_source_parts):
 
 # ------------------------------------------------------------------------------------------------ round trip
 def _intents(ev_sections, synth_intent) -> dict[str, str]:
-    return {"free_text_fixture": synth_intent, "full_yaml": _full_yaml(ev_sections),
-            "labels": "Logline: A night watch.\nTone: grey\nNarrator: C2\nNever show: blood\n\n- C1 Ann = V1. Lead.\n"
-                      "- Chorus: wide shots\n\n## Notes\nThe end should be quiet.\n"}
+    return {"synth_fixture": synth_intent, "full_yaml": _full_yaml(ev_sections),
+            "free_text_only": "Logline: A night watch.\nTone: grey\nNever show: blood\n\n- C1 Ann = V1. Lead.\n"
+                              "- Chorus: wide shots\n\n## Notes\nThe end should be quiet.\n"}
 
 
-@pytest.mark.parametrize("name", ["free_text_fixture", "full_yaml", "labels"])
+@pytest.mark.parametrize("name", ["synth_fixture", "full_yaml", "free_text_only"])
 def test_template_round_trip_is_exact(src, synth_source, ev_sections, synth_intent, name):
     text = _intents(ev_sections, synth_intent)[name]
     first = build(src, text, None, {})
@@ -129,12 +130,14 @@ def test_full_yaml_reads_every_field(src, ev_sections):
     assert c["do_not"] == ["No fire on people.", "Chorus: never show faces"]
     assert c["perspective"] == {"narrator": "C1", "addressee": "C2"}
     assert c["motifs"] == [("lanterns", ["L001", "L003"], "memory")]
-    assert c["references"] == ["Tarkovsky, Stalker"] and c["notes"] == ["Keep every cut on a count."]
+    assert c["references"] == ["Tarkovsky, Stalker"]
+    # the template's notes, then the free text: the H1 above the template labels it, the line after it is a note
+    assert c["notes"] == ["Keep every cut on a count.", "Intro: slow drift over dark water."]
     s5 = c["sections"]["S05"][0]
     assert s5["palette_hint"] == ["#f2a541"] and s5["camera_hint"] == "crane up" and s5["emotion.lyric"] == "joy"
     assert c["sections"]["S05"][1] == ["No close-ups of faces here."]
     assert ("L005", "C1") in c["line_singers"] and ("L005", "C2") in c["line_singers"]
-    assert any(v[0].get("feel") == "slow drift over dark water" for v in c["sections"].values())
+    assert set(c["sections"]) == {"S05"}  # the free-text 'Intro:' line is not a section feel
 
 
 # ------------------------------------------------------------------------------------------------ template variants
@@ -162,12 +165,13 @@ WRAPS = {
     "open_fence_only": lambda t: t[:t.rindex("```")],
     "no_marker": lambda t: "\n".join(ln for ln in t.splitlines() if not ln.startswith("```") and "mvh-intent" not in ln) + "\n",
 }
-AROUND = {
-    "alone": lambda t: t,
-    "story_before": lambda t: "## The story\nA keeper waits for the light.\n\n" + t,
-    "prose_after": lambda t: t + "\nThe end should be quiet.\n",
-    "note_after": lambda t: t + "\n## Notes\nChorus: everything glows.\n",
-    "never_after": lambda t: t + "\n## Never show\n- No confetti.\n",
+AROUND = {  # free text around the template: always notes
+    "alone": (lambda t: t, []),
+    "story_before": (lambda t: "## The story\nA keeper waits for the light.\n\n" + t,
+                     ["## The story\nA keeper waits for the light."]),
+    "prose_after": (lambda t: t + "\nThe end should be quiet.\n", ["The end should be quiet."]),
+    "note_after": (lambda t: t + "\n## Notes\nChorus: everything glows.\n", ["## Notes\nChorus: everything glows."]),
+    "never_after": (lambda t: t + "\n## Never show\n- No confetti.\n", ["## Never show\n- No confetti."]),
 }
 
 
@@ -176,21 +180,59 @@ def test_template_variants_keep_every_answer_and_no_comment(src, synth_source, p
     t = _filled(src)
     assert "palette: []   # hex (#1b2a49)" in t and "{L005: C1+C2}" in t  # the template's example comments
     t = t.replace("palette: []", PALETTES[pal], 1)
-    text = AROUND[around](WRAPS[wrap](t))
+    add, notes = AROUND[around]
+    text = add(WRAPS[wrap](t))
     r = build(synth_source(), text, None, {})
     m, it = r["meaning"], r["intent"]
     c1 = next(c for c in m["characters"] if c["id"] == "C1")
     s05 = next(s for s in m["sections"] if s["section_id"] == "S05")
     assert m["status"] == "user" and "yaml" in it["form"], (it["form"], it["warnings"])
     assert m["logline"] == "Two keepers light a harbour." and m["field_sources"]["logline"] == "user"
-    assert "never show faces" in m["do_not"] and c1["name"] == "Keeper" and s05["feel"] == "slow burn"
+    assert m["do_not"] == ["never show faces"] and c1["name"] == "Keeper" and s05["feel"] == "slow burn"
     assert "#c93523" in m["palette"] and len(m["palette"]) == 2 and not it["palette_unparsed"]
+    # the free text around the template is kept verbatim as notes, and only that
+    assert it["notes"] == notes and m["notes"] == notes
     # the template's own example comments never become claims
     assert "#1b2a49" not in m["palette"] and "L005" not in it["line_singers"]
     assert not any(str(c["name"]).startswith("{") for c in m["characters"])
     assert not any(str(s.get("feel") or "").startswith("#") for s in m["sections"])
-    assert not any("#" in x or "{" in x for x in it["notes"] + it["do_not"])
+    assert not any("{" in x or "# hex" in x or "mvh-intent" in x for x in it["notes"] + it["do_not"])
     assert not it["warnings"], it["warnings"]
+
+
+VOICE_STYLES = {
+    "characters_voices": lambda t: t.replace('C1: {name: "Keeper", description: "", voices: []',
+                                             'C1: {name: "Keeper", description: "", voices: [V2]', 1),
+    "voices_map": lambda t: re.sub(r"(?m)^voices:.*$", "voices:\n  V2: C1 Keeper", t, count=1),
+    "voices_bullets": lambda t: re.sub(r"(?m)^voices:.*$", "voices:\n  - V2 = C1 Keeper", t, count=1),
+    "voices_bullets_col0": lambda t: re.sub(r"(?m)^voices:.*$", "voices:\n- V2 = C1 Keeper", t, count=1),
+    "voices_arrow": lambda t: re.sub(r"(?m)^voices:.*$", "voices:\n  - V2 -> C1", t, count=1),
+}
+
+
+@pytest.mark.parametrize("style,wrap", list(itertools.product(sorted(VOICE_STYLES), ["fenced", "unfenced"])))
+def test_voice_mapping_variants(src, synth_source, style, wrap):
+    """'V1 = C1 Name' (the viewer block's own syntax) is a template answer under ``voices:``; it maps exactly like the
+    characters' voice lists, in the meaning stage and in the voices stage (one parser)."""
+    from mvh.stages.voices.intent import parse_intent as voices_parse
+
+    t = _filled(src)
+    assert re.search(r"(?m)^voices:   # which character sings each voice", t)
+    text = WRAPS[wrap](VOICE_STYLES[style](t))
+    r = build(synth_source(), text, None, {})
+    c1 = next(c for c in r["characters"] if c["id"] == "C1")
+    assert c1["voice_ids"] == ["V2"] and c1["voice_mapping"] == {"V2": "user"} and c1["name"] == "Keeper"
+    assert voices_parse(text)["voice_to_character"] == {"V2": "C1"}
+    assert not r["intent"]["warnings"] and not r["intent"]["notes"], (r["intent"]["warnings"], r["intent"]["notes"])
+
+
+def test_voices_count_and_mapping_conflict():
+    o = parse_intent("voices: 3\n")
+    assert o["n_voices"] == 3 and not o["characters"]
+    o = parse_intent("characters:\n  C1: {name: Ann, voices: [V1]}\nvoices:\n  V1: C2 Bo\n")
+    assert o["characters"]["C1"]["voices"] == [] and o["characters"]["C2"] == {
+        "name": "Bo", "description": None, "voices": ["V1"], "lead_backing": None}
+    assert any("'voices' wins" in w for w in o["warnings"])
 
 
 @pytest.mark.parametrize("wrap", sorted(WRAPS))
@@ -203,51 +245,58 @@ def test_untouched_template_is_no_answer(synth_source, wrap, shape):
     r = build(synth_source(**over.get(shape, {})), WRAPS[wrap](_template(first)), None, {})
     it = r["intent"]
     assert r["meaning"]["status"] == "pending" and not it["characters"] and not it["sections"] and not it["notes"], it
-    assert not it["warnings"]
+    assert not it["warnings"] and it["n_voices"] is None
 
 
-# ------------------------------------------------------------------------------------------------ free text rules
-DO_NOT_CASES = [
-    # (text, do_not, logline, section keys, characters)
-    ("## Never show\n- No fire.\n- Chorus: no faces.\n", ["No fire.", "Chorus: no faces."], None, set(), set()),
-    ("## Don'ts\n- No fire.\n", ["No fire."], None, set(), set()),
-    ("## Don’ts\n- No fire.\n", ["No fire."], None, set(), set()),
-    ("## Things to avoid\n- Lens flares\n", ["Lens flares"], None, set(), set()),
-    ("## Never show: on screen\n- Blood\n", ["Blood"], None, set(), set()),
-    ("**Never show**\n- Chorus: never show faces.\n", ["Chorus: never show faces."], None, set(), set()),
-    ("**Never show**\n\n- blood\n- fire\n\n- Intro: slow\n", ["blood", "fire"], None, {"intro"}, set()),
-    ("**Never show**\n- blood\n- C1 Ann = V1\n", ["blood"], None, set(), {"C1"}),
-    ("Never show: blood\n\n- C1 The Keeper = V1\n", ["blood"], None, set(), {"C1"}),
-    ("Avoid: cliches.\n\n- Intro: slow drift.\n- Drop: wide.\n", ["cliches."], None, {"intro", "drop"}, set()),
-    ("**Avoid:** lens flares\n- Chorus: wide\n", ["lens flares"], None, {"chorus"}, set()),
-    ("**Never show**: what must never appear on screen?\n- blood\n", ["blood"], None, set(), set()),
-    ("# Never Let Me Go\n\nA keeper waits. The tide takes it.\n\nC1 The Keeper = V1\n", [], "A keeper waits.", set(), {"C1"}),
-    ("# Don't Stop Me Now: my notes\n\nA keeper waits.\n", [], "A keeper waits.", set(), set()),
-    ("## The story: a night that never ends\nTwo keepers. They part.\n\n## Never show\n- No fire.\n",
-     ["No fire."], "Two keepers.", set(), set()),
-    ("## Avoiding the obvious\nA keeper waits.\n", [], None, set(), set()),
+# ------------------------------------------------------------------------------------------------ free text = notes
+FREE_TEXT_CASES = [  # every one of these used to be parsed into rules or fields by the heuristic grammar (v3)
+    "## Never show\n- No fire.\n- Chorus: no faces.\n",
+    "## Don'ts\n- No fire.\n",
+    "## Don’ts\n- No fire.\n",
+    "## Things to avoid\n- Lens flares\n",
+    "**Never show**\n- Chorus: never show faces.\n",
+    "**Never show**\n\n- blood\n- fire\n\n- Intro: slow\n",
+    "Never show: blood\n\n- C1 The Keeper = V1\n",
+    "Avoid: cliches.\n\n- Intro: slow drift.\n- Drop: wide.\n",
+    "**Avoid:** lens flares\n- Chorus: wide\n",
+    "**Story:**\nTwo keepers wait for a ship that never returns.\n",
+    "# Never Let Me Go\n\nA keeper waits. The tide takes it.\n\nC1 The Keeper = V1\n",
+    "## The story: a night that never ends\nTwo keepers. They part.\n\n## Never show\n- No fire.\n",
+    "Logline: A night watch.\nNarrator: C1\nAddressee: C2\nThemes: loss, light\nNotes: keep it slow\n",
+    "Palette: night blue, #f2a541, rust red\nIntro: slow drift. Verse: call and response\n",
+    "## Who sings\n- V1 = C1 The Keeper\n- V2 = C2 The Child\nL005: C1+C2\n",
+    "9. **Never show**: blood\n- **Don't**: confetti\n1) Do not: smoke\n",
 ]
 
 
-@pytest.mark.parametrize("text,dn,logline,secs,chars", DO_NOT_CASES)
-def test_do_not_rules(text, dn, logline, secs, chars):
+@pytest.mark.parametrize("text", FREE_TEXT_CASES)
+def test_free_text_is_notes_never_fields_or_rules(text):
     r = parse_intent(text)
-    assert r["do_not"] == dn
-    if logline is not None:
-        assert r["logline"] == logline
-    assert {s["key"] for s in r["sections"]} == secs
-    assert set(r["characters"]) == chars
+    assert r["form"] == "text"
+    assert r["do_not"] == [] and r["sections"] == [] and r["characters"] == {} and r["line_singers"] == {}
+    assert not any(r[k] for k in ("logline", "summary", "setting", "tone", "themes", "symbolism", "palette", "motifs",
+                                  "references"))
+    assert r["perspective"] == {"narrator": None, "addressee": None}
+    joined = "\n".join(r["notes"])
+    for ln in text.splitlines():  # never silently dropped: every line of the user's text is in a note, verbatim
+        assert ln.rstrip() in joined, ln
+    assert not r["warnings"]
 
 
-def test_unmatched_user_text_is_kept_in_notes():
-    r = parse_intent("## The story\nA keeper waits.\n\n## Look\n- lots of fog\nSlow pans only.\n")
-    assert r["summary"] == "A keeper waits." and r["notes"] == ["Slow pans only.", "lots of fog"]
+def test_notes_are_blocks_under_headings():
+    r = parse_intent("Opening thought.\n\n# Title\n\n## The story\nA keeper waits.\n\nSecond paragraph.\n\n"
+                     "## Look\n- lots of fog\nSlow pans only.\n\n\n\n## Empty\n")
+    assert r["notes"] == ["Opening thought.", "# Title\n## The story\nA keeper waits.\n\nSecond paragraph.",
+                          "## Look\n- lots of fog\nSlow pans only.", "## Empty"]
 
 
-def test_labels_and_perspective():
-    r = parse_intent("Logline: A night watch.\nNarrator: C1\nAddressee: C2\nThemes: loss, light\nNotes: keep it slow\n")
-    assert r["logline"] == "A night watch." and r["perspective"] == {"narrator": "C1", "addressee": "C2"}
-    assert r["themes"] == ["loss", "light"] and r["notes"] == ["keep it slow"]
+def test_rule_like_note_gets_an_open_question_not_a_rule(synth_source):
+    r = build(synth_source(), "## Never show\n- blood\n\nA quiet story.\n", None, {})
+    m = r["meaning"]
+    assert m["do_not"] == [] and m["notes"] == ["## Never show\n- blood\n\nA quiet story."]
+    assert m["field_sources"]["notes"] == "user" and m["status"] == "user"
+    assert any("never obeyed as a rule" in q and "do_not" in q for q in m["open_questions"])
+    assert "blood" not in " ".join(m["open_questions"])  # the user's words are not quoted back
 
 
 @pytest.mark.parametrize("line,expected", [
@@ -260,6 +309,7 @@ def test_labels_and_perspective():
     ("  S01:   # intro#1 0:01.0-0:09.0", "  S01:"),
     ('  C1: {name: "", voices: []}   # proposes V1', '  C1: {name: "", voices: []}'),
     ("feel: yes", 'feel: "yes"'),
+    ("voices:   # which character sings each voice (V1: C1 Name), or the number of singers", "voices:"),
     ("# a comment line", ""),
 ])
 def test_tolerant_yaml_line(line, expected):
@@ -272,3 +322,10 @@ def test_broken_template_entry_keeps_the_rest_and_warns():
     r = parse_intent(text)
     assert r["logline"] == "x" and r["do_not"] == ["no fire"] and r["characters"]["C1"]["name"] == "Ann"
     assert any("does not parse" in w for w in r["warnings"]) and "C2" not in r["characters"]
+    assert r["notes"] == ['  C2: {name: "Bo, voices: [V2]}']  # kept verbatim, never silently dropped
+
+
+def test_unknown_template_key_is_a_note():
+    r = parse_intent("```yaml\nlogline: x\nmood_board: [fog, salt]\n```\n")
+    assert r["logline"] == "x" and r["notes"] == ["mood_board: fog; salt"]
+    assert any("unknown template key" in w for w in r["warnings"])

@@ -14,7 +14,7 @@ STAGE = StageSpec(
     "spectral",
     ('ingest',),
     "main",
-    "1.2.0",
+    "1.4.1",
     override_keys=(),
     outputs=catalog_outputs("spectral"),
     params={
@@ -33,7 +33,7 @@ STAGE = StageSpec(
         "kick_attack_db": 6.0,          # sweep: 90-250 Hz burst above the level before and 55-85 ms after ...
         "kick_glide": 1.25,             # ... with this pitch drop of the added 30-160 Hz energy (2-25 ms vs 40-75 ms after)
         "kick_click_db": 6.0,           # ... or a 1.5-5 kHz beater click this strong
-        "kick_click_attack_db": 10.0,   # ... with this burst
+        "kick_click_attack_db": 12.0,   # ... with this burst (UD2 precision: was 10)
         "kick_glide_strong": 1.6,       # ... or this strong a pitch drop (long 808-style kicks)
         "kick_attack_low_db": 4.5,      # ... with this burst
         "kick_body_ex_db": 6.5,         # body (acoustic kicks): 30-150 Hz onset >= this,
@@ -42,6 +42,7 @@ STAGE = StageSpec(
         "kick_body_low_ex_db": 1.5,     # <= 400 Hz excess >= this,
         "kick_body_f_hz": 68.0,         # added energy centred at >= this (a bass note's sub sits lower)
         "kick_duck_click_db": 15.0,     # duck (sidechain-ducked bass, no low-band rise): attack_low + this click + glide_strong
+        "kick_click_route": 0.0,        # UD2 precision: the clicky-body route is off (1 = on; it fires on kick-free material)
         "kick_cb_click_db": 15.0,       # clicky body (acoustic kick over a held bass): beater click >= this,
         "kick_cb_attack_db": 3.5,       # ... burst >= this,
         "kick_cb_low_ex_db": 3.0,       # ... <= 400 Hz excess >= this,
@@ -64,6 +65,9 @@ STAGE = StageSpec(
         "kick_dedupe_s": 0.04,          # closer events keep the higher onset score
         "kick_fine_s": 0.005,           # reported onset: steepest <= 400 Hz (+ click) step within +-5 ms
         "kick_pad_s": 0.1,              # silence prepended for the analysis (a kick on the first sample has an onset)
+        "kick_weak_strength": 0.5,      # UD2 precision: drop events weaker than this x the typical attack ...
+        "kick_weak_conf": 0.8,          # ... whose kick_conf is also below this
+        "kick_low_over_mid_db": -1.0,   # W4A-ACAP: 30-150 Hz peak >= the 300-3000 Hz (voice formant) peak + this (40 ms)
         "strength_cap": 2.0,            # event strength = attack / typical attack, capped
         "onset_window_s": 0.8,          # centred flux-threshold window (viz: 48 frames at 60 fps)
         "onset_search_before_s": 0.1,   # onset refinement window around the flux peak (the low-band flux lags a kick sweep)

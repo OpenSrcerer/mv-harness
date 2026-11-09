@@ -4,6 +4,6 @@ Core rule (PLAN §3.3): ``mvh/__init__``, ``mvh/worker.py`` and ``mvh/contract/`
 so the sep worker env can import them.
 """
 __version__ = "0.1.0"
-CONTRACT_VERSION = "1.0.0-rc.2"   # keep equal to mvh.contract.catalog.CONTRACT_VERSION (tested)
+CONTRACT_VERSION = "1.0.0-rc.3"   # keep equal to mvh.contract.catalog.CONTRACT_VERSION (tested)
 
 __all__ = ["__version__", "CONTRACT_VERSION"]

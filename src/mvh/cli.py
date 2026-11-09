@@ -5,6 +5,7 @@
                 [--no-heavy-locks]
     mvh status <song-folder> [--json]
     mvh validate <song-folder> [--json]
+    mvh pack <song-folder> <dest> [--with-stems] [--with-viewer] [--force]
     mvh doctor [--quick] [--no-rocm] [--json]
     mvh models fetch|verify|list [--only id,id] [--env main|sep|ffmpeg] [--json]
 
@@ -30,7 +31,7 @@ from typing import Any
 
 __all__ = ["main", "build_parser", "discover_stage_verbs", "CORE_VERBS"]
 
-CORE_VERBS = ("analyze", "status", "validate", "doctor", "models")
+CORE_VERBS = ("analyze", "status", "validate", "pack", "doctor", "models")
 
 
 def _utf8_stdio() -> None:
@@ -142,7 +143,9 @@ def cmd_analyze(a: argparse.Namespace) -> int:
             _err(f"no such file: {song}")
             return 2
         song_file = song
-        slug = a.slug or slugify(song.stem)
+        # W4P-1: relinking a moved or renamed song to its folder (--out) keeps the folder's slug
+        kept = rr.load_run_settings(Path(a.out)).get("slug") if a.out and not a.slug else None
+        slug = a.slug or kept or slugify(song.stem)
         if not a.slug and not a.out:
             slug = _unique_slug(slug, song)
         song_dir = Path(a.out) if a.out else _default_out_root() / slug
@@ -198,11 +201,16 @@ def cmd_analyze(a: argparse.Namespace) -> int:
         params_ext=params_ext,
         cli_params=cli_params,
     )
+    from mvh.runner import locks
+
     try:
         res = rr.analyze(s)
     except ValueError as e:
         _err(str(e))
         return 2
+    except locks.SongBusy as e:  # W4P-2: MVH_SONG_LOCK_TIMEOUT expired while another run held the folder
+        _err(str(e))
+        return 75
     if a.meaning_draft == "anthropic" and not res["failed"]:
         # PLAN §8: the API drafts the gaps into meaning/authored.json, then meaning/brief/viewer re-merge it
         from mvh.stages.meaning.cli import cmd_meaning
@@ -269,6 +277,51 @@ def cmd_validate(a: argparse.Namespace) -> int:
             f"{len(rep.warnings)} warnings"
         )
     return 0 if rep.ok else 1
+
+
+# ============================================================================================ pack
+#: top-level entries of a song folder a web page never needs (W4D-4): the stage cache and the stems are most
+#: of the ~1-2.5 GB; viewer.html inlines all the data again
+PACK_SKIP = (".cache", "stems", "viewer.html")
+
+
+def pack_folder(
+    folder: Path, dest: Path, *, with_stems: bool = False, with_viewer: bool = False
+) -> dict[str, Any]:
+    """Copy the parts of a song folder a page or a video project loads into ``dest`` (W4D-4): manifest.json,
+    brief.md, lib/, curves/, events/, meta/, lyrics/, meaning/, lipsync/, notes/, tables/, artwork/, frames/,
+    schema/ and audio/ (mix.flac, preview.opus). Never .cache/ or hidden files; stems/ and viewer.html only on
+    request. The manifest still lists the stems, so mvh.js fails only when a page asks for one."""
+    import shutil
+
+    skip = set(PACK_SKIP) - ({"stems"} if with_stems else set()) - ({"viewer.html"} if with_viewer else set())
+    n = size = 0
+    for p in sorted(folder.rglob("*")):
+        rel = p.relative_to(folder)
+        if not p.is_file() or rel.parts[0] in skip or any(part.startswith(".") for part in rel.parts):
+            continue
+        dst = dest / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(p, dst)
+        n += 1
+        size += p.stat().st_size
+    return {"dest": str(dest), "files": n, "bytes": size}
+
+
+def cmd_pack(a: argparse.Namespace) -> int:
+    folder, dest = Path(a.folder), Path(a.dest)
+    if not (folder / "manifest.json").is_file():
+        _err(f"{folder} has no manifest.json (not a song folder made by mvh analyze)")
+        return 2
+    if dest.resolve() == folder.resolve() or folder.resolve() in dest.resolve().parents:
+        _err("the destination must be outside the song folder")
+        return 2
+    if dest.exists() and any(dest.iterdir()) and not a.force:
+        _err(f"{dest} is not empty (pass --force to copy over it)")
+        return 2
+    res = pack_folder(folder, dest, with_stems=a.with_stems, with_viewer=a.with_viewer)
+    print(json.dumps(res, ensure_ascii=False), flush=True)
+    return 0
 
 
 # ============================================================================================ doctor
@@ -419,6 +472,14 @@ def build_parser(with_stage_verbs: bool = True) -> argparse.ArgumentParser:
     va.add_argument("--json", action="store_true")
     va.set_defaults(func=cmd_validate)
 
+    pk = sub.add_parser("pack", help="copy what a web page or video project loads (no stems/.cache) to DEST")
+    pk.add_argument("folder", help="song folder made by mvh analyze")
+    pk.add_argument("dest", help="destination folder (e.g. my-site/public/song)")
+    pk.add_argument("--with-stems", action="store_true", help="also copy stems/ (large)")
+    pk.add_argument("--with-viewer", action="store_true", help="also copy viewer.html")
+    pk.add_argument("--force", action="store_true", help="copy into a non-empty destination")
+    pk.set_defaults(func=cmd_pack)
+
     do = sub.add_parser("doctor", help="check ffmpeg, envs, ROCm, whisper, Rhubarb, models, disk")
     do.add_argument("--quick", action="store_true", help="sizes instead of SHA-256, no ROCm smoke test")
     do.add_argument("--no-rocm", action="store_true")
@@ -444,8 +505,15 @@ def main(argv: list[str] | None = None) -> int:
     _utf8_stdio()
     p = build_parser()
     a = p.parse_args(argv)
+    from mvh.runner import locks
+
     try:
         return int(a.func(a) or 0)
+    except locks.SongBusy as e:
+        # W4VP-3: every verb that runs the pipeline (meaning, frames, module verbs) reports a busy song folder
+        # the way `mvh analyze` does: one message, exit 75 (EX_TEMPFAIL), no traceback
+        _err(str(e))
+        return 75
     except KeyboardInterrupt:
         _err("interrupted")
         return 130

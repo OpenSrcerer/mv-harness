@@ -438,7 +438,7 @@ const HIT_ROWS = ['kick', 'snare', 'hat', 'tom', 'cymbal', 'perc'];
 const ONSET_ROWS = [['onsets.bass', 'bass onsets', 'bass'], ['onsets.mid', 'mid onsets', 'mid'], ['onsets.high', 'high onsets', 'high']];
 LANES.push({
   id: 'hits', title: 'Hits', sub: 'drums by velocity, onsets, hit points, holds', h: 26 + HIT_ROWS.length * 15 + ONSET_ROWS.length * 11 + 36,
-  rowLabels: () => [...HIT_ROWS.map((r, i) => ({ y: 26 + i * 15, h: 14, label: r, col: DRUM_COL[r] })), ...ONSET_ROWS.map((r, i) => ({ y: 26 + HIT_ROWS.length * 15 + 2 + i * 11, h: 11, label: r[1], col: T[r[2]] })), { y: 26 + HIT_ROWS.length * 15 + ONSET_ROWS.length * 11 + 5, h: 28, label: 'hit points / holds', col: T.warn }],
+  rowLabels: () => [...HIT_ROWS.map((r, i) => ({ y: 26 + i * 15, h: 14, label: r === 'kick' ? `kick (${V.song.kickSource})` : r, col: DRUM_COL[r] })), ...ONSET_ROWS.map((r, i) => ({ y: 26 + HIT_ROWS.length * 15 + 2 + i * 11, h: 11, label: r[1], col: T[r[2]] })), { y: 26 + HIT_ROWS.length * 15 + ONSET_ROWS.length * 11 + 5, h: 28, label: 'hit points / holds', col: T.warn }],
   draw(c, w, hh, lane) {
     laneBg(c, w, hh);
     const dh = items('drum_hits');
@@ -451,8 +451,22 @@ LANES.push({
     HIT_ROWS.forEach((r, i) => { rowsDef.push({ y: y + i * 15, h: 14, r }); });
     rowsDef.forEach((rd, i) => { if (i % 2) { c.fillStyle = rgba('#ffffff', 0.025); c.fillRect(0, rd.y - 0.5, w, 15); } });
     c.lineCap = 'butt';
+    // D79 (UD2): the kick row shows the agent-facing kicks (song.kicks(): the drum-stem kick, or hits.kick when the drums
+    // stage chose the mix); the other timeline is drawn as thin grey ticks under it, so a disagreement is visible
+    const ks = V.song.kickSource;
+    const kickRow = rowsDef[0];
+    const other = ks === 'drums' ? items('hits.kick') : dh.filter((it) => it.drum === 'kick');
+    c.fillStyle = rgba('#cfd6e4', 0.35);
+    for (const it of visible(other, VW.t0, VW.t1)) c.fillRect(Math.round(t2x(it.t)), kickRow.y + 11, 1, 3);
+    for (const it of visible(V.song.kicks().items, VW.t0, VW.t1)) {
+      const x = t2x(it.t), v = clamp(it.vel, 0, 1), bh = 3 + v * 11;
+      c.fillStyle = rgba(DRUM_COL.kick, 0.4 + 0.6 * v);
+      c.fillRect(Math.round(x) - 1, kickRow.y + 14 - bh, 2, bh);
+      lane.hits.push({ x: x - 3, y: kickRow.y, w: 6, h: 14, tip: `kick (${ks}) @ ${fmtTime(it.t, 3)}  vel ${v.toFixed(2)}  conf ${it.conf.toFixed(2)}` });
+    }
     if (!useFallback) {
       for (const it of visible(dh, VW.t0, VW.t1)) {
+        if (it.drum === 'kick') continue;   // drawn above from song.kicks()
         const rd = rowsDef[Math.max(0, HIT_ROWS.indexOf(it.drum))] || rowsDef[0];
         const x = t2x(it.t), v = clamp(it.vel == null ? 0.7 : it.vel, 0, 1);
         const bh = 3 + v * 11;
@@ -461,7 +475,7 @@ LANES.push({
         lane.hits.push({ x: x - 3, y: rd.y, w: 6, h: 14, tip: `${it.drum} @ ${fmtTime(it.t, 3)}  vel ${v.toFixed(2)}${it.level_db != null ? '  ' + it.level_db + ' dB' : ''}${it.source ? '\n' + it.source : ''}` });
       }
     } else {
-      for (const [name, rowIdx] of [['hits.kick', 0], ['hits.mid', 1], ['hits.high', 2]]) {
+      for (const [name, rowIdx] of [['hits.mid', 1], ['hits.high', 2]]) {
         for (const it of visible(items(name), VW.t0, VW.t1)) {
           const rd = rowsDef[rowIdx], x = t2x(it.t), v = clamp(it.strength == null ? 0.6 : it.strength, 0, 1);
           c.fillStyle = rgba(DRUM_COL[HIT_ROWS[rowIdx]], 0.4 + 0.6 * v); c.fillRect(Math.round(x) - 1, rd.y + 14 - (3 + v * 11), 2, 3 + v * 11);

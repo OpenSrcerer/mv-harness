@@ -89,9 +89,14 @@ async function boot() {
   for (const n of new Set([...EVENT_NAMES, ...names])) markAbsent('events:' + n);
   V.hasSpectrogram = idxFiles.includes('spectrum128');
   const meta = {};
-  await Promise.all(['source', 'identity', 'tempo', 'loudness', 'vocal_range', 'voices', 'key', 'structure', 'instruments', 'stems', 'mood', 'separation', 'grooves']
+  await Promise.all(['source', 'identity', 'tempo', 'loudness', 'vocal_range', 'voices', 'key', 'structure', 'instruments', 'stems', 'mood', 'separation', 'grooves', 'drums']
     .map(async (k) => { meta[k] = has('meta/' + k + '.json') ? await V.readJSON('meta/' + k + '.json') : null; }));
   V.meta = meta;
+  // D79 (UD2): the agent-facing kick source. viewer.html is built before the runner writes manifest.json, so the drums
+  // stage's meta/drums.json is the source of truth here; song.kicks() / pulse('kick') then follow it.
+  if (meta.drums && (meta.drums.kick_source === 'drums' || meta.drums.kick_source === 'mix')) {
+    song.manifest.summary = Object.assign({}, song.manifest.summary || {}, { kick_source: meta.drums.kick_source });
+  }
   if (V.edit) {
     const o = await (await fetch('api/overrides', { cache: 'no-store' })).json();
     V.ovr = o.overrides || {}; V.ovrEtag = o.etag;

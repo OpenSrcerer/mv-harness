@@ -15,7 +15,7 @@ STAGE = StageSpec(
     "dynamics",
     ('loudness', 'spectral', 'rhythm'),
     "main",
-    "1.0.0",
+    "1.2.0",
     override_keys=(),
     outputs=catalog_outputs("dynamics") + (
         Output("meta/dynamics.json", "json", None, required=False,
@@ -25,6 +25,8 @@ STAGE = StageSpec(
         "novelty_rate_hz": 10,
         "novelty_halves_s": [4.0, 8.0],     # Foote kernel half-widths
         "novelty_rel_prom": 0.35,           # peak prominence >= 0.35 x median of the 8 strongest
+        "novelty_margin": [1.0, 1.0],       # peaks within this x the threshold need the feature contrast (off: [1, 1];
+                                            # [0.7, 1.3] steadies the synth's weak 9 s peak but moves real-song parts)
         "min_segment_s": 4.0,               # novelty peak distance
         "min_part_s": 6.0,                  # parts shorter than 2 bars (3..6 s) are merged (silences excepted)
         "min_part_bars": 2,
@@ -42,8 +44,8 @@ STAGE = StageSpec(
         "level_scale_min": 0.5,
         "snap_hard_s": 0.2,                 # event boundaries snap to a downbeat only within 0.2 s
         "level_thresholds_lu": [-12.0, -6.0, -2.0, 2.0],
-        "silence_rel_lu": 30.0,             # silence: momentary below integrated - 30 LU ...
-        "silence_cap_lufs": -45.0,          # ... and below -45 LUFS
+        "silence_rel_lu": 35.0,             # silence: momentary below integrated - 35 LU (relative only: W4V-GAIN-REAL;
+        "silence_cap_lufs": None,           # the old absolute -45 LUFS cap made a -12 dB copy's silences longer)
         "silence_min_s": 0.5,               # shorter gaps between soft hits are not silences
         "impact_lu": 4.0,                   # impact score = max(dLU / 4, dBass / 6 dB, dBrightness / 0.5 oct)
         "impact_bass_db": 6.0,

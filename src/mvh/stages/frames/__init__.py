@@ -16,7 +16,7 @@ STAGE = StageSpec(
     "frames",
     ANALYSIS_STAGES,
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("frames") + (
         Output("frames/{fps}fps.deforum.json", "json", None, required=False,

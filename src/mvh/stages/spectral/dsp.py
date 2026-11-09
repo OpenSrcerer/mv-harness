@@ -863,6 +863,7 @@ class KickEvidence:
     gate: float  # viz kick gate (0..1) over the 80 ms after the onset
     glide_raw: float = float("nan")  # the same pitch drop measured on the whole 30-160 Hz band (nothing subtracted)
     route: str = ""  # see KICK_ROUTES; "" = no kick
+    low_over_mid: float = float("inf")  # 30-150 Hz peak minus the 300-3000 Hz (voice formant) peak, 0-40 ms after the onset
 
     def conf(self) -> float:
         """kick_conf (0..1): the strongest of the evidence combinations the routes use: sweep (attack, pitch drop,
@@ -899,7 +900,7 @@ KICK_DEFAULTS: dict[str, float] = {
     "attack_db": 6.0,  # sweep route: attack >= this ...
     "glide": 1.25,  # ... with a pitch drop >= this
     "click_db": 6.0,  # ... or a beater click >= this with attack >= click_attack_db
-    "click_attack_db": 10.0,
+    "click_attack_db": 12.0,  # UD2 precision: 10 -> 12 (a pluck bass with a hat on each note reads 10.1-10.6)
     "glide_strong": 1.6,  # ... or a strong pitch drop with attack >= attack_low_db (long 808-style kicks)
     "attack_low_db": 4.5,
     "body_ex_db": 6.5,  # body route (acoustic kicks: no sweep, click masked): body_ex >= this,
@@ -909,6 +910,9 @@ KICK_DEFAULTS: dict[str, float] = {
     "body_f_hz": 68.0,  # and the added energy centred at >= this (a bass note's sub sits lower)
     "duck_click_db": 15.0,  # duck route (sidechain-ducked bass: the low band does not rise): attack >= attack_low_db, this
     #                         beater click and glide_strong on the added or the whole band
+    "click_route": 0.0,  # UD2 precision: the clicky-body route is OFF by default (1 = on): its evidence (a click on a
+    #                      low-band onset) is also what a pluck bass + hat, a low piano chord or a snare on a new bass note
+    #                      show; on the real songs it fired <= 3 times per song
     "cb_click_db": 15.0,  # clicky-body route (acoustic kick over a held bass note): beater click >= this,
     "cb_attack_db": 3.5,  # attack >= this,
     "cb_low_ex_db": 3.0,  # <= 400 Hz excess >= this,
@@ -931,6 +935,12 @@ KICK_DEFAULTS: dict[str, float] = {
     "dedupe_s": 0.04,  # events closer than this keep the higher onset score
     "fine_s": 0.005,  # the reported time: the steepest <= 400 Hz (+ click) step within +-5 ms of the onset
     "pad_s": 0.1,  # silence prepended for the analysis, so a kick on the first sample has an onset
+    "weak_strength": 0.5,  # UD2 precision: an event both weak (attack below this x the typical attack) ...
+    "weak_conf": 0.8,  # ... and ambiguous (kick_conf below this) is dropped (Jeremy's snares: precision 0.90 -> 0.97)
+    "low_over_mid_db": -1.0,  # W4A-ACAP: a kick's 30-150 Hz peak is not more than 1 dB below the 300-3000 Hz (voice formant)
+    #                          peak in the 40 ms after its onset; a sung plosive / syllable onset is formant-dominated.
+    #                          a cappella (contract synth vocals stem): 13 -> 2 'kicks'; real songs: 30 events removed, none
+    #                          a drum-stem kick (Jeremy's one true kick below 0 dB sits at -0.7 dB); synth F1 0.982 -> 0.988
 }
 
 
@@ -952,6 +962,9 @@ class KickAnalysis:
         #: onset score: the ripple-robust sweep-start step plus half the click step (dB)
         self.score = self.ax + 0.5 * self.cs
         self.glide = GlideMeter(mono, sr)
+        # body vs voice-formant level (W4A-ACAP): the same band-envelope method for both bands
+        self.body_be = env_db(band_envelope(mono, sr, 30.0, 150.0))
+        self.formant = env_db(band_envelope(mono, sr, 300.0, 3000.0))
 
     def candidates(self, thr_ls: float = 2.5, thr_as: float = 3.0, thr_cs: float = 6.0) -> list[int]:
         """Every 400 Hz sample where the low band, the sweep-start band or the click band steps up (a superset)."""
@@ -993,7 +1006,9 @@ class KickAnalysis:
         g_raw, _ = self.glide.glide(t, share=0.0)
         body_add, body_db = self.glide.added_db(t)
         bpk = wmax(self.body, j, j + ms(40))
+        lvm = wmax(self.body_be, j, j + ms(40)) - wmax(self.formant, j, j + ms(40))
         return KickEvidence(
+            low_over_mid=lvm,
             glide_raw=g_raw,
             attack=max(att),
             glide=g,
@@ -1018,12 +1033,15 @@ def kick_route(ev: KickEvidence, p: dict[str, float]) -> str:
       does not rise: a sidechain-ducked bass gives way to the kick (EDM).
     * "body": a strong 30-150 Hz onset centred >= 68 Hz that decays >= 8 dB within 90 ms: an acoustic kick alone.
     * "click": a beater click on a low-band onset with a burst: an acoustic kick over a held bass note (the bass keeps
-      the band from decaying, the click is what a bass note lacks).
+      the band from decaying, the click is what a bass note lacks). OFF by default (``click_route`` = 0, UD2): a pluck
+      bass with a hat, a low piano chord and a snare on a new bass note show the same evidence.
     * "808": a long sine kick (little sweep, no click): a moderate pitch drop of the added energy on a clear low-band
       onset with a burst.
     ("roll" is assigned by :func:`select_kick_events`.)"""
     if ev.gate < p["gate"]:
         return ""
+    if ev.low_over_mid < p.get("low_over_mid_db", -math.inf):
+        return ""   # formant-dominated onset: a sung plosive / syllable, not a kick (W4A-ACAP)
     g = ev.glide if ev.glide == ev.glide else 0.0
     gr = ev.glide_raw if ev.glide_raw == ev.glide_raw else 0.0
     adds = max(ev.low_ex, ev.body_ex, ev.body_add) >= p["body_min_db"]
@@ -1036,7 +1054,8 @@ def kick_route(ev: KickEvidence, p: dict[str, float]) -> str:
     if (ev.body_ex >= p["body_ex_db"] and ev.body_add >= p["body_add_db"] and ev.decay >= p["body_decay_db"]
             and ev.low_ex >= p["body_low_ex_db"] and f1 >= p["body_f_hz"]):
         return "body"
-    if (ev.click >= p["cb_click_db"] and ev.attack >= p["cb_attack_db"] and ev.low_ex >= p["cb_low_ex_db"]
+    if (p.get("click_route", 0.0) >= 0.5
+            and ev.click >= p["cb_click_db"] and ev.attack >= p["cb_attack_db"] and ev.low_ex >= p["cb_low_ex_db"]
             and ev.body_ex >= p["cb_body_ex_db"] and ev.body_add >= p["cb_body_add_db"]):
         return "click"
     if (g >= p["s808_glide"] and ev.attack >= p["s808_attack_db"] and ev.body_ex >= p["s808_body_ex_db"]
@@ -1085,6 +1104,11 @@ def select_kick_events(hr: HitResult, mono: np.ndarray, sr: int, params: dict[st
        ``rel_db`` below the song's median kick body must also show clear kick evidence (kick_conf >= ``quiet_conf``).
     5. Reported time: the steepest <= 400 Hz (+ click) step within +-``fine_s`` of the onset. Events closer than
        ``dedupe_s`` keep the higher onset score.
+    6. Precision over recall (user decision UD2: agents read the drum-stem kick, hits.kick is the fallback): an event whose
+       attack is weaker than ``weak_strength`` x the typical one AND whose kick_conf is below ``weak_conf`` is dropped
+       (except the roll and duck routes and any event <= ``roll_gap_max_s`` after the previous kept kick, whose attack
+       is diluted by that kick's tail / the ducked bass by design), and the clicky-body route is off unless
+       ``click_route`` >= 0.5.
     The event's x / envelope value come from the viz kick-band attack episode that peaks within -30..+120 ms of it (or are
     estimated from its body step when viz saw none); ``viz`` is true when the viz attack episode its onset falls in
     registered a hit (viz arms once per attack). ``rise_db`` is the onset score.
@@ -1123,7 +1147,7 @@ def select_kick_events(hr: HitResult, mono: np.ndarray, sr: int, params: dict[st
         if not acc_t.size:
             break
         for t, ev in evs:
-            if ev.route or ev.gate < p["gate"]:
+            if ev.route or ev.gate < p["gate"] or ev.low_over_mid < p.get("low_over_mid_db", -math.inf):
                 continue
             g = ev.glide if ev.glide == ev.glide else 0.0
             gap = t - acc_t
@@ -1178,6 +1202,13 @@ def select_kick_events(hr: HitResult, mono: np.ndarray, sr: int, params: dict[st
         # viz registers this kick when the viz attack episode its onset falls in (-30 ms .. +60 ms) registered a hit
         # (viz arms once per attack: a bass note that starts the attack 100 ms earlier takes the same hit)
         viz = bool(np.any((viz_a <= t + 0.06) & (viz_b >= t - 0.03))) if viz_a.size else False
+        on_tail = bool(out) and t - out[-1][0].t <= p["roll_gap_max_s"]
+        if x < p["weak_strength"] and ev.conf() < p["weak_conf"] and ev.route not in ("roll", "duck") and not on_tail:
+            # UD2 precision over recall: a weak attack with ambiguous evidence is more often a snare / tom over a bass
+            # onset than a kick (agents read the drum-stem kick; hits.kick is the fallback and must not invent kicks).
+            # roll / duck kicks and kicks on the previous kick's tail (<= roll_gap_max_s) are exempt: their attack is
+            # diluted by design (16th double kicks), and their own routes demand a strong burst
+            continue
         if v <= 1e-4:
             v = float(smoothstep01((x - HIT_THRESHOLD) / (1.15 - HIT_THRESHOLD)))
         out.append((HitEvent(t, t_peak, x, max(v, 0.05), rise, ip, viz), ev))

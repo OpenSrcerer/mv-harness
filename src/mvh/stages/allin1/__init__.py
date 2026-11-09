@@ -29,11 +29,16 @@ STAGE = StageSpec(
     "allin1",
     ('separate_fast',),
     "main",
-    "1.0.0",
+    "1.2.0",
     override_keys=(),
     outputs=catalog_outputs("allin1"),
     params={'model': 'harmonix-all', 'folds': 8, 'stems': ['bass', 'drums', 'other', 'vocals'],
-            'embeddings_rate_hz': 10, 'embeddings_layout': 'stems_concat'},
+            'embeddings_rate_hz': 10, 'embeddings_layout': 'stems_concat',
+            # W4A-GAIN / W4V-GAIN-REAL (W4-AN-9): the stems are scaled by ONE common gain that puts the canonical mix's
+            # integrated loudness (BS.1770) at this fixed level (commercial masters, allin1's training material), so
+            # the same song at any master level reaches the model at the same level (a band left real masters at their
+            # own level: a -12 dB copy moved MEGAFAUNA's sections). A list [lo, hi] is a band; null = master level
+            'level_target_lufs': -10.0, 'level_max_gain_db': 40.0},
     models=("allin1_harmonix",),
     module="M2",
     description="all-in-one-infer harmonix-all (8 folds) on separate_fast stems; schema'd intermediates for rhythm and structure.",
@@ -81,6 +86,36 @@ def bpm_from_beats(beats) -> float | None:
     return round(float(60.0 / np.median(ibi)), 3) if len(ibi) else None
 
 
+def level_gain_db(stems: dict[str, np.ndarray], sr: int, band_lufs, max_gain_db: float = 40.0) -> tuple[float, float]:
+    """(gain dB, measured LUFS): one common gain that puts the sum of the stems inside ``band_lufs`` = [lo, hi] (W4A-GAIN);
+    a single number is a fixed target.
+
+    allin1's front end (log(1 + |STFT|) of each stem) is level dependent: the synthetic song 12 dB quieter (-32 LUFS) was
+    labelled 'intro' throughout. The htdemucs stems scale with the master level, so the analysis copy is brought into the
+    level range of commercial masters (its training material); the timing is untouched (a pure gain). Inside the band
+    nothing changes (the four real songs, -6.1 .. -11.0 LUFS). The stems are written as float32, so a positive gain cannot
+    clip. Silence (below the absolute gate) is left as it is."""
+    from mvh.stages.loudness.r128 import LUFS_FLOOR, integrated
+
+    if band_lufs is None:
+        return 0.0, float("nan")
+    if isinstance(band_lufs, (int, float)):
+        lo = hi = float(band_lufs)
+    else:
+        lo, hi = float(min(band_lufs)), float(max(band_lufs))
+    arrs = [np.asarray(v, np.float64) for v in stems.values()]
+    arrs = [a if a.ndim == 2 else a.reshape(1, -1) for a in arrs]
+    n = min(a.shape[1] for a in arrs)
+    ch = max(a.shape[0] for a in arrs)
+    tot = np.zeros((ch, n))
+    for a in arrs:
+        tot += a[:, :n] if a.shape[0] == ch else np.repeat(a[:1, :n], ch, axis=0)
+    lv = integrated(tot, sr)
+    if lv <= LUFS_FLOOR + 1e-6:
+        return 0.0, lv
+    return float(np.clip(float(np.clip(lv, lo, hi)) - lv, -abs(max_gain_db), abs(max_gain_db))), lv
+
+
 def run(ctx) -> StageResult:
     from mvh.io.wav import write_wav
 
@@ -95,10 +130,24 @@ def run(ctx) -> StageResult:
     stem_dir.mkdir(parents=True, exist_ok=True)
     paths = {}
     sr = None
+    raw: dict[str, np.ndarray] = {}
     for s in STEMS:
         a = ctx.audio(f"fast:{s}")
         sr = a.sr
-        paths[s] = write_wav(stem_dir / f"{s}.wav", np.asarray(a.samples, np.float32), a.sr)
+        raw[s] = np.asarray(a.samples, np.float32)
+    tgt = p.get("level_target_lufs")
+    if isinstance(tgt, (list, tuple)):
+        gain_db, level_lufs = level_gain_db(raw, int(sr), tgt, float(p.get("level_max_gain_db", 40.0)))
+    else:
+        from mvh.stages.loudness.level import gain_db_for
+
+        mix = ctx.audio("mix")
+        gain_db, level_lufs = gain_db_for(np.asarray(mix.samples), int(mix.sr), tgt, float(p.get("level_max_gain_db", 40.0)))
+        del mix
+    g = np.float32(10.0 ** (gain_db / 20.0))
+    for s in STEMS:
+        paths[s] = write_wav(stem_dir / f"{s}.wav", raw[s] * g if gain_db else raw[s], int(sr))
+    del raw
     handle = ctx.model("allin1_harmonix")  # verifies the fold files exist (sizes) and records their SHA-256s
 
     import torch
@@ -147,10 +196,15 @@ def run(ctx) -> StageResult:
         "embeddings_layout": "stems_concat:" + ",".join(STEMS) if emb_doc else None,
         "model": {"name": str(p["model"]), "folds": int(p.get("folds", 8)), "package": "all-in-one-infer",
                   "version": getattr(allin1_infer, "__version__", "3.1.0"), "stems_sr": int(sr or 44100)},
+        # additive (W4A-GAIN, W4-AN-9): the analysis-copy level normalisation (measured on the canonical mix, or on
+        # the stem sum when a band is configured)
+        "level": {"measured_lufs": None if not np.isfinite(level_lufs) else round(float(level_lufs), 2),
+                  "measured_on": "stems" if isinstance(tgt, (list, tuple)) else "mix",
+                  "target_lufs": tgt, "gain_db": round(float(gain_db), 2)},
     }
     ctx.writer.json("allin1.json", doc)
     labels_used = sorted({s["label"] for s in segs})
-    summary = {"bpm": doc["bpm"], "bpm_from_beats": doc["bpm_from_beats"], "n_beats": len(beats),
+    summary = {"bpm": doc["bpm"], "bpm_from_beats": doc["bpm_from_beats"], "n_beats": len(beats), "gain_db": doc["level"]["gain_db"],
                "n_downbeats": len(downbeats), "n_segments": len(segs), "labels": labels_used}
     return StageResult(
         status="ok", summary=summary,

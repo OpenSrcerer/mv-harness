@@ -53,7 +53,7 @@ def test_singing_pending_uses_voice_proposals(synth_source, truth):
 
 
 def test_user_line_override_wins(synth_source, synth_intent):
-    text = synth_intent + "\n## Singers\nL001: C2\nL009: C2+C1\n"
+    text = synth_intent + "\nline_singers:\n  L001: C2\n  L009: C2+C1\n"  # a second template region (UD1)
     res = build(synth_source(), text, None, {})
     assert res["singers"]["L001"] == ["C2"] and res["singers"]["L009"] == ["C2", "C1"]
     it = [i for i in res["singing"] if i["line_id"] == "L009"]
@@ -82,8 +82,9 @@ def test_three_voices_with_announcer(synth_source, synth_source_parts):
             s["voice_id"] = "V3"
     voices = dict(files["meta/voices.json"])
     voices["voices"] = voices["voices"] + [{"id": "V3", "seconds": 2.0, "n_lines": 1, "proposed_character_id": None, "hint": None}]
-    intent = "## Characters\n- C1 Newton = V1\n- C2 Nye = V2\n"
+    intent = "characters:\n- C1 Newton = V1\n- C2 Nye = V2\n"  # the template key answered with bullets (UD1)
     res = build(synth_source(files={"meta/voices.json": voices}, events={"voice_spans": spans}), intent, None, {})
     chars = {c["id"]: c for c in res["characters"]}
     assert set(chars) == {"C1", "C2", "C3"} and chars["C3"]["voice_ids"] == ["V3"]
     assert chars["C3"]["provenance"]["status"] == "draft" and res["singers"]["L001"] == ["C3"]
+    assert (chars["C1"]["name"], chars["C2"]["name"]) == ("Newton", "Nye")

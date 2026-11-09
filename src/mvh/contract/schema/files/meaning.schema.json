@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://mv-harness.local/schema/files/meaning.schema.json",
  "title": "mvh/files/meaning",
- "x-contract-version": "1.0.0-rc.2",
+ "x-contract-version": "1.0.0-rc.3",
  "type": "object",
  "properties": {
   "schema": {
@@ -603,6 +603,29 @@
   },
   "provenance": {
    "$ref": "https://mv-harness.local/schema/envelope/provenance.schema.json"
+  },
+  "notes": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "description": "the user's own words, verbatim: free text of meaning/intent.md and the template's notes; direction, never a field or a rule"
+   }
+  },
+  "references": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "field_sources": {
+   "type": "object",
+   "properties": {},
+   "required": [],
+   "description": "per top-level field: user (intent template / notes) | draft (authored.json)"
+  },
+  "intent_form": {
+   "type": "string",
+   "description": "how meaning/intent.md was read: none | yaml (template) | text (notes) | yaml+text, +viewer when the viewer block is present"
   }
  },
  "required": [

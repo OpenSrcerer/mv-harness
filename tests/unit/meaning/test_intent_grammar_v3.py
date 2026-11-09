@@ -1,10 +1,13 @@
-"""Intent grammar v3 (meaning/intent.py): property-style checks over the ways a user answers that v2 missed.
+"""Intent grammar (meaning/intent.py, mvh-intent v2, UD1): the interview copied into intent.md, template keys answered
+with bullets, and the template's hint comments.
 
-* rule 0: the user copies interview.md and answers under its questions (every song shape x answer layout x copy extent);
-* map keys answered with bullets (``characters:`` + ``- C1 ...``);
-* do-not heading vocabulary and bulleted / numbered do-not labels;
-* the template's hint comments are comments whatever the spacing before them;
-* the interview's questions and the template's hints stay in sync with the parser.
+* a copy of interview.md: the harness's own lines are never the user's; the user's answers (under a question, after
+  it on the same line, after a voice fact, under an open question) are kept verbatim as notes, headed by the question
+  they answer; an untouched copy answers nothing; nothing in it becomes a field or a rule (every song shape x answer
+  layout x copy extent);
+* map keys of the template answered with bullets (``characters:`` + ``- C1 ...``);
+* the template's hint comments are comments whatever the spacing before them, and the interview's questions and the
+  template's hints stay in sync with the parser.
 Synthetic fixture only (invented lyrics)."""
 from __future__ import annotations
 
@@ -14,7 +17,8 @@ from typing import Any
 
 import pytest
 
-from mvh.stages.meaning.intent import TEMPLATE_HINTS, _interview_echo, parse_intent
+from mvh.stages.meaning.intent import TEMPLATE_HINTS, free_text_notes, parse_intent
+from mvh.stages.meaning.interview_text import OBEY
 from mvh.stages.meaning.stage import build
 
 SHAPES = {
@@ -39,6 +43,9 @@ LAYOUTS = {
     "inline": lambda q, a: [q + " " + a],
     "bullet_answer": lambda q, a: [q, "   - " + a],
 }
+HARNESS = ("harness found", "voice(s) were found", "Credits found", "meaning status", "night blue", "draft asks",
+           "Which character is each voice", "What should happen", "mood arc", "Already answered", "Template (copy",
+           "Interview:", "copied verbatim", "where and when")
 
 
 def _src(synth_source, shape):
@@ -62,23 +69,23 @@ def _user_fields(m: dict[str, Any]) -> list[str]:
     return sorted(k for k, v in (m.get("field_sources") or {}).items() if v == "user")
 
 
-# ------------------------------------------------------------------------------------------------ rule 0
+# ------------------------------------------------------------------------------------------------ interview copy
 @pytest.mark.parametrize("shape,layout,whole", list(itertools.product(sorted(SHAPES), sorted(LAYOUTS), [False, True])))
-def test_answers_under_copied_questions_are_the_claims(synth_source, synth_authored, shape, layout, whole):
+def test_answers_under_copied_questions_are_notes_headed_by_their_question(synth_source, synth_authored, shape, layout,
+                                                                           whole):
     iv = _interview(synth_source, shape, synth_authored)
     r = build(_src(synth_source, shape), _answered(iv, layout, whole), synth_authored, {})
     m, it = r["meaning"], r["intent"]
-    assert m["status"] == "user"
-    assert m["logline"] == "Two keepers wait for a ship." and m["field_sources"]["logline"] == "user"
-    assert m["summary"] == ANSWERS["What does this song mean to you?"]
-    assert m["setting"] == ANSWERS["The world"]
-    assert m["palette"][0] == "#c93523" and len(m["palette"]) == 2 and not it["palette_unparsed"]
-    assert any("No blood on screen." in r_ for r_ in m["do_not"]) and len(m["do_not"]) == 1
-    # none of the harness's own text became a claim
-    harness = ("harness found", "voice(s) were found", "Credits found", "meaning status", "night blue", "draft asks",
-               "Which character is each voice", "What should happen", "mood arc")
-    claims = [str(x) for x in it["notes"] + it["do_not"] + it["palette_names"]] + [str(it["summary"])]
-    assert not [c for c in claims if any(h in c for h in harness)], claims
+    assert m["status"] == "user" and _user_fields(m) == ["notes"]
+    assert len(m["notes"]) == 4, m["notes"]
+    for title, answer in ANSWERS.items():
+        note = next(n for n in m["notes"] if answer in n)  # every answer, verbatim
+        assert note.startswith("## " + title), note  # headed by the question it answers
+    # free text is never a field or a rule: the draft fills the fields, the do-not list stays the user's (empty)
+    assert m["do_not"] == [] and m["field_sources"].get("logline") == "draft"
+    assert any("never obeyed as a rule" in q for q in m["open_questions"])  # 'Never show' answered in free text
+    # none of the harness's own text became a note
+    assert not [n for n in m["notes"] if any(h in n for h in HARNESS)], m["notes"]
     assert not it["line_singers"] and not it["characters"] and not it["sections"], it
     assert not it["warnings"], it["warnings"]
 
@@ -94,18 +101,57 @@ def test_untouched_interview_copy_answers_nothing(synth_source, synth_authored, 
     r = build(_src(synth_source, shape), text, a, {})
     m = r["meaning"]
     assert m["status"] == ("draft" if authored else "pending") and not _user_fields(m), (m["status"], _user_fields(m))
-    assert not r["intent"]["notes"] and not r["intent"]["do_not"]
+    assert not r["intent"]["notes"] and not r["intent"]["do_not"], r["intent"]["notes"]
 
 
 @pytest.mark.parametrize("shape", sorted(SHAPES))
-def test_every_interview_question_is_known_to_the_parser(synth_source, synth_authored, shape):
-    """Sync guard: docs.interview_md's numbered questions must all be rule-0 questions in intent.py."""
+def test_every_interview_line_is_known_to_the_parser(synth_source, synth_authored, shape):
+    """Sync guard: every line docs.interview_md writes outside the template is the harness's (no note), and each
+    numbered question becomes only the heading of an answer."""
     iv = _interview(synth_source, shape, synth_authored)
+    qa = iv[:iv.index("```yaml")]
+    assert free_text_notes(qa.splitlines()) == []
     qs = [ln for ln in iv.splitlines() if re.match(r"\d+\. ", ln)]
     assert qs
     for q in qs:
-        got = _interview_echo([(0, q)])
-        assert got[0][1].startswith("## ") and len(got) == 1, (q[:60], got)
+        notes = free_text_notes([q, "an answer"])
+        assert len(notes) == 1 and notes[0].startswith("## ") and notes[0].endswith("\nan answer"), (q[:60], notes)
+
+
+def test_interview_and_template_say_what_must_be_obeyed(synth_source):
+    iv = _interview(synth_source, "synth")
+    assert OBEY in iv and "free text is never a rule" in iv
+    t = iv[iv.index("```yaml"):]
+    assert "Anything that must be obeyed goes here" in t
+
+
+def _voice_answers(iv: str) -> str:
+    out = []
+    for ln in iv[:iv.index("## Template")].splitlines():
+        if re.match(r"\s*- \*\*V1\*\*: ", ln):
+            ln += " -> C1 The Keeper"
+        elif "Which character is each voice" in ln:
+            ln += " C2 The Child sings V2."
+        out.append(ln)
+    return "\n".join(out) + "\n"
+
+
+def test_answers_appended_to_copied_voice_lines_are_kept(synth_source):
+    r = parse_intent(_voice_answers(_interview(synth_source, "synth")))
+    assert r["characters"] == {} and len(r["notes"]) == 1
+    note = r["notes"][0]
+    assert note.startswith("## Who sings to whom?") and "- V1: -> C1 The Keeper" in note
+    assert "C2 The Child sings V2." in note and "first heard" not in note
+
+
+def test_answer_under_a_copied_open_question_is_kept(synth_source, synth_authored):
+    iv = _interview(synth_source, "synth", synth_authored)
+    oq = iv[iv.index("## Open questions"):iv.index("## Template")]
+    first = next(ln for ln in oq.splitlines() if ln.startswith("- "))
+    txt = oq.replace(first, first + "\n  - Yes: the keeper is the narrator.", 1)
+    r = parse_intent(txt)
+    assert r["notes"] == ["## Open questions\n" + first + "\n  - Yes: the keeper is the narrator."]
+    assert r["perspective"]["narrator"] is None
 
 
 @pytest.mark.parametrize("layout", sorted(LAYOUTS))
@@ -125,6 +171,9 @@ KEY_LISTS = {
     "characters": ("characters:\n- C1 The Keeper = V1 (the low voice). Lead.\n- C2: The Tide = V2\n",
                    lambda o: {k: (c["name"], c["voices"]) for k, c in o["characters"].items()}
                    == {"C1": ("The Keeper", ["V1"]), "C2": ("The Tide", ["V2"])}),
+    "voices": ("voices:\n- V1 = C1 The Keeper\n- V2 = C2 The Tide\n",
+               lambda o: {k: (c["name"], c["voices"]) for k, c in o["characters"].items()}
+               == {"C1": ("The Keeper", ["V1"]), "C2": ("The Tide", ["V2"])}),
     "sections": ("sections:\n- Chorus: wide shots, slow.\n- S03: fog\n",
                  lambda o: {(s["key"], s["feel"]) for s in o["sections"]} == {("chorus", "wide shots, slow"), ("S03", "fog")}),
     "line_singers": ("line_singers:\n- L005: C1+C2\n- L006 = C2\n",
@@ -133,19 +182,21 @@ KEY_LISTS = {
                     lambda o: o["perspective"] == {"narrator": "C1", "addressee": "the sea"}),
 }
 KEY_WRAPS = {
-    "col0": lambda t: t,
-    "indented": lambda t: re.sub(r"(?m)^- ", "  - ", t),
-    "fenced": lambda t: "```yaml\n" + t + "```\n",
-    "after_story": lambda t: "Two keepers wait for a ship.\n\n" + t,
-    "before_note": lambda t: t + "\n## Notes\nKeep it quiet.\n",
+    "col0": (lambda t: t, []),
+    "indented": (lambda t: re.sub(r"(?m)^- ", "  - ", t), []),
+    "fenced": (lambda t: "```yaml\n" + t + "```\n", []),
+    "after_story": (lambda t: "Two keepers wait for a ship.\n\n" + t, ["Two keepers wait for a ship."]),
+    "before_note": (lambda t: t + "\n## Notes\nKeep it quiet.\n", ["## Notes\nKeep it quiet."]),
 }
 
 
 @pytest.mark.parametrize("key,wrap", list(itertools.product(sorted(KEY_LISTS), sorted(KEY_WRAPS))))
 def test_map_keys_answered_with_bullets(key, wrap):
     text, ok = KEY_LISTS[key]
-    o = parse_intent(KEY_WRAPS[wrap](text))
+    add, notes = KEY_WRAPS[wrap]
+    o = parse_intent(add(text))
     assert ok(o), o
+    assert o["notes"] == notes
     assert not o["warnings"], o["warnings"]
 
 
@@ -153,43 +204,6 @@ def test_unknown_bullet_under_a_map_key_is_kept_and_warned():
     o = parse_intent("characters:\n- somebody in a coat\n- C1 Ann = V1\n")
     assert o["characters"]["C1"]["name"] == "Ann" and "somebody in a coat" in o["notes"]
     assert any("characters" in w for w in o["warnings"])
-
-
-# ------------------------------------------------------------------------------------------------ do-not recall
-STORY = "## The story\nTwo keepers wait.\n\n"
-
-
-@pytest.mark.parametrize("heading", ["What I don't want", "Avoid these", "Things I never want to see", "Never show these",
-                                     "What not to show", "No-gos", "Things we must not show", "Don’t show"])
-def test_do_not_heading_vocabulary(heading):
-    o = parse_intent(STORY + f"## {heading}\n- blood\n- lens flares\n")
-    assert o["do_not"] == ["blood", "lens flares"] and o["logline"] == "Two keepers wait."
-
-
-@pytest.mark.parametrize("heading", ["Never Let Me Go", "Don't Stop Me Now: my notes", "Never Again", "Avoiding the obvious",
-                                     "Things to do", "What I want", "The story: a night that never ends"])
-def test_titles_with_do_not_words_are_not_do_not_headings(heading):
-    o = parse_intent(f"## {heading}\nA keeper waits.\n\n- Chorus: wide\n")
-    assert o["do_not"] == [] and {s["key"] for s in o["sections"]} == {"chorus"}
-
-
-@pytest.mark.parametrize("line", ["- Never show: blood", "* **Never show**: blood", "9. **Never show**: blood",
-                                  "- Avoid: blood", "1) Do not: blood", "- **Don't**: blood"])
-@pytest.mark.parametrize("after", ["", "\n- Chorus: wide\n", "\nC1 Ann = V1\n"])
-def test_bulleted_do_not_label_is_one_rule(line, after):
-    o = parse_intent(STORY + line + "\n" + after)
-    assert o["do_not"] == ["blood"], o["do_not"]
-    assert o["logline"] == "Two keepers wait."
-
-
-@pytest.mark.parametrize("text,dn,notes", [
-    ("- **Never show**\n  - blood\n  - fire\n- Chorus: wide\n", ["blood", "fire"], []),
-    ("- Never show:\n- blood\n- fire\n\n## Notes\nThe end.\n", ["blood", "fire"], ["The end."]),
-    ("- **Never show**\n  - blood\n- fire\n", ["blood"], ["fire"]),
-])
-def test_bulleted_bare_label_lists(text, dn, notes):
-    o = parse_intent(text)
-    assert o["do_not"] == dn and o["notes"] == notes
 
 
 # ------------------------------------------------------------------------------------------------ template hints
@@ -209,7 +223,9 @@ def test_template_hint_comments_are_known(synth_source):
 def test_hint_after_a_typed_value_is_a_comment_whatever_the_spacing(spaces, wrap):
     body = (f"palette: #c93523{spaces}# hex (#1b2a49) or colour words (night blue)\n"
             f"line_singers:{spaces}# optional per-line fixes, lead first: {{L005: C1+C2}}\n  L006: C2\n"
+            f"voices: 2{spaces}# which character sings each voice (V1: C1 Name), or the number of singers\n"
             f"do_not:{spaces}# rules in your own words; copied verbatim to every agent\n  - no fire\n")
     o = parse_intent("```yaml\n" + body + "```\n" if wrap == "fenced" else body)
     assert o["palette"] == ["#c93523"] and o["line_singers"] == {"L006": ["C2"]} and o["do_not"] == ["no fire"]
+    assert o["n_voices"] == 2
     assert not o["notes"] and not o["warnings"]

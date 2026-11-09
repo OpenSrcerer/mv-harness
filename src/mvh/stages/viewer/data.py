@@ -183,7 +183,7 @@ def build_data(ctx: Any, bd: Any) -> dict[str, Any]:
             "fallbacks": fallbacks,
             "inline_lyrics": inline_lyrics,
             "cap_bytes": cap,
-            "contract": "1.0.0-rc.2",
+            "contract": "1.0.0-rc.3",
         },
     }
     return {

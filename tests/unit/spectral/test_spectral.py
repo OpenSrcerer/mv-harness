@@ -270,12 +270,18 @@ def test_kick_designs_and_mix_situations(case, tmp_path):
     tempos and gains): an acoustic kick (no sweep, beater click) and a 909 over a bass note held for the bar; kicks over a
     sub bass sidechain-ducked 92 % at each kick (the low band hardly rises); a 4-bar intro 16 dB down and a fade-out of
     4 dB per bar (the faint-thump filter is relative to the local mix level); the contract song's long kick on 16ths at
-    180 BPM under a crash (roll route). PLAN §7: F1 >= 0.95 at +-10 ms."""
+    180 BPM under a crash (roll route). PLAN §7: F1 >= 0.95 at +-10 ms.
+    UD2 (W4, docs/contract/decisions/UD2.md): the acoustic kick over a held bass was found only by the clicky-body route,
+    which is off (it invents kicks on kick-free material); for it the target is precision >= 0.95 (no invented kick) with
+    a recall guard of 0.5 (measured 0.725)."""
     x, sr, ref = _kick_case(case)
     r = run_m1(x, sr, tmp_path, stages=("spectral",))
     ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
     f, p, rc, _ = f1([it["t"] for it in ev], ref, 0.010)
-    assert f >= 0.95, (case, f, p, rc, len(ev), len(ref))
+    if case == "held-acoustic":
+        assert p >= 0.95 and rc >= 0.5, (case, f, p, rc, len(ev), len(ref))
+    else:
+        assert f >= 0.95, (case, f, p, rc, len(ev), len(ref))
 
 
 @pytest.mark.xfail(strict=True, reason="known limit: a clickless 808 starting at 82 Hz over a held bass is often anchored "
@@ -474,3 +480,58 @@ def test_max_step_ignores_the_recovery_of_a_beating_null():
     s = dsp.max_step(lvl, 4, 8)
     assert s[99] > 15.0
     assert np.max(s[250:260]) < 1.0
+
+
+def _kick_free(kind: str, bpm: float = 110.0, bars: int = 10, sr: int = 44100):
+    """Kick-free textures (no kick in the truth), built here from tests.synth.dsp primitives with other parameters than
+    the review's rdsp_r5_signals.kick_free (tempo 110, roots E1 G1 D1 C2, other gains and registers)."""
+    from tests.synth import dsp as sd
+    from tests.synth.m1.signals import _faded
+
+    beat = 60.0 / bpm
+    x = np.zeros((2, int((0.5 + bars * 4 * beat + 1.5) * sr)))
+    roots = [28, 31, 26, 36]
+    hat = _faded(sd.hihat(0.5, False, sr, seed=7), sr) * 0.35
+    for b in range(bars):
+        t0 = 0.5 + b * 4 * beat
+        r = roots[b % 4]
+        if kind == "pluck_hats":
+            n = int(beat / 2 * sr)
+            tt = np.arange(n) / sr
+            f0 = float(sd.midi_hz(r + 12))
+            fc = 140.0 + 1700.0 * np.exp(-tt / 0.04)
+            pl = sd.additive(f0, n, [1.0 / k for k in range(1, 50)], sr,
+                             partial_env=lambda k: 1.0 / np.sqrt(1 + (k * f0 / fc) ** 8))
+            pl = 0.45 * pl * np.minimum(1, tt / 0.003) * np.exp(-tt / 0.3) * np.minimum(1, (n - np.arange(n)) / (0.01 * sr))
+            for q in range(8):
+                i = int(round((t0 + q * beat / 2) * sr))
+                sd.place(x, sd.pan(pl, -0.1), i)
+                sd.place(x, sd.pan(hat, 0.25), i)
+        elif kind == "piano_low":
+            for q in range(4):
+                i = int(round((t0 + q * beat) * sr))
+                # left hand from the octave above E2..C3 (110-130 Hz roots; a staccato chord whose FUNDAMENTAL sits in the
+                # 30-100 Hz kick band, e.g. E2 at 82 Hz, reads as an acoustic kick to a mix-only detector: a documented
+                # limit of the fallback, docs/contract/decisions/UD2.md)
+                for m in (r + 24, r + 31, r + 36, r + 40):
+                    sd.place(x, sd.pan(sd.piano_note(m, beat * 0.85, 0.8, sr), 0.0), i)
+        elif kind == "snare_bass":
+            for q in (1, 3):
+                i = int(round((t0 + q * beat) * sr))
+                sd.place(x, sd.pan(_faded(sd.snare(0.85, sr, seed=5), sr) * 0.75, 0.05), i)
+                sd.place(x, sd.pan(sd.bass_note(roots[(b * 2 + q) % 4], 2 * beat * 0.9, 0.75, sr) * 0.65, 0.0), i)
+        else:
+            raise KeyError(kind)
+    x += 10 ** (-72 / 20) * np.random.default_rng(3).standard_normal(x.shape)
+    return x * (10 ** (-1 / 20) / np.max(np.abs(x))), sr
+
+
+@pytest.mark.parametrize("kind", ["pluck_hats", "piano_low", "snare_bass"])
+def test_no_invented_kicks_on_kick_free_material(kind, tmp_path):
+    """UD2 precision target for the hits.kick fallback, on kick-free textures independent of the review's generators
+    (other tempo, roots and gains): a pluck bass with a closed hat on every 8th, low piano chords on every beat, a snare
+    that starts each held bass note. The clicky-body route made 39 / 21 / 7 kicks of these; now <= 1."""
+    x, sr = _kick_free(kind)
+    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    ev = r["ctx"]["spectral"].written_events("hits.kick")["items"]
+    assert len(ev) <= 1, (kind, [round(it["t"], 2) for it in ev[:6]])

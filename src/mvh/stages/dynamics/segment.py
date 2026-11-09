@@ -171,6 +171,32 @@ def pick_peaks(nov: np.ndarray, *, rate: int = RATE // DS, min_dist_s: float = 3
     return [((p * DS + (DS - 1) / 2.0) / RATE, float(pr)) for p, pr in zip(pk, prom) if pr >= thr]
 
 
+def pick_peaks_margin(nov: np.ndarray, z: np.ndarray, *, rate: int = RATE // DS, min_dist_s: float = 3.0,
+                      rel_prom: float = 0.35, abs_prom: float = 0.04, band: Sequence[float] = (0.7, 1.3),
+                      contrast_span_s: float = 8.0, contrast_min: float = 1.2,
+                      report: list | None = None) -> list[tuple[float, float]]:
+    """:func:`pick_peaks` with a margin (W4A-STABLE): a peak whose prominence is within ``band`` x the threshold is
+    ambiguous (a resample or a gain change moves it across), so it is kept only when the feature contrast across it
+    (:func:`contrast`, a block-median measure that does not flicker) is >= ``contrast_min``; above the band it is kept,
+    below it dropped."""
+    from scipy.signal import find_peaks
+
+    pk, props = find_peaks(nov, distance=max(1, int(min_dist_s * rate)), prominence=abs_prom)
+    if pk.size == 0:
+        return []
+    prom = props["prominences"]
+    top = np.sort(prom)[::-1][:8]
+    thr = max(abs_prom, rel_prom * float(np.median(top)))
+    out = []
+    for p, pr in zip(pk, prom):
+        t = (p * DS + (DS - 1) / 2.0) / RATE
+        if report is not None and pr >= max(abs_prom, band[0] * thr):
+            report.append([round(t, 2), round(float(pr / thr), 3), round(contrast(z, t, contrast_span_s, rate), 3)])
+        if pr >= band[1] * thr or (pr >= max(abs_prom, band[0] * thr) and contrast(z, t, contrast_span_s, rate) >= contrast_min):
+            out.append((t, float(pr)))
+    return out
+
+
 def pick_peaks_in(nov: np.ndarray, t0: float, t1: float, *, rate: int = RATE // DS, min_dist_s: float = 3.0,
                   rel_prom: float = 0.5, abs_prom: float = 0.02) -> list[tuple[float, float]]:
     """Novelty peaks inside [t0, t1] with prominence (measured inside that window) >= rel_prom x the window's largest."""

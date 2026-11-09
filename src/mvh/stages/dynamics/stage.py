@@ -111,7 +111,11 @@ def segment_song(inp: D.Inputs, det: D.Detections, ser: dict[str, np.ndarray], f
             hard.append(G.Boundary(im.t, "impact", im.strength, True))
 
     # soft boundaries: novelty peaks (prominence relative to the song's strongest peaks)
-    peaks = G.pick_peaks(nov10, min_dist_s=float(p["min_segment_s"]), rel_prom=float(p["novelty_rel_prom"]))
+    peaks = G.pick_peaks_margin(nov10, feat.z, min_dist_s=float(p["min_segment_s"]), rel_prom=float(p["novelty_rel_prom"]),
+                                band=tuple(float(v) for v in p.get("novelty_margin", (1.0, 1.0))),
+                                contrast_span_s=float(p["contrast_span_s"]), contrast_min=float(p["split_min_contrast"]),
+                                report=(nov_rep := []))
+    info["novelty_peaks"] = nov_rep       # [t, prominence / threshold, contrast] of the candidates (provenance)
     soft = [G.Boundary(t, "novelty", pr) for t, pr in peaks]
     method = "novelty"
     min_gap = min_part_s(inp, p)
@@ -135,7 +139,9 @@ def segment_song(inp: D.Inputs, det: D.Detections, ser: dict[str, np.ndarray], f
                 out.append(t)
                 kinds.append(b)
                 continue
-            if out and t - out[-1] < min_gap:
+            # downbeat-snapped boundaries are a whole number of bars apart: a quarter-bar margin, so a 2-bar part does not
+            # depend on a 1 ms difference in the median bar length (W4A-STABLE)
+            if out and t - out[-1] < min_gap * (1.0 - 0.125):
                 # keep the hard one, else the stronger one
                 if (b.hard and not kinds[-1].hard) or (b.hard == kinds[-1].hard and b.strength > kinds[-1].strength):
                     out[-1], kinds[-1] = t, b
@@ -194,6 +200,7 @@ def segment_song(inp: D.Inputs, det: D.Detections, ser: dict[str, np.ndarray], f
             info["fallback_threshold"] = round(thr, 3)
 
     bounds, bkinds = assemble_k(bset)
+    info["boundaries"] = [[round(t, 3), b.kind, round(float(b.strength), 3)] for t, b in zip(bounds, bkinds)]
     edges = [0.0] + bounds + [dur]
     ekinds = ["start"] + [b.kind for b in bkinds]
     evts: list[float | None] = [None] + [b.t if b.kind in ("major-impact", "impact") else None for b in bkinds]
@@ -254,11 +261,15 @@ def _merge(inp: D.Inputs, ser, intensity, feat: G.Features, segs: list[G.Segment
         m.stats = G.seg_stats(inp, ser, intensity, m.t, m.t1)
         segs[i : i + 2] = [m]
 
+    # parts are downbeat-snapped, so a 2-bar part is exactly min_part long: compare with a quarter-bar margin, or a
+    # 1 ms difference in the median bar length decides whether it survives (W4A-STABLE: the synthetic decay tail at
+    # 52.5 s was merged at 44.1 kHz and kept at 48 kHz)
+    tol = 0.125 * min_part
     changed = True
     while changed and len(segs) > 1:
         changed = False
         for i, s in enumerate(segs):
-            if s.silence or s.d >= min_part:
+            if s.silence or s.d >= min_part - tol:
                 continue
             cands = []
             if i > 0 and not segs[i - 1].silence:
@@ -347,7 +358,7 @@ def run(ctx) -> StageResult:
     if inp.duration <= 0 or inp.n == 0:
         raise ValueError("dynamics: empty song")
     det = D.Detections()
-    det.silences = D.detect_silences(inp, rel_lu=float(p["silence_rel_lu"]), cap=float(p["silence_cap_lufs"]),
+    det.silences = D.detect_silences(inp, rel_lu=float(p["silence_rel_lu"]), cap=None if p.get("silence_cap_lufs") is None else float(p["silence_cap_lufs"]),
                                      min_s=float(p["silence_min_s"]))
     det.stops = D.detect_stops(inp, det.silences)
     det.impacts = D.detect_impacts(inp, det.silences, theta_lu=float(p["impact_lu"]),

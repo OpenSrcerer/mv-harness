@@ -1,0 +1,199 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://mv-harness.local/schema/files/drums.schema.json",
+ "title": "mvh/files/drums",
+ "x-contract-version": "1.0.0-rc.3",
+ "type": "object",
+ "properties": {
+  "kick_source": {
+   "type": "string",
+   "description": "drums = events/drum_hits drum=kick; mix = events/hits.kick",
+   "enum": [
+    "drums",
+    "mix"
+   ]
+  },
+  "reason": {
+   "type": "string"
+  },
+  "drums": {
+   "type": "object",
+   "properties": {
+    "path": {
+     "type": "string",
+     "enum": [
+      "drumsep",
+      "classifier",
+      "none"
+     ]
+    },
+    "n": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "vel_median": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "fast_gap_share": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "checks_failed": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "candidates": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "kept_share": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "low_rise_share": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "raw_fast_gap_share": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "dropped": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "integer",
+      "minimum": 0
+     }
+    },
+    "recovered": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "integer",
+      "minimum": 0
+     }
+    }
+   },
+   "required": [
+    "checks_failed",
+    "fast_gap_share",
+    "n",
+    "path",
+    "vel_median"
+   ]
+  },
+  "mix": {
+   "type": "object",
+   "properties": {
+    "n": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "kick_conf_median": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    }
+   },
+   "required": [
+    "n"
+   ]
+  },
+  "agreement": {
+   "type": "object",
+   "properties": {
+    "tol_ms": {
+     "type": "number",
+     "x-unit": "ms"
+    },
+    "mix_in_drums": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "drums_in_mix": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "min": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "low": {
+     "type": "boolean"
+    },
+    "threshold": {
+     "type": "number",
+     "x-unit": "0..1",
+     "minimum": 0,
+     "maximum": 1
+    }
+   },
+   "required": [
+    "drums_in_mix",
+    "low",
+    "min",
+    "mix_in_drums",
+    "threshold",
+    "tol_ms"
+   ]
+  },
+  "override": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "enum": [
+    "drums",
+    "mix",
+    null
+   ]
+  }
+ },
+ "required": [
+  "agreement",
+  "drums",
+  "kick_source",
+  "mix",
+  "reason"
+ ]
+}
