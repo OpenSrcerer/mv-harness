@@ -1388,7 +1388,9 @@ Where PLAN.md was silent or self-contradictory, this contract decides (each is a
   override key handed to the stage unless the stage reports its own list. Curve channels must have exactly
   ceil(n_samples * rate / sample_rate) frames. A float `.wav` twin is written next to any declared `.flac` when |x| > 1.
 - **D34 Manifest assembly.** `files[]` lists the published stage outputs, the curve files and `curves/index.json`, `lib/*`, and the
-  user inputs that exist (stage `_user`); `schema/**` is copied (`schema/<group>/<name>.schema.json`) but not listed. Each
+  user inputs that exist (stage `_user`). The published outputs of a stage the run left stale, pending or failed stay listed
+  while its last committed cache entry exists and the file is on disk (W4VP-1: they stay in the folder, as its curves do);
+  `status.stages` gives their status and one manifest warning names them; `schema/**` is copied (`schema/<group>/<name>.schema.json`) but not listed. Each
   `files` entry is one compact line. When the manifest would exceed about 2.9k tokens the largest `summary.stages` entries are
   dropped first and `manifest:stage_summaries_trimmed` is flagged. `status.stages` covers the analyze stages (and on-demand
   stages that ran); `status.stems` = separation present and not degraded.

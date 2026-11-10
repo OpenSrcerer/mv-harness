@@ -215,6 +215,9 @@ def verify_segments(segs: list[Seg], cf: ChromaFrames, fallback: Sequence[Seg] |
         v = aggregate(cf, s.t, s.end, weight_energy=False)
         nv = np.linalg.norm(v)
         a, b = int(np.searchsorted(cf.times, s.t)), int(np.searchsorted(cf.times, s.end))
+        # W4V2-HARMONY-NAN: a sub-frame segment at the song end starts after the last chroma frame; clamp to the last
+        # frame so the energy slice is never empty (an empty mean is NaN and the events writer rejects it)
+        a = min(a, cf.energy.size - 1) if cf.energy.size else 0
         e = float(cf.energy[a:max(b, a + 1)].mean() / (ref_e + 1e-12)) if cf.energy.size else 0.0
         cosv = (v / nv) @ bank.T if nv > 1e-12 else np.zeros(len(ids))
         if s.root is None:
@@ -245,6 +248,8 @@ def verify_segments(segs: list[Seg], cf: ChromaFrames, fallback: Sequence[Seg] |
                 if idx:
                     agree = float(np.mean([1.0 if fb_labels[i][0] == s.root else 0.0 for i in idx]))
             s.conf = float(np.clip(0.6 * chroma_conf + 0.4 * (agree if agree is not None else chroma_conf), 0.05, 0.99))
+        if not np.isfinite(s.conf):                    # never write a non-finite confidence
+            s.conf = 0.1
         # bass pitch class
         bv = aggregate(cf, s.t, s.end, weight_energy=False, which="bass")
         tones = T.chord_tones(s.root, s.quality)
