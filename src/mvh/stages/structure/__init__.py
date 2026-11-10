@@ -42,10 +42,11 @@ STAGE = StageSpec(
     "structure",
     ('allin1', 'rhythm', 'harmony', 'dynamics'),
     "main",
-    "1.4.1",
+    "1.5.0",
     override_keys=('structure.boundaries', 'structure.labels'),
     outputs=catalog_outputs("structure"),
-    params={'analysis_lufs': -10.0, 'drop_top_min_rise': -0.25, 'verse_min_before_chorus': 0.25, 'min_section_bars': 2, 'phrase_bars': [4, 8, 16], 'repeat_threshold': 0.62, 'section_cost_q': 75,
+    params={'analysis_lufs': -10.0, 'drop_top_min_rise': -0.25, 'verse_min_before_chorus': 0.0, 'chorus_min_margin': 0.15, 'chorus_max_share': 0.55, 'chorus_near_repeat': 0.6,
+            'hook_verse_margin': 0.1, 'min_section_bars': 2, 'phrase_bars': [4, 8, 16], 'repeat_threshold': 0.62, 'section_cost_q': 75,
             'drop_bass_jump_db': 6.0, 'drop_kick_jump': 0.5, 'drop_context_bars': 2, 'merge_repeat_max_bars': 8, 'merge_keep_strong': 1.4,
             'silence_db': -55.0, 'w_pattern': 0.7, 'w_embedding': 0.5, 'dyn_gate': 0.7, 'split_min_novelty': 0.5, 'repeat_len_exp': 0.15, 'repeat_adjacent_penalty': 0.85,
             'bar_jitter_frames': 2, 'short_section_margin': 0.25, 'impact_snap_strength': 0.6,
@@ -159,6 +160,125 @@ def phrase_layout(sec_ranges: list[tuple[int, int]], phrase_L: int, lead: set[in
             out.append((k, e, i))
             k = e
     return out
+
+
+def _n_runs(mem: list[int], is_sil: list[bool]) -> int:
+    """Separate occurrences of a repeat group: runs of consecutive member sections (a silence between two members does not
+    separate them). One 32-bar vamp cut into four 8-bar sections is ONE occurrence."""
+    runs, prev = 0, None
+    for m in sorted(mem):
+        if prev is None or any(not is_sil[k] for k in range(prev + 1, m)):
+            runs += 1
+        prev = m
+    return runs
+
+
+def _chorus_evidence(p, nsec, reps, group_of, is_sil, sec_probs, sims, labels, confs, sec_dur, raw_sim, notes, t0,
+                     letter) -> list[list[str]]:
+    """F-form: allin1 votes 'chorus' on how a part sounds (a hook-like texture), not on whether it recurs, so a rap verse over
+    a looped beat reads as chorus (Newton 7/12, Jeremy 12/20: S09). A chorus is a REFRAIN: the same part recurring between
+    other material. A repeat group keeps 'chorus' only with all three kinds of evidence (no lyrics: structure's deps only):
+
+    * recurrence: >= 2 separate occurrences (``_n_runs``) of the group (chroma / melody / timbre / embedding repeat);
+    * a refrain, not the ground: the group covers <= ``chorus_max_share`` of the non-silent song (a part that is most of the
+      song is what the other parts are measured against: the verse loop of a rap song);
+    * consistency: allin1's chorus probability beats its verse probability by >= ``chorus_min_margin`` on average over
+      the occurrences (an ambivalent model vote is not evidence).
+
+    A group (or singleton) that is not recurring but is a near-repeat of a recurring chorus group (mean similarity >=
+    ``chorus_near_repeat`` x that group's own within-group similarity) and that allin1 still calls chorus over verse keeps
+    'chorus' (a last chorus in another arrangement). Everything else falls back to allin1's best NON-chorus label for the
+    group (verse when nothing else has weight); its ``conf`` becomes allin1's probability of that label. Then the hook rule
+    (W4V2-JEREMY-HOOK-VERSE): a non-repeated section labelled verse that sits next to an occurrence of a recurring chorus group
+    and is a near-repeat of it (and clearly closer to it than to any repeated verse group) is that chorus's hook stretch,
+    except right before the chorus's first occurrence (that slot is the verse leading in). Returns per-section evidence."""
+    ev: list[list[str]] = [[] for _ in range(nsec)]
+    live_dur = sum(sec_dur[i] for i in range(nsec) if not is_sil[i]) or 1.0
+    min_margin = float(p.get("chorus_min_margin", 0.15))
+    max_share = float(p.get("chorus_max_share", 0.55))
+    near = float(p.get("chorus_near_repeat", 0.6))
+    hook_margin = float(p.get("hook_verse_margin", 0.1))
+
+    def within(mem):
+        v = [sims[a, b] for k, a in enumerate(mem) for b in mem[k + 1:]]
+        return float(np.mean(v)) if v else 0.0
+
+    def mean_raw(a_mem, b_mem):
+        return float(np.mean([raw_sim(min(a, b), max(a, b)) for a in a_mem for b in b_mem if a != b]))
+
+    cand = []
+    for g, mem in enumerate(reps):
+        mem = [m for m in mem if not is_sil[m]]
+        if mem and labels[mem[0]] == "chorus":
+            runs = _n_runs(mem, is_sil)
+            share = sum(sec_dur[m] for m in mem) / live_dur
+            mg = float(np.mean([sec_probs[m].get("chorus", 0.0) - sec_probs[m].get("verse", 0.0) for m in mem]))
+            cand.append((g, mem, runs, share, mg))
+    ok = {g: mem for g, mem, runs, share, mg in cand if runs >= 2 and share <= max_share and mg >= min_margin}
+    for g, mem, runs, share, mg in cand:
+        tag = f"group {letter[g]}: {runs} occurrence{'s' if runs != 1 else ''}, {share:.0%} of the song, allin1 chorus-verse {mg:+.2f}"
+        if g in ok:
+            for m in mem:
+                ev[m] = [f"chorus: recurring refrain ({tag})"]
+            continue
+        # a non-recurring chorus that is a near-repeat of a recurring chorus keeps its label
+        best = max(((mean_raw(mem, okm) / max(1e-6, within(okm)), og) for og, okm in ok.items()), default=(0.0, None))
+        if runs < 2 and share <= max_share and mg > 0 and best[1] is not None and best[0] >= near:
+            for m in mem:
+                ev[m] = [f"chorus: near-repeat of chorus group {letter[best[1]]} ({best[0]:.2f} of its own similarity; {tag})"]
+            continue
+        why = [w for w, bad in (("not recurring", runs < 2), (f"more than {max_share:.0%} of the song (the ground part)", share > max_share),
+                                (f"allin1 chorus-verse margin below {min_margin:.2f}", mg < min_margin)) if bad]
+        agg: dict[str, float] = {}
+        for m in mem:
+            for k_, v in sec_probs[m].items():
+                if k_ != "chorus":
+                    agg[k_] = agg.get(k_, 0.0) + v
+        fb = max(agg, key=agg.get) if agg and max(agg.values()) > 0 else "verse"
+        last_ok = max((max(okm) for okm in ok.values()), default=-1)
+        if (runs == 1 and ok and min(mem) > last_ok and max(mem) < nsec - 1
+                and all(is_sil[k] or labels[k] == "outro" for k in range(max(mem) + 1, nsec))):
+            # a part that does not recur, comes after the last chorus and runs into the outro is the song's coda
+            fb = "outro"
+            why.append("after the last chorus, running into the outro")
+        if len(mem) == 1 and 0 < mem[0] < nsec - 1 and group_of[mem[0] - 1] == group_of[mem[0] + 1] in ok:
+            # one part between two occurrences of the same recurring chorus (W4A-GAIN: allin1 can run one 'chorus' over
+            # chorus + bridge) is the bridge
+            m = mem[0]
+            labels[m], confs[m] = "bridge", float(sec_probs[m].get("bridge", 0.4)) if sec_probs[m] else 0.4
+            ev[m] = [f"bridge: not repeated, between two occurrences of chorus group {letter[group_of[m - 1]]} ({tag})"]
+            notes.append(f"labels: section at {t0[m]:.1f} s relabelled bridge (not repeated, between choruses; allin1 said chorus)")
+            continue
+        for m in mem:
+            labels[m] = fb
+            confs[m] = float(sec_probs[m].get(fb, 0.0))
+            ev[m] = [f"{fb}: allin1 said chorus but no repetition evidence ({'; '.join(why)}; {tag})"]
+        notes.append(f"labels: group {letter[g]} at {', '.join(f'{t0[m]:.1f}' for m in mem)} s relabelled {fb} "
+                     f"(chorus without repetition evidence: {'; '.join(why)})")
+    # hook rule: a non-repeated 'verse' next to a recurring chorus occurrence that repeats that chorus
+    verse_groups = [[m for m in mem if not is_sil[m]] for mem in reps if len(mem) >= 2 and labels[mem[0]] == "verse"]
+    for i in range(nsec):
+        if is_sil[i] or labels[i] != "verse" or len(reps[group_of[i]]) != 1:
+            continue
+        for j in (i - 1, i + 1):
+            g = group_of[j] if 0 <= j < nsec else None
+            if g not in ok or (j == i + 1 and j == min(ok[g])):
+                continue
+            ratio = mean_raw([i], ok[g]) / max(1e-6, within(ok[g]))
+            to_c = mean_raw([i], ok[g])
+            to_v = max((mean_raw([i], vm) for vm in verse_groups if vm), default=-1.0)
+            if ratio >= near and to_c >= to_v + hook_margin:
+                labels[i] = "chorus"
+                confs[i] = float(np.clip(ratio * max(sec_probs[i].get("chorus", 0.0), within(ok[g])), 0, 1))
+                ev[i] = [f"chorus: hook stretch of chorus group {letter[g]} (next to an occurrence; {ratio:.2f} of its own similarity, "
+                         f"{to_c:.2f} vs {to_v:.2f} to the verse groups)"]
+                notes.append(f"labels: section at {t0[i]:.1f} s relabelled chorus (not repeated, a near-repeat of the chorus "
+                             f"group {letter[g]} next to it; allin1 said verse)")
+                break
+    for i in range(nsec):
+        if not ev[i] and labels[i]:
+            ev[i] = [f"allin1: {labels[i]} (repeat group {letter[group_of[i]]} vote)"]
+    return ev
 
 
 def run(ctx) -> StageResult:  # noqa: C901
@@ -719,6 +839,8 @@ def run(ctx) -> StageResult:  # noqa: C901
         informative = vc >= 0.3
     labels = [""] * nsec
     confs = [0.5] * nsec
+    label_ev: list[list[str]] = [[] for _ in range(nsec)]
+    sec_dur = [float((starts[b] if b < N else duration) - starts[a]) for a, b in sec_ranges]
     if informative:
         for g, mem in enumerate(reps):
             agg: dict[str, float] = {}
@@ -730,6 +852,10 @@ def run(ctx) -> StageResult:  # noqa: C901
                 lab = max(agg, key=agg.get) if (len(mem) > 1 and agg) else (max(own, key=own.get) if own else "inst")
                 labels[m] = lab
                 confs[m] = float(own.get(lab, 0.3)) if own else 0.3
+        # ---- F-form: a 'chorus' label needs repetition evidence (S09: rap songs were over-labelled chorus) ----
+        label_ev = _chorus_evidence(p, nsec, reps, group_of, is_sil, sec_probs, sims, labels, confs, sec_dur,
+                                    lambda i, j: max(sec_sim(sec_ranges[i], sec_ranges[j]), sec_sim(sec_ranges[i], sec_ranges[j], Rm)),
+                                    notes, [float(starts[a]) for a, _ in sec_ranges], letter)
         # form rules on top of the model's frame labels (allin1 labels a vocal-less opening or a contrasting middle part
         # by its nearest Harmonix class): the song's opening section is an intro when nothing repeats it and it is
         # quieter than the song's typical level; a part that is not repeated, sits between two choruses and that the
@@ -743,6 +869,7 @@ def run(ctx) -> StageResult:  # noqa: C901
                 notes.append(f"labels: opening section relabelled intro (not repeated, below the median drive; allin1 said {labels[i0]})")
                 labels[i0] = "intro"
                 confs[i0] = float(sec_probs[i0].get("intro", 0.5)) if sec_probs[i0] else 0.5
+                label_ev[i0] = ["form: opening part, not repeated, below the median drive"]
         for i in range(1, nsec - 1):
             # W4A-GAIN: allin1 can run one 'chorus' segment over chorus + bridge; a part that is not repeated and sits
             # between two members of ONE chorus repeat group (the repeat analysis found it unlike them) is the bridge too
@@ -754,11 +881,13 @@ def run(ctx) -> StageResult:  # noqa: C901
                 notes.append(f"labels: section at {starts[sec_ranges[i][0]]:.1f} s relabelled bridge (not repeated, between choruses; allin1 said {labels[i]})")
                 labels[i] = "bridge"
                 confs[i] = float(sec_probs[i].get("bridge", 0.4)) if sec_probs[i] else 0.4
-        # W4 round 2: allin1 can call the part right before the first chorus 'chorus' as well (synth at 32 kHz: verse 0.36,
-        # chorus 0.60). A section that is not repeated, is a different repeat group from the chorus right after it, sits
-        # just before the FIRST occurrence of that repeated chorus group and still has verse >= verse_min_before_chorus
-        # is the verse leading into it (two different choruses back to back is not a form)
-        vmin = float(p.get("verse_min_before_chorus", 0.25))
+                label_ev[i] = ["form: not repeated, between two choruses"]
+        # W4 round 2 / F-form (W4V2-FORMRULE-NARROW): allin1 can call the part right before the first chorus 'chorus' as
+        # well (synth at 32 kHz: verse 0.36 / chorus 0.60; at 22.05 kHz: verse 0.15 / chorus 0.79). A section that is not
+        # repeated, is a different repeat group from the chorus right after it and sits just before the FIRST occurrence of
+        # that recurring chorus group is the verse leading into it: two different choruses back to back is not a form. The
+        # form condition decides; ``verse_min_before_chorus`` (default 0) is only an optional extra floor on allin1's verse.
+        vmin = float(p.get("verse_min_before_chorus", 0.0))
         for i in range(nsec - 1):
             j = i + 1
             if (labels[i] == "chorus" and labels[j] == "chorus" and singleton[i] and not is_sil[i] and not is_sil[j]
@@ -767,7 +896,8 @@ def run(ctx) -> StageResult:  # noqa: C901
                 notes.append(f"labels: section at {starts[sec_ranges[i][0]]:.1f} s relabelled verse (not repeated, right before the "
                              f"first chorus of a repeated chorus group; allin1 verse {sec_probs[i].get('verse', 0.0):.2f})")
                 labels[i] = "verse"
-                confs[i] = float(sec_probs[i].get("verse", 0.3))
+                confs[i] = float(sec_probs[i].get("verse", 0.0))
+                label_ev[i] = [f"form: not repeated, right before the first chorus (group {letter[group_of[j]]})"]
         notes.append("labels: allin1 Harmonix probabilities (informative), shared within repeat groups")
     else:
         e_sec = drive
@@ -790,11 +920,14 @@ def run(ctx) -> StageResult:  # noqa: C901
             for m in mem:
                 if m not in role_of and base and labels[m] not in ("intro", "outro"):
                     labels[m] = base
+        for i in range(nsec):
+            label_ev[i] = [f"edm role {role_of[i]}" if i in role_of else f"structural: {labels[i]} from energy, position and repetition"]
         notes.append("labels: structural (allin1 labels uninformative): energy, repetition and EDM roles")
     for i in range(nsec):
         if is_sil[i]:
             labels[i] = "silence"
             confs[i] = 0.9
+            label_ev[i] = ["silent"]
     for lo in ctx.overrides.get("structure.labels") or []:
         t = float(lo["t"])
         for i, (a, b) in enumerate(sec_ranges):
@@ -803,6 +936,7 @@ def run(ctx) -> StageResult:  # noqa: C901
             if t0 - 1e-6 <= t < t1:
                 labels[i] = str(lo["label"])
                 confs[i] = 1.0
+                label_ev[i] = ["user override (structure.labels)"]
     if ctx.overrides.get("structure.labels"):
         applied.append({"key": "structure.labels", "value": list(ctx.overrides.get("structure.labels"))})
 
@@ -824,7 +958,7 @@ def run(ctx) -> StageResult:  # noqa: C901
                          "occurrence_label": f"{lab}#{occ[lab]}", "repeat_group": letter[group_of[i]],
                          "start_bar": int(sbars[a]["bar"]), "n_bars": int(b - a), "label_probs": sec_probs[i] or {lab: 1.0},
                          "conf": round(float(np.clip(confs[i], 0, 1)), 3), "boundary_conf": round(bc, 3),
-                         "energy": round(float(drive[i]), 3)})
+                         "energy": round(float(drive[i]), 3), "label_evidence": list(label_ev[i])})
 
     # ------------------------------------------------------------------ phrases
     lens = [b - a for a, b in sec_ranges]
@@ -868,7 +1002,8 @@ def run(ctx) -> StageResult:  # noqa: C901
 
     # ------------------------------------------------------------------ write
     w = ctx.writer
-    w.events("sections", sections, fields={"energy": {"unit": "z", "type": "number"}, "edm_role": {"unit": None, "type": "enum|null"}})
+    w.events("sections", sections, fields={"energy": {"unit": "z", "type": "number"}, "edm_role": {"unit": None, "type": "enum|null"},
+                                         "label_evidence": {"unit": None, "type": "string[]"}})
     w.events("phrases", phrases)
     w.events("edm_roles", edm)
     rg = {}

@@ -160,6 +160,7 @@ def pack_curves(runner: "Runner") -> dict[str, Any] | None:
             runner.warnings.append(
                 f"{name}: previous curves do not fit the current audio; dropped until it runs"
             )
+            runner.__dict__.setdefault("unfit_kept", set()).add(name)  # its events/meta are not listed either
             continue
         entries += old
     produced = {registry.channel(e.id).file for e in entries}
@@ -382,8 +383,8 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
             # W4VP-1 (D34): a stage this run left stale, pending or failed keeps its last committed outputs
             # in the folder (publish is never undone for it; pack_curves keeps its curves): they stay listed
             lg = _last_good(runner, name)
-            if lg is None:
-                continue
+            if lg is None or name in runner.__dict__.get("unfit_kept", ()):
+                continue  # unfit: kept from a different audio
             rec, current = lg[1], False
         outs = rec.get("outputs", {})
         n_kept = 0
@@ -404,6 +405,14 @@ def build_manifest(runner: "Runner", index: dict[str, Any] | None, lib: list[str
             files.append(e)
         if not current and (n_kept or _kept_curves(index, rec)):
             kept.append(name)
+            # the kept stage keeps its summary, warnings and degraded / fallback flags too (W4VP)
+            res = rec.get("result", {}) if isinstance(rec.get("result"), dict) else {}
+            if res.get("summary"):
+                stage_summaries.setdefault(name, res["summary"])
+            warnings += [f"{name}: {w}" for w in res.get("warnings", [])]
+            flags += [f"fallback:{f}" for f in res.get("fallbacks", [])]
+            if rec.get("status") == "degraded":
+                flags.append(f"degraded:{name}")
     if kept:
         runner.warnings.append(
             "outputs and curves of stages not current in this run kept from their previous run: "

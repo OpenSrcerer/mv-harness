@@ -38,7 +38,7 @@ STAGE = StageSpec(
     "separate_hq",
     ('ingest',),
     "sep",
-    "1.0.0",
+    "1.1.0",  # F-gain: DrumSep at the analysis level (CR-F-gain-1)
     override_keys=(),
     outputs=catalog_outputs("separate_hq") + (
         Output("sep/vocals_sw.flac", "audio", None, required=False, public=False,

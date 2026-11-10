@@ -22,6 +22,12 @@ bit-reproducible (measured: two runs identical, 1.45 x real time at 6 threads). 
 their run-to-run last-bit changes (atomic ``scatter_add_`` in the Mel mask sum, an auto-tuned SDPA kernel) are removed by
 ``mvh.sep.determinism`` (R4-2). ``"auto"`` keeps the old GPU behaviour for DrumSep.
 
+DrumSep runs at the ANALYSIS LEVEL (decision F-gain-1, the W4-AN-9 principle): MDX23C is not level invariant (a -12 dB
+copy of a master sent kicks to the toms stem), so the SW drum stem is scaled by the gain that puts the mix at
+``params["drumsep_analysis_lufs"]`` (-10 LUFS; None = master level, the old behaviour) and the sub-stems are scaled back
+by the inverse gain (the master's dBFS scale; the DrumSep-sum invariants are unchanged). The RoFormer stems are level
+stable (a +12 dB restored copy matches at 32-36 dB SDR) and run on the mix as is.
+
 Imports: stdlib + numpy at module level; torch and audio_separator inside ``run_job``.
 """
 
@@ -86,6 +92,18 @@ def _make_separator(model_dir: Path, out_dir: Path, overlap: int, segment_size: 
     return sep
 
 
+def _scaled_copy(src: Path, dst: Path, gain: float) -> Path:
+    """Float32 WAV ``dst`` = ``src`` x ``gain`` (no clipping: float WAV)."""
+    import numpy as np
+
+    from mvh.io.wav import read_wav, write_wav
+
+    a, sr = read_wav(src)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    write_wav(dst, (np.asarray(a, np.float64) * gain).astype(np.float32), sr)
+    return dst
+
+
 def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     import importlib.metadata as md
 
@@ -104,6 +122,8 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     norm_t = float(params.get("normalization_threshold", 100.0))
     amp_t = float(params.get("amplification_threshold", 0.0))
     drumsep_device = str(params.get("drumsep_device", "cpu"))
+    ds_target = params.get("drumsep_analysis_lufs", -10.0)
+    ds_target = None if ds_target is None else float(ds_target)
     if drumsep_device not in ("cpu", "auto"):
         raise RuntimeError(f"drumsep_device must be 'cpu' or 'auto', got {drumsep_device!r}")
     out_dir = Path(out_dir)
@@ -123,6 +143,9 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     devices: dict[str, str] = {}
     lens: dict[str, int] = {}
     timings: dict[str, dict[str, float]] = {}
+    from mvh.sep.level import analysis_gain_db
+
+    ds_gain_db, mix_lufs = analysis_gain_db(x, sr, ds_target)
     for key, mid, inp, names in STEPS:
         if key in skip:
             continue
@@ -149,15 +172,18 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
                 sep.torch_device = torch.device("cpu")
             sep.load_model(model_filename=ck.name)
             t1 = time.time()
+            src_in = inputs[inp]
+            if key == "drumsep" and ds_gain_db != 0.0:
+                src_in = _scaled_copy(src_in, work / "drumsep_in" / src_in.name, 10.0 ** (ds_gain_db / 20.0))
             if on_cpu:
-                sep.separate(str(inputs[inp]), custom_output_names=names)
+                sep.separate(str(src_in), custom_output_names=names)
             else:
                 # atomic float scatter_add_ in the Mel-RoFormer mask sum and an auto-tuned SDPA kernel: run-to-run
                 # last-bit changes on a GPU (NF1)
                 from mvh.sep.determinism import deterministic_roformer
 
                 with deterministic_roformer():
-                    sep.separate(str(inputs[inp]), custom_output_names=names)
+                    sep.separate(str(src_in), custom_output_names=names)
             if not on_cpu:
                 torch.cuda.synchronize()
             t2 = time.time()
@@ -174,7 +200,11 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             if not src.is_file():
                 raise RuntimeError(f"{key}: audio-separator wrote no {base}.wav (got {sorted(p.name for p in step_dir.iterdir())})")
             dst = out_dir / f"{base}.wav"
-            os.replace(src, dst)
+            if key == "drumsep" and ds_gain_db != 0.0:
+                _scaled_copy(src, dst, 10.0 ** (-ds_gain_db / 20.0))   # back to the master's dBFS scale
+                src.unlink()
+            else:
+                os.replace(src, dst)
             a, _ = read_wav(dst)
             lens[base] = int(a.shape[1])
             inputs[base] = dst
@@ -198,6 +228,8 @@ def run_job(job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             "settings": {"normalization_threshold": norm_t, "amplification_threshold": amp_t, "overlap": overlap,
                          "segment_size": segment_size, "sample_rate": 44100, "output": "WAV float32 (use_soundfile)",
                          "threads": threads, "drumsep_device": drumsep_device,
+                         "drumsep_analysis_level": {"target_lufs": ds_target, "mix_lufs": round(mix_lufs, 2),
+                                                    "gain_db": round(ds_gain_db, 3)},
                          "deterministic_roformer": True},
         },
         "provenance": {"tools": [{"name": "audio-separator", "version": asv}, {"name": "torch", "version": torch.__version__}]},

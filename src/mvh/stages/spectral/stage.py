@@ -1,4 +1,13 @@
-"""spectral stage: run(ctx). The DSP lives in ``dsp.py`` (pure functions, unit-tested on synthetic signals)."""
+"""spectral stage: run(ctx). The DSP lives in ``dsp.py`` (pure functions, unit-tested on synthetic signals).
+
+Level (decision F-gain-5, the W4-AN-9 principle): the continuous curves (bands, viz values, hit envelopes between events,
+flux, timbre, stereo, spectrum128) are computed on the mix as is (absolute, viz parity). The EVENTS (hits.* and onsets.*)
+are picked on a second pass over the mix scaled by the song's analysis gain (mix at ``analysis_lufs`` = -10 LUFS), so the
+absolute gates (``gate_db``, the viz dB map's floor, the onset energy gates) act at one level and a quieter master gives
+the same events. The kick lane (hits.kick) stays on the mix as is: its gate is master-relative already
+(``gate_margin_db``) and it held F >= 0.997 on -12 / -20 dB copies, while at a raised level a quiet a cappella's formants
+pass the -46 dB gate (W4A-ACAP). An event's ``db`` stays on the dBFS scale (the absolute band curve); the hit curves flash at the events.
+"""
 
 from __future__ import annotations
 
@@ -65,8 +74,20 @@ def run(ctx) -> StageResult:
     n = fr.t.size
     live = fr.total_ms > 1e-12
 
+    from mvh.stages.loudness.level import gain_db_for
+
+    tgt = p.get("analysis_lufs", -10.0)
+    g_db, mix_lufs = gain_db_for(x, sr, None if tgt is None else float(tgt))
+    if g_db != 0.0:
+        ctx.log.info("spectral: analysis-level pass for the events (%+.2f dB)", g_db)
+        g = 10.0 ** (g_db / 20.0)
+        mono_a = mono * g
+        vv_a = dsp.viz_values(dsp.analyse_frames(x[:2] * g, sr), bm)
+    else:
+        mono_a, vv_a = mono, vv
+
     ctx.log.info("spectral: 400 Hz refinement envelopes")
-    envs = {b: dsp.env_db(dsp.band_envelope(mono, sr, *dsp.REFINE_BANDS[b])) for b in dsp.REFINE_BANDS}
+    envs = {b: dsp.env_db(dsp.band_envelope(mono_a, sr, *dsp.REFINE_BANDS[b])) for b in dsp.REFINE_BANDS}
     scores = {b: dsp.onset_score(envs, b) for b in ("low", "mid", "high")}
 
     ch: dict[str, np.ndarray] = {}
@@ -87,11 +108,14 @@ def run(ctx) -> StageResult:
     ch["bands.level"] = np.clip(vv.level, 0.0, 1.0)
 
     # ---------------------------------------------------------------- hit envelopes and events
+    # the kick lane stays on the mix as is (its gate is already master-relative via gate_margin_db, and its events held
+    # F >= 0.997 on -12 / -20 dB copies; at the analysis level a quiet a cappella's formants would pass the -46 dB gate)
     gate_db, gate_mode = _kick_gate(fr.kick_viz_db, 20.0 * math.log10(max(float(np.max(np.abs(x))), 1e-9)), p)
     hit_summary: dict[str, Any] = {}
     shifts: dict[str, int] = {}
     for name, (src, env_band, db_ch) in HIT_BANDS.items():
-        e = vv.kick_e if src == "kick" else vv.energy[src]
+        use_a = name != "kick" and vv_a is not vv
+        e = vv.kick_e if src == "kick" else (vv_a if use_a else vv).energy[src]
         hr = dsp.hit_envelope(
             e,
             gate_db=gate_db if name == "kick" else None,
@@ -99,6 +123,16 @@ def run(ctx) -> StageResult:
             release_s=float(p["hit_release_s"]),
             median_ref_s=float(p["median_ref_s"]),
         )
+        if not use_a:
+            hr_curve = hr
+        else:
+            hr_curve = dsp.hit_envelope(
+                vv.energy[src],
+                gate_db=None,
+                threshold=float(p["hit_threshold"]),
+                release_s=float(p["hit_release_s"]),
+                median_ref_s=float(p["median_ref_s"]),
+            )
         kick_ev: list[dsp.KickEvidence] = []
         if name == "kick":
             kp = {k: float(p[f"kick_{k}"]) for k in dsp.KICK_DEFAULTS if f"kick_{k}" in p}
@@ -110,7 +144,7 @@ def run(ctx) -> StageResult:
                 hr, scores[env_band], envs[env_band], x_min=float(p["event_x_min"]),
                 viz_rise_db=float(p["event_rise_db"]), weak_rise_db=float(p["event_weak_rise_db"]),
             )
-        raw, released, shift = dsp.aligned_envelopes(hr, events, float(p["hit_release_s"]))
+        raw, released, shift = dsp.aligned_envelopes(hr_curve, events, float(p["hit_release_s"]))
         shifts[name] = shift
         ch[f"hits.{name}"] = np.clip(released, 0.0, 1.5)
         ch[f"hits.{name}_raw"] = np.clip(raw, 0.0, 1.5)
@@ -162,7 +196,8 @@ def run(ctx) -> StageResult:
     onset_summary: dict[str, int] = {}
     for b in ("bass", "mid", "high"):
         flux = dsp.band_flux(vv.norm, bm.ranges[f"flux_{b}"])
-        res = dsp.flux_onsets(flux, vv.smooth[b], b, window_s=float(p["onset_window_s"]))
+        flux_a = flux if vv_a is vv else dsp.band_flux(vv_a.norm, bm.ranges[f"flux_{b}"])
+        res = dsp.flux_onsets(flux_a, vv_a.smooth[b], b, window_s=float(p["onset_window_s"]))
         v, lo, hi = dsp.pnorm(flux)
         ch[f"flux.{b}"] = v
         meta[f"flux.{b}"] = {"norm": {"lo": lo, "hi": hi}}
@@ -239,6 +274,7 @@ def run(ctx) -> StageResult:
         "offline non-causal port of viz/js/audio.js (centred 100 Hz frames, Web Audio Blackman, |X|/N, mono down-mix)",
         f"per-song viz gain {vv.gain:.4f} replaces the 6 s AGC (p99.5 of the per-frame band maximum -> 0.95)",
         f"hit reference: centred +-{float(p['median_ref_s']):g} s median of attack sizes; kick gate {gate_db:.1f} dB ({gate_mode})",
+        f"events picked at the analysis level (mix {g_db:+.2f} dB to {tgt} LUFS); curves on the mix as is",
         "mid/high hit events: viz attacks (v > 0.3, re-arm ignored) or weaker attacks (x >= event_x_min) with a crisp onset, "
         "timed on 400 Hz zero-phase band envelopes (steepest dB rise); kick events: low-band onsets judged on kick evidence "
         "(routes: swept attack = 90-250 Hz burst + pitch drop of the added 30-160 Hz energy or a 1.5-5 kHz click; sidechain duck; "
@@ -251,6 +287,8 @@ def run(ctx) -> StageResult:
         "viz_gain": round(vv.gain, 4),
         "fft_size": fr.n_fft,
         "kick_gate_db": round(gate_db, 2),
+        "analysis_level": {"mix_lufs": round(float(mix_lufs), 2), "gain_db": round(g_db, 3),
+                           "target_lufs": None if tgt is None else float(tgt)},
         "hits": hit_summary,
         "onsets": onset_summary,
         "centroid_median_hz": round(float(np.median(cen[live])) if live.any() else 0.0, 1),

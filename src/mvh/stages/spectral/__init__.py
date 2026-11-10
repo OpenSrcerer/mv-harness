@@ -14,11 +14,12 @@ STAGE = StageSpec(
     "spectral",
     ('ingest',),
     "main",
-    "1.4.1",
+    "1.5.0",
     override_keys=(),
     outputs=catalog_outputs("spectral"),
     params={
-        "gate_db": -46.0,               # viz kickGateDb (absolute floor for normal masters)
+        "analysis_lufs": -10.0,         # F-gain-5: events are picked on the mix scaled to this LUFS (null = as is)
+        "gate_db": -46.0,               # viz kickGateDb (absolute floor at the analysis level)
         "gate_rel_db": 30.0,            # relative kick gate: p95(kick band dB) - 30
         "gate_margin_db": 6.0,          # quiet masters: the absolute gate drops by how far the sample peak is below -6 dBFS
         "median_ref_s": 8.0,            # centred +-8 s median of attack sizes (offline hit reference)

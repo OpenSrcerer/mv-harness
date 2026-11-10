@@ -459,7 +459,19 @@ def _chunks(lines: list[str], indent: int, entries: bool = False) -> list[tuple[
     ``entries`` (the body of one key): EVERY line at ``indent`` or less starts an entry (a key, a ``- `` item or a
     stray line), so one bad line never takes its neighbours' entries with it (W4A-UD1)."""
     if entries:
-        starts = [k for k, ln in enumerate(lines) if ln.strip() and (len(ln) - len(ln.lstrip(" "))) <= indent]
+        starts = []
+        scalar_item = False  # the entry opened last is a '- text' item (no key, no trailing colon)
+        for k, ln in enumerate(lines):
+            if not ln.strip():
+                continue
+            ind = len(ln) - len(ln.lstrip(" "))
+            if ind <= indent:
+                starts.append(k)
+                body = ln.strip()[1:].strip() if ln.strip().startswith("-") else ""
+                scalar_item = bool(body) and not body.endswith(":") and not _YKEY.match(body)
+            elif scalar_item and _YKEY.match(ln.strip()):
+                starts.append(k)  # a deeper stray 'Also: ...' line under a plain item is its own entry (VWR2-3)
+                scalar_item = False
     else:
         starts = [k for k, ln in enumerate(lines)
                   if ln.strip() and (len(ln) - len(ln.lstrip(" "))) == indent and _YKEY.match(ln[indent:])]
@@ -503,6 +515,7 @@ def _load_region(raw: list[str], warns: list[str],
             ind = next((len(x) - len(x.lstrip(" ")) for x in body if x.strip()), 2)
             sub: dict[str, Any] = {}
             subl: list[Any] = []
+            failed_item = False
             order: list[tuple[str, Any, int, int]] = []  # ('map' | 'list', value, sa, sb) as typed (VWU1-a)
             for sa, sb in _chunks(body, ind, entries=True):
                 piece, ok2 = _yaml_load(f"{key}:\n" + "\n".join(body[sa:sb]))
@@ -521,6 +534,7 @@ def _load_region(raw: list[str], warns: list[str],
                                  "as YAML; its lines were kept verbatim as a note, not as fields (check quotes and brackets)")
                     fallback.update(range(a_key + 1 + sa, a_key + 1 + sb))
                     demoted.append(key)
+                    failed_item = failed_item or first.startswith("-")
             if sub and subl:  # VWU1-a: '- ' items AND 'key: value' lines under one key: one form never drops the other
                 if key in _LIST_KEYS and key != "notes":
                     # the '- ' items are the answer; a stray 'Also: ...' line beside them is a note, never an item
@@ -537,6 +551,17 @@ def _load_region(raw: list[str], warns: list[str],
                 else:  # notes (text either way) and the map keys (bullets are read by _list_answer): all, as typed
                     merged[key] = [x for kind, v, _sa, _sb in order
                                    for x in (v if kind == "list" else [{kk: vv} for kk, vv in v.items()])]
+            elif sub and failed_item and key in _LIST_KEYS and key != "notes":
+                # every '- ' item failed: a stray 'Also: ...' line beside them is still a note, never the only rule
+                merged[key] = []
+                for kind, _v, sa, sb in order:
+                    if kind != "map":
+                        continue
+                    first = next((x.strip() for x in body[sa:sb] if x.strip()), "")
+                    warns.append(f"intent.md: under '{key}:' the line '{first.split(':', 1)[0][:20]}: ...' is not a "
+                                 "'- ' item; it was kept verbatim as a note, not as an item (start it with '- ' to make it one)")
+                    fallback.update(range(a_key + 1 + sa, a_key + 1 + sb))
+                    demoted.append(key)
             elif sub or subl:
                 merged[key] = sub if sub else subl
             continue
@@ -917,6 +942,28 @@ def _tidy(lines: list[str]) -> list[str]:
     return out
 
 
+_ALT_BULLET = re.compile(r"^([ 	]*)(?:[*•–—‣◦▪·]|-(?= ))[ 	 ]+(?=\S)")
+_BARE_TKEY = re.compile(r"^(?:" + "|".join(TEMPLATE_KEYS) + r")[ 	]*:[ 	]*(?:#.*)?$")
+
+
+def _normalize_bullets(lines: list[str]) -> list[str]:
+    """Rules typed with ``*`` / bullet / en dash / ``-`` + no-break space under a bare template key are ``- `` items
+    (word processors and Markdown type them); never silently a note (VWR2-2)."""
+    out: list[str] = []
+    in_list = False
+    for ln in lines:
+        if not ln.strip():
+            out.append(ln)
+            continue
+        if _BARE_TKEY.match(ln):
+            in_list = True
+        elif ln[0] not in " 	" and not _ALT_BULLET.match(ln) and not _COL0_ITEM.match(ln):
+            in_list = False
+        m = _ALT_BULLET.match(ln) if in_list else None
+        out.append(m.group(1) + "- " + ln[m.end():] if m else ln)
+    return out
+
+
 # ============================================================================================ entry
 def parse_intent(text: str | None) -> dict[str, Any]:
     out = empty_intent()
@@ -931,7 +978,7 @@ def parse_intent(text: str | None) -> dict[str, Any]:
     if vb:
         text = _VB_RE.sub("\n", text)
     text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
-    lines = text.splitlines()
+    lines = _normalize_bullets(text.splitlines())
     regions, consumed = _regions(lines)
     free: list[str | None] = [None if i in consumed else ln for i, ln in enumerate(lines)]
     broken: list[str] = []

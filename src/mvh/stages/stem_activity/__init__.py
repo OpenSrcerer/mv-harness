@@ -6,13 +6,20 @@ Per stem (the nine stems of ``separate_hq`` plus the DrumSep sub-stems that exis
 * ``meta/stems.json``: ``present``, ``active_ratio``, ``median_rms_db``, ``peak_db``, ``share_of_mix_db`` and
   (additive) ``conf``, ``evidence``, ``present_energy``, ``active_s``, ``n_segments``.
 
-Activity follows PLAN (> -45 dBFS and within 18 dB of the mix, 300 ms attack / 500 ms release), evaluated on a
+Activity follows PLAN (> -45 dB and within 18 dB of the mix, 300 ms attack / 500 ms release), evaluated on a
 0.4 s RMS so sparse parts do not flicker (see ``core``). **Presence is not energy alone** (SPIKE: on MEGAFAUNA the
 Mel-RoFormer vocals stem picks up synth leads at -12.8 dB): every stem that a second, independent separator also
 produced (htdemucs from ``separate_fast``; BS-RoFormer-SW's own vocals, cached by ``separate_hq``) gets a per-frame
 cross-model agreement; ``present`` requires energy **and** ``conf >= min_conf``. ``present_energy`` keeps the
 energy-only verdict, and ``conf``/``evidence`` let instruments, vocals and lyrics combine it with the tagger and
 the lyrics source.
+
+Level (decision F-gain-3): PLAN's -45 dBFS ``active_db`` is applied at the song's ANALYSIS LEVEL (W4-AN-9: the stems scaled
+by the gain that puts the mix at ``analysis_lufs`` = -10 LUFS), i.e. the stem must be above ``active_db - gain_db`` dBFS.
+For a commercial master (about -10 LUFS) that is the PLAN rule within a dB; a quieter copy of the same master keeps the
+same activity. ``meta/stems.json.thresholds.active_db`` is the effective threshold on the dBFS scale (the contract unit);
+``active_db_at_analysis_level`` (the param) and ``analysis_level`` are additive. The
+rms_db / rel_db / level curves stay absolute.
 """
 
 from __future__ import annotations
@@ -30,11 +37,13 @@ STAGE = StageSpec(
     "stem_activity",
     ('ingest', 'separate_fast', 'separate_hq'),
     "main",
-    "1.0.0",
+    "1.1.0",
     override_keys=(),
     outputs=catalog_outputs("stem_activity"),
     params={'active_db': -45.0, 'within_db': 18.0, 'attack_ms': 300, 'release_ms': 500,
-            'decision_window_s': core.DECISION_WINDOW_S, 'min_present_s': 2.0, 'min_present_drum_s': 0.5, 'min_conf': 0.4},
+            'decision_window_s': core.DECISION_WINDOW_S, 'min_present_s': 2.0, 'min_present_drum_s': 0.5, 'min_conf': 0.4,
+            # F-gain-3: active_db applies at the W4-AN-9 analysis level (mix at this LUFS); null = absolute dBFS (PLAN)
+            'analysis_lufs': -10.0},
     module="M3a",
     description='Per-stem RMS dBFS at 100 Hz, level relative to the mix, activity with hysteresis, present flags '
                 'with cross-model confidence.',
@@ -145,7 +154,11 @@ def run(ctx) -> StageResult:
     masks: dict[str, np.ndarray] = {}
     warnings: list[str] = []
     flags: list[str] = []
-    th = dict(active_db=float(p["active_db"]), within_db=float(p["within_db"]),
+    from mvh.stages.loudness.level import gain_db_for
+
+    tgt = p.get("analysis_lufs", -10.0)
+    g_db, mix_lufs = gain_db_for(x_mix, sr, None if tgt is None else float(tgt))
+    th = dict(active_db=float(p["active_db"]) - g_db, within_db=float(p["within_db"]),
               attack_ms=float(p["attack_ms"]), release_ms=float(p["release_ms"]))
 
     for stem in stems:
@@ -231,7 +244,10 @@ def run(ctx) -> StageResult:
     ctx.writer.events("stem_activity", items, kind="segment", fields=FIELDS)
     ctx.writer.json("meta/stems.json", {
         "stems": stats,
-        "thresholds": {"active_db": th["active_db"], "within_db": th["within_db"], "attack_ms": th["attack_ms"],
+        "thresholds": {"active_db": round(th["active_db"], 3), "active_db_at_analysis_level": float(p["active_db"]),
+                       "analysis_level": {"mix_lufs": round(float(mix_lufs), 2), "gain_db": round(g_db, 3),
+                                          "target_lufs": None if tgt is None else float(tgt)},
+                       "within_db": th["within_db"], "attack_ms": th["attack_ms"],
                        "release_ms": th["release_ms"]},
         "decision_window_s": win_dec,
         "min_conf": float(p["min_conf"]),

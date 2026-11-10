@@ -214,3 +214,24 @@ no-op re-run is 25/25 cache hits on each. Integration tests (`tests/integration`
   five model licences unclear (m5); Newton lyrics grade C (G2 0.748 against 0.75, after the separation bits changed:
   borderline, not a regression in the text); Newton voice count rests on a near-tie (fixer M5); lyrics r2-m1/r2-m2
   (seam clamp, check order); the TONAL_PEAK / chroma-peak thresholds are unvalidated on real drones.
+
+## Final fix pass F (2026-11-10): result and known limitations
+
+Workflow F (wf_42eb4afc-259) had three fixers and one verifier (docs/review/F-verify.md).
+- **Section labels (ffix-form): fixed.** A 'chorus' label now needs repetition evidence (structure 1.5.0, `label_evidence` per section).
+  - Newton goes from 7 chorus sections to 0, and Jeremy's hook section is chorus.
+  - Every synth variant is labelled correctly, and the EDM roles are unchanged.
+  - On an independent CC pop song (docs/build/test-tracks.md) real choruses are kept: 6 of 14 sections.
+- **UD1 edge cases and the platform leftovers (ffix-small): fixed.**
+- **Master-level invariance (ffix-gain): mostly fixed, with known trade-offs.** Drum hits, the agent kick, stem activity and the spectral events
+  are now computed at a fixed analysis level of -10 LUFS (`analysis_lufs`; null restores the old behaviour). separate_hq was bumped to 1.1.0 so
+  that caches re-run. Accepted trade-offs and still-open items:
+  - **F-V2 (accepted).** Onsets on a quiet mix now follow the -10 LUFS behaviour: high-band onset recall on the -16 LUFS synthetic groove went
+    from 0.77 to 0.64. Real masters at about -10 LUFS are unaffected. The unit-test bar for that synthetic case is 0.6.
+  - **F-V3 (accepted, watch).** DrumSep on a very quiet mix (the -20 LUFS 48 kHz synth) misses quiet rides under snares: cymbal F1 is 0.686
+    against the 0.7 gate. Real masters reach DrumSep at the level they had before.
+  - **F-V4 (open).** The lyrics alignment still runs at the master level, so MEGAFAUNA's vocal phrases differ on its -12 and -20 dB copies
+    (IoU 0.79). Fix: CR-F-gain-2 (align on the vocal stem scaled to the analysis level).
+  - **F-V5 (watch).** Versatile now uses its sparse lead stem for vocals.
+  - **F-V6 (minor, open).** An on-demand stage that is not current has no status entry in the manifest (W4VP-8).
+  - **F-V7 (minor, open).** On the CC test song, a fallback 'outro' sits before a short closing chorus.

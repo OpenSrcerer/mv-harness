@@ -4,7 +4,7 @@ What it does (PLAN §5 vocals, §4.4; docs/SPIKE.md):
 1. RMVPE (ONNX) on lead_vocals is the f0 ARBITER: a 100 Hz frame is voiced when RMVPE conf >= 0.3; SwiftF0 is the second
    opinion that scales ``vocal.conf`` (agree / octave / other) and is never used for presence.
 2. Presence gate: voiced frames must also lie where the lead stem is active, loud enough (within 35 dB of its p99 and
-   above -55 dBFS) and where the instruments stage hears a VOICE (``inst.voice`` >= 0.35): a vocals stem alone is not
+   above -55 dB at the analysis level) and where the instruments stage hears a VOICE (``inst.voice`` >= 0.35): a vocals stem alone is not
    vocal presence (on MEGAFAUNA it carries synth leads).
 3. Short voiced islands (< 50 ms) are dropped and short octave islands folded back.
 4. Curves: ``vocal.f0_hz`` / ``vocal.midi`` (NaN unvoiced), ``vocal.voiced``, ``vocal.conf``, ``vocal.pitch01``
@@ -20,6 +20,10 @@ the tagger gave it no style, counts as sung. When lead_vocals is nearly silent n
 the vocals stem is tracked instead.
 Human correction: ``--param vocals.present=true|false`` forces presence (range statistics then need only 1 s of frames) and
 ``--param vocals.style="singing"|"speech"|"rap"`` replaces the tagger's dominant lead style (the statistics basis).
+Level (decision F-gain-4, the W4-AN-9 principle): the lead stem is scaled by the song's analysis gain (mix at
+``analysis_lufs`` = -10 LUFS) before RMVPE / SwiftF0 and the presence gate, so ``level_floor_db`` (-55) is a level at the
+analysis level and a quieter master gives the same notes and phrases; ``vocal_phrases.mean_db`` is reported in the stem's
+own dBFS.
 """
 
 from __future__ import annotations
@@ -32,12 +36,14 @@ STAGE = StageSpec(
     "vocals",
     ('separate_hq', 'stem_activity', 'instruments', 'rhythm', 'lyrics'),
     "main",
-    "1.2.0",
+    "1.3.1",
     override_keys=(),
     outputs=catalog_outputs("vocals"),
     params={'min_voiced_s': 8.0, 'pitch01_ease_s': 0.15, 'rmvpe_gate': 0.3, 'swift_gate': 0.9, 'voice_gate': 0.35,
             'level_floor_db': -55.0, 'lead_gap_db': 20.0, 'level_below_peak_db': 35.0, 'phrase_gap_s': 0.45, 'min_spoken_s': 15.0,
-            'present': None, 'style': None, 'lyric_pad_s': 0.15, 'lyric_min_match': 0.3, 'phrase_pitch_min_share': 0.5},
+            'present': None, 'style': None, 'lyric_pad_s': 0.15, 'lyric_min_match': 0.3, 'phrase_pitch_min_share': 0.5,
+            # F-gain-4: trackers and the presence gate see the lead stem at the W4-AN-9 analysis level (null = master level)
+            'analysis_lufs': -10.0},
     models=("rmvpe_onnx", "swift_f0_onnx", "ced_base_onnx"),
     module="M3b",
     description='SwiftF0 + RMVPE on lead_vocals: f0, pitch01, voiced, range, phrases, vocal notes.',
@@ -146,6 +152,12 @@ def run(ctx) -> StageResult:
         else:
             lead_name = "lead_vocals"
             y = np.asarray(ctx.audio("lead_vocals", sr=16000, mono=True).samples[0], np.float32)
+    from mvh.stages.loudness.level import mix_gain
+
+    tgt = prm.get("analysis_lufs", -10.0)
+    g_lin, g_db, _mix_lufs = mix_gain(ctx, None if tgt is None else float(tgt))
+    y = (np.asarray(y, np.float32) * np.float32(g_lin)).astype(np.float32)
+    notes_prov.append(f"analysis level: lead stem x {g_db:+.2f} dB (mix {_mix_lufs:.2f} -> {tgt} LUFS)")
     # ---------------------------------------------------------------- trackers
     from rmvpe_onnx import RMVPE
 
@@ -327,7 +339,7 @@ def run(ctx) -> StageResult:
         hi_m = float(np.max(notes_in)) if notes_in else float(np.percentile(seg, 95))
         ph_items.append({"id": f"VP{len(ph_items) + 1:03d}", "t": round(a / 100, 3), "d": round((b - a) / 100, 3),
                          "median_midi": round(float(np.median(seg)), 3), "min_midi": round(lo_m, 3),
-                         "max_midi": round(hi_m, 3), "mean_db": round(float(np.mean(level[a:b])), 2),
+                         "max_midi": round(hi_m, 3), "mean_db": round(float(np.mean(level[a:b])) - g_db, 2),
                          "basis": "pitch+energy" if energy else "pitch"})
 
     # ---------------------------------------------------------------- write

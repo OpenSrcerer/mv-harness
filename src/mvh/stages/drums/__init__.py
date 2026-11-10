@@ -17,6 +17,10 @@ Outputs:
   ``mix`` = spectral's events/hits.kick), the reason, the drum-stem kick's reliability and the agreement of the two
   kick timelines. The DrumSep kick sub-stem is quality-gated first (``kick.gate_kicks``, CR-M1-4: hat / percussion
   bleed dropped, kicks DrumSep put in the snare / toms stem recovered). spectral is a dep for that comparison only.
+
+Level (decision F-gain-2, the W4-AN-9 principle): every detector gate (``abs_floor_db``, the classifier and DrumSep leak
+gates, ``min_substem_peak_db``) applies to the stems scaled by the song's analysis gain (mix at ``analysis_lufs``), so a
+quieter master gives the same hits. ``level_db`` is reported back on the stem's own dBFS scale.
 """
 
 from __future__ import annotations
@@ -36,12 +40,14 @@ STAGE = StageSpec(
     "drums",
     ('separate_hq', 'stem_activity', 'spectral'),
     "main",
-    "1.3.0",
+    "1.4.0",
     override_keys=(),
     outputs=catalog_outputs("drums"),
     params={'path': 'auto', 'rise_db': 2.0, 'rel_gate_db': 30.0, 'abs_floor_db': -70.0, 'min_gap_ms': 30.0,
             'bleed_db': 18.0, 'bleed_rel_db': 12.0, 'inactive_conf_factor': 0.6, 'confirm_ms': 15.0,
             'min_substem_peak_db': -80.0,
+            # F-gain-2: detection sees the stems at the W4-AN-9 analysis level (mix at this LUFS; null = master level)
+            'analysis_lufs': -10.0,
             # UD2 kick gate (kick.KickGateParams) and source choice (kick.SourceParams)
             'kick_gate': True, 'kick_rise_min_db': 3.0, 'kick_ref_pct': 90.0, 'kick_quiet_db': 10.0, 'kick_floor_db': 20.0,
             'kick_hat_ms': 10.0, 'kick_recover_level_db': 12.0, 'kick_recover_shape_db': 10.0, 'kick_recover_rise_db': 6.0,
@@ -111,6 +117,10 @@ def run(ctx) -> StageResult:
     mix = ctx.audio("mix")
     n_samples, sr_mix = int(mix.samples.shape[1]), int(mix.sr)
     nf = -(-n_samples * 100 // sr_mix)
+    from mvh.stages.loudness.level import mix_gain
+
+    tgt = p.get("analysis_lufs", -10.0)
+    g_lin, g_db, mix_lufs = mix_gain(ctx, None if tgt is None else float(tgt))
     sa = ctx.upstream("stem_activity")
     stems_meta = sa.json("meta/stems.json").get("stems", {}) if sa.exists("meta/stems.json") else {}
 
@@ -125,14 +135,16 @@ def run(ctx) -> StageResult:
             if rel is None:
                 continue
             pk = stems_meta.get(f"drums_{sub}", {}).get("peak_db")
-            if pk is not None and pk < float(p["min_substem_peak_db"]):
+            if pk is not None and pk + g_db < float(p["min_substem_peak_db"]):
                 notes.append(f"sub-stem {sub} is silent (peak {pk} dBFS): skipped")
                 continue
             subs[sub], sr = _load_mono(hq, rel)
+            subs[sub] = subs[sub] * g_lin
     drum_rel = _rel(hq, "stems/drums")
     drums_x = None
     if drum_rel is not None:
         drums_x, sr_d = _load_mono(hq, drum_rel)
+        drums_x = drums_x * g_lin
         sr = sr_d
 
     stats: dict[str, Any] = {}
@@ -259,7 +271,7 @@ def run(ctx) -> StageResult:
     items = []
     for h in sorted(hits, key=lambda h: (h.t, core.DRUMS.index(h.drum))):
         it: dict[str, Any] = {
-            "t": round(h.t, 6), "drum": h.drum, "vel": round(h.vel, 4), "level_db": round(max(h.level_db, core.FLOOR_DB), 2),
+            "t": round(h.t, 6), "drum": h.drum, "vel": round(h.vel, 4), "level_db": round(max(h.level_db - g_db, core.FLOOR_DB), 2),
             "conf": round(float(np.clip(h.conf, 0.0, 1.0)), 3), "source": h.source,
             "rise_db": round(float(min(h.rise_db, 120.0)), 2), "in_active": bool(getattr(h, "in_active", True)),
         }
@@ -303,7 +315,9 @@ def run(ctx) -> StageResult:
     counts = {d: sum(1 for h in hits if h.drum == d) for d in core.DRUMS}
     if n_out_active:
         notes.append(f"{n_out_active} hits fall outside stem.drums.active (confidence x{p['inactive_conf_factor']})")
-    summary = {"path": path, "counts": counts, "n_hits": len(hits), "kick_source": choice["kick_source"],
+    summary = {"path": path, "analysis_level": {"mix_lufs": round(float(mix_lufs), 2), "gain_db": round(g_db, 3),
+                                                "target_lufs": None if tgt is None else float(tgt)},
+               "counts": counts, "n_hits": len(hits), "kick_source": choice["kick_source"],
                "kick_agreement": choice["agreement"]["min"]}
     if path == "classifier":
         summary["low_confidence_classes"] = [d for d in core.DRUMS if d not in core.CLASSIFIER_RELIABLE and counts[d]]

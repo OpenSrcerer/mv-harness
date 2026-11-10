@@ -478,7 +478,13 @@ def drumsep_hits(subs: Mapping[str, np.ndarray], sr: int, prm: DetectParams = De
                            or (SUBSTEM_DRUM[sub] == "cymbal" and h.rise_db < bleed_rise_db)):
                 dropped += 1
                 continue
-            if (sub == "hihat" and typ_bright is not None and other > h.level_db
+            # F-gain-2: a crash DrumSep put in the hi-hat stem (a large transient, slow decay, no snare stroke, not far
+            # under the kick it lands on) is judged by the cymbal relabel below, not dropped as dull bleed: the typical
+            # hat brightness moves by 1-2 dB with the separator's input level, and the synthetic final crash sat 0.6 dB
+            # on the wrong side of that drop
+            crash_like = (sub == "hihat" and shape["hihat"][h.sample][1] < cym_decay_db and h.rise_db >= 2.0 * click_rise_db
+                          and other - h.level_db < bleed_db and stroke_level(h.sample, snare_s) <= FLOOR_DB)
+            if (sub == "hihat" and typ_bright is not None and other > h.level_db and not crash_like
                     and shape["hihat"][h.sample][0] < typ_bright - dull_db):
                 stats["dull_bleed_dropped"] += 1
                 continue

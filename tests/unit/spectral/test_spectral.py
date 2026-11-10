@@ -378,16 +378,36 @@ def test_onsets_bass_on_kicks(kw, thr, tmp_path):
     assert all(0.0 <= it["strength"] <= 1.0 for it in ev)
 
 
-def test_onsets_mid_high_on_snares_and_hats(tmp_path):
+@pytest.mark.parametrize("analysis_lufs,hi_rc", [(None, 0.7), (-10.0, 0.6)], ids=["native_level", "analysis_level"])
+def test_onsets_mid_high_on_snares_and_hats(tmp_path, analysis_lufs, hi_rc):
+    """The groove is a -16 LUFS mix. At its own level (analysis_lufs None) the high-band flux onsets recall >= 0.7 of
+    the hats + snares; at the default analysis level (F-gain-5: events picked on the mix at -10 LUFS, a commercial
+    master's level) the viz dB map compresses the flux of a louder signal and recall is 0.64, so the bar there is 0.6."""
     x, sr, truth = groove(duration_s=16.0, bass=False, pad=False, syncopated=False)
-    r = run_m1(x, sr, tmp_path, stages=("spectral",))
+    r = run_m1(x, sr, tmp_path, stages=("spectral",), params={"spectral": {"analysis_lufs": analysis_lufs}})
     ctx = r["ctx"]["spectral"]
     hi = [it["t"] for it in ctx.written_events("onsets.high")["items"]]
     _, p, rc, errs = f1(hi, sorted([k["t"] for k in truth["hat"]] + [k["t"] for k in truth["snare"]]), 0.02)
-    assert p >= 0.9 and rc >= 0.7, (p, rc)
+    assert p >= 0.9 and rc >= hi_rc, (p, rc)
     mid = [it["t"] for it in ctx.written_events("onsets.mid")["items"]]
     _, p, rc, _ = f1(mid, sorted([k["t"] for k in truth["snare"]] + [k["t"] for k in truth["kick"]]), 0.02)
     assert p >= 0.9 and rc >= 0.6, (p, rc)
+
+
+def test_events_do_not_follow_the_master_level(tmp_path):
+    """F-gain-5 (W4V2-GAIN-SPECTRAL): a -12 dB copy of the mix gives the same hit and onset events (F >= 0.97 at 10 ms);
+    the dB curves move by the gain."""
+    x, sr, _ = groove(duration_s=16.0, bass=True, pad=True, syncopated=True)
+    a = run_m1(x, sr, tmp_path / "a", stages=("spectral",))["ctx"]["spectral"]
+    q = np.asarray(x, np.float32) * np.float32(10 ** (-12 / 20))
+    b = run_m1(q, sr, tmp_path / "b", stages=("spectral",))["ctx"]["spectral"]
+    for lane in ("hits.kick", "hits.mid", "hits.high", "onsets.bass", "onsets.mid", "onsets.high"):
+        ta = [it["t"] for it in a.written_events(lane)["items"]]
+        tb = [it["t"] for it in b.written_events(lane)["items"]]
+        if len(ta) < 3:
+            continue
+        f = f1(tb, ta, 0.01)[0]
+        assert f >= 0.97, (lane, len(ta), len(tb), f)
 
 
 def test_viz_values_and_spectrum_follow_the_viz_rules(groove_run):

@@ -28,7 +28,7 @@ STAGE = StageSpec(
     "instruments",
     ('ingest', 'separate_fast', 'separate_hq', 'stem_activity'),
     "main",
-    "1.1.0",
+    "1.1.1",
     override_keys=(),
     outputs=catalog_outputs("instruments"),
     params={'window_s': 4.0, 'hop_s': 1.0, 'vocabulary': [], 'clap_window_s': 10.0, 'clap_step_s': 2.0,

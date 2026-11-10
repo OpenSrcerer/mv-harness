@@ -27,5 +27,5 @@ def test_without_silence_the_old_behaviour_is_kept():
 def test_w4_round2_structure_params():
     from mvh.stages.structure import STAGE
 
-    assert STAGE.params["drop_top_min_rise"] == -0.25 and STAGE.params["verse_min_before_chorus"] == 0.25
+    assert STAGE.params["drop_top_min_rise"] == -0.25 and STAGE.params["verse_min_before_chorus"] == 0.0
     assert STAGE.params["analysis_lufs"] == -10.0

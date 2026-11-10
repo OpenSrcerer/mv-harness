@@ -114,6 +114,19 @@ def pid_started(pid: int) -> float | None:
 PID_REUSE_SLACK_S = 2.0
 
 
+def boot_time() -> float | None:
+    """Epoch seconds of the last machine boot (needs no process access), or None."""
+    try:
+        if os.name == "nt":
+            k32 = ctypes.windll.kernel32
+            k32.GetTickCount64.restype = ctypes.c_ulonglong
+            return time.time() - k32.GetTickCount64() / 1000.0
+        with open("/proc/stat", encoding="utf-8") as fh:
+            return float(next(int(ln.split()[1]) for ln in fh if ln.startswith("btime ")))
+    except (OSError, ValueError, StopIteration, AttributeError):
+        return None
+
+
 def _read(path: Path) -> dict | None:
     try:
         with open(path, encoding="utf-8") as fh:
@@ -327,7 +340,10 @@ def _song_lock_stale(path: Path) -> bool:
     except (KeyError, ValueError, TypeError):
         return False
     born = pid_started(pid)
-    return born is not None and born > locked + PID_REUSE_SLACK_S
+    if born is None:  # the process cannot be queried (a service / SYSTEM process): the boot time settles it
+        boot = boot_time()
+        return boot is not None and locked < boot - PID_REUSE_SLACK_S
+    return born > locked + PID_REUSE_SLACK_S
 
 
 def _song_timeout() -> float | None:
