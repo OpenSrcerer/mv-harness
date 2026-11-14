@@ -39,8 +39,9 @@ if (Test-Path -LiteralPath $mvhCfgPath) {
 foreach ($p in @($mvhPyExe, (Join-Path $mvhFfBin 'ffmpeg.exe'), (Join-Path $mvhFfBin 'ffprobe.exe'))) {
     if (-not (Test-Path -LiteralPath $p)) { Write-Warning "mvh-env: missing tool: $p" }
 }
-if (-not (Test-Path -LiteralPath (Join-Path $mvhUvDir 'uv.exe'))) {
-    Write-Warning "mvh-env: uv.exe not found in $mvhUvDir (use: $mvhPyExe -m uv ...)"
+# uv.exe lives in the per-user Scripts dir (pip --user) or in the interpreter's own Scripts dir; both go on PATH below
+if (-not ((Test-Path -LiteralPath (Join-Path $mvhUvDir 'uv.exe')) -or (Test-Path -LiteralPath (Join-Path $mvhPyDir 'Scripts\uv.exe')))) {
+    Write-Warning "mvh-env: uv.exe not found in $mvhUvDir or $(Join-Path $mvhPyDir 'Scripts') (use: $mvhPyExe -m uv ...)"
 }
 
 # --- PATH (ours first; remove earlier copies so repeated dot-sourcing does not grow it) ---
