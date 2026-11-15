@@ -116,6 +116,9 @@ table.vals td.v { font-family: ui-monospace, Consolas, monospace; font-size: 12p
 .form-row .lbl, .blk .lbl { width: 108px; color: var(--dim); font-size: 12px; flex: none; }
 .blk { display: block; margin: 5px 0; } .blk .lbl { display: block; width: auto; margin-bottom: 2px; }
 .txt { width: 100%; } textarea.txt { resize: vertical; font: inherit; }
+/* a draft's suggestion typed into a meaning field: not the user's until accepted or changed */
+textarea.txt.sugg { border-style: dashed; border-color: var(--warn); font-style: italic; }
+.blk .lbl .pill { margin-left: 4px; } .blk .lbl .btn.sm { margin-left: 2px; }
 .form-row .txt { flex: 1; min-width: 0; width: auto; }
 .num { width: 92px; }
 .btnrow { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0; }

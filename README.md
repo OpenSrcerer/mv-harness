@@ -80,7 +80,9 @@ inside such an app are invisible to a normal terminal.
 3. **Correct**: in the viewer's edit mode, move or relabel sections, fix the BPM or downbeat, nudge lyric lines, map
    voices to characters, pin cues. **Re-run** repeats only the stages your edit affects.
 4. **Write the meaning**: `mvh meaning out\my-song --edit` creates `meaning\intent.md`, opens it in your editor, and
-   applies it when you close the file. See [Writing the meaning](#writing-the-meaning).
+   applies it when you close the file. The viewer's Edit tab has the same fields. You can answer once for a whole
+   group of sections, and review an agent's draft instead of writing every field. See
+   [Writing the meaning](#writing-the-meaning).
 5. **Hand it to a video agent**: `mvh pack out\my-song <dest>` copies what a page or video project needs (no stems or
    cache). Point the agent at that folder and at [skill/mv-harness/SKILL.md](skill/mv-harness/SKILL.md). For
    frame-based tools, `mvh frames out\my-song --fps 24` writes one row per video frame.
@@ -88,7 +90,14 @@ inside such an app are invisible to a normal terminal.
 ## Writing the meaning
 
 The harness measures the song; you say what it means. Your answers live in one file, `out\<slug>\meaning\intent.md`.
-Until it exists, the song's meaning status is `pending`.
+Until it has an answer, the song's meaning status is `pending`.
+
+There are two places to write it. They hold the same fields and save to the same file:
+
+| Place | Command | Good for |
+|---|---|---|
+| Your editor | `mvh meaning out\my-song --edit` | Writing everything in one go, as text |
+| The viewer | `mvh view out\my-song`, **Edit** tab | Writing while you listen: the whole song, a group of sections, or one section |
 
 ```powershell
 uv run --frozen --no-sync mvh meaning out\my-song --edit
@@ -110,13 +119,14 @@ what must never appear.
 environment variable, then VS Code (`code --wait`), then `nvim` / `vim` / `vi` in a terminal, then Notepad. For
 example, to always use Vim: `$env:MVH_EDITOR = 'vim'`.
 
-**The file has two kinds of content:**
+### Answer once for many sections
 
-- **The template** (the YAML block) is what agents must obey. Fill in what you care about; an empty field means "no
-  answer". `do_not` holds the only hard rules and is copied word for word to every agent. Keep each section's `t0` and
-  `t1` lines, so your notes follow a section if you move its boundaries later.
-- **Free text** anywhere outside the template is passed to agents as your notes, exactly as written. It is never
-  turned into fields or rules.
+A song has 20 to 30 sections, and you do not have to describe each one. Under `sections:` the template starts with
+groups. An answer is inherited downwards:
+
+1. `every section`: the default for the whole song;
+2. `every drop`, `every chorus`, …: one entry per section type that occurs more than once;
+3. a single section (`S04`): only what differs from its group.
 
 ```yaml
 logline: "A small light carried through an empty world"
@@ -125,22 +135,54 @@ palette: [#140c28, #4f1aa7, amber]
 do_not:
   - never show faces
 sections:
-  S04:   # drop#1 0:30.7-0:44.2
-    t0: 30.715
-    t1: 44.156
+  every section:
+    camera: "slow, never handheld"
+  every drop:
     feel: "the light flares up"
     movement: "slow rise, arms opening"
-    camera: "pull back wide"
+  S13:   # drop#5 1:41.8-1:50.9
+    t0: 101.781
+    t1: 110.901
+    feel: "the last and biggest flare"
 ```
 
-Other ways to work on it:
+### The file has two kinds of content
+
+- **The template** (the YAML block) is what agents must obey. Fill in what you care about; an empty field means "no
+  answer". `do_not` holds the only hard rules and is copied word for word to every agent. Keep each section's `t0` and
+  `t1` lines, so your notes follow a section if you move its boundaries later.
+- **Free text** anywhere outside the template is passed to agents as your notes, exactly as written. It is never
+  turned into fields or rules.
+
+What you save in the viewer goes into a marked block at the end of the file (`## Viewer corrections`). That block is
+the latest edit, so it wins where the template sets the same field.
+
+### Drafts: let an agent fill the gaps, then review
+
+You can have the gaps drafted instead of writing every field. A draft is a set of suggestions in
+`meaning\authored.json`. It never overwrites your answers, and it cannot create a `do_not` rule.
+
+1. **Write the song-level lines first** (logline, setting, the rough story). A draft made from those describes your
+   video; a draft made from the audio alone gets the pacing right but the imagery is generic.
+2. **Get a draft.** Point a video agent at `meaning\request.md`, or run `mvh meaning out\my-song --draft anthropic`
+   (needs `ANTHROPIC_API_KEY`).
+3. **Review it**, in either place:
+   - **Viewer:** each suggested value is prefilled and marked `suggestion`. Accept it, change it, or dismiss it.
+     A suggestion you leave alone is not saved as yours.
+   - **Editor:** `mvh meaning out\my-song --edit --suggest` types the suggestions into the empty fields of the
+     template. Each such line ends with `# suggestion`. Delete that marker on the lines you accept (change the text
+     first if you like). A line that still has the marker is not your answer.
+
+Until you accept a suggestion, agents still see it, labelled as a draft. To remove one for good, dismiss it in the
+viewer.
+
+### Other ways to work on it
 
 | You want to | Do |
 |---|---|
 | Only create the file, and edit it yourself | `mvh meaning out\my-song --init`, edit `meaning\intent.md`, then `mvh meaning out\my-song` |
-| Write per-section notes while listening | `mvh view out\my-song`, edit mode, Meaning panel. It saves into a marked block in `intent.md`; that block wins where both set a field |
-| See what agents will read | `meaning\meaning.md` (every field is marked as yours or a draft) and `brief.md` |
-| Let an agent fill the gaps you left | Point it at `meaning\request.md`. Its suggestions go to `meaning\authored.json`, labelled as drafts; they never overwrite your answers and cannot create a `do_not` rule |
+| Put a draft's suggestions into the file without opening an editor | `mvh meaning out\my-song --suggest` |
+| See what agents will read | `meaning\meaning.md` (fields that are still a draft are marked) and `brief.md` |
 
 ## What is in a song folder
 
@@ -166,6 +208,7 @@ Other ways to work on it:
 | `mvh status <folder>` | Which stages are done, out of date or pending, and why |
 | `mvh meaning <folder> --edit` | Creates `meaning\intent.md` if needed, opens it in your editor, then applies it |
 | `mvh meaning <folder>` | Applies changes to `meaning\intent.md` (`--init` only creates the file) |
+| `mvh meaning <folder> --suggest` | Types a draft's suggestions into the empty fields of `meaning\intent.md`, marked `# suggestion` |
 | `mvh brief <folder> [--section S05]` | Prints the brief, or a zoom on one section |
 | `mvh frames <folder> --fps 24` | One row per video frame |
 | `mvh pack <folder> <dest>` | Copies the agent-facing files |

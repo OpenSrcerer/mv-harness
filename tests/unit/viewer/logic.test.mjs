@@ -114,3 +114,35 @@ test('formatting helpers', () => {
   assert.equal(L.sectionIndexAt(secs, 17.5), -1);
   assert.equal(L.wordIndexAt([{ t: 1 }, { t: 2 }, { t: 3 }], 2.5), 1);
 });
+
+test('meaningField: where a form value comes from', () => {
+  assert.deepEqual(L.meaningField('mine', 'draft text', 'draft', undefined, 'song'), { value: 'mine', kind: 'own' });
+  assert.deepEqual(L.meaningField('', 'draft text', 'draft', undefined, 'song'), { value: 'draft text', kind: 'suggestion' });
+  assert.deepEqual(L.meaningField(null, 'typed in the template', 'user', undefined, 'song'), { value: 'typed in the template', kind: 'yours' });
+  assert.deepEqual(L.meaningField(undefined, null, undefined, undefined, 'song'), { value: '', kind: 'empty' });
+  assert.deepEqual(L.meaningField(undefined, [], 'draft', undefined, 'type'), { value: '', kind: 'empty' });
+  assert.deepEqual(L.meaningField(undefined, ['#112233', '#445566'], 'draft', undefined, 'type'), { value: '#112233, #445566', kind: 'suggestion' });
+  assert.deepEqual(L.meaningField(undefined, 'somber', 'audio', undefined, 'section'), { value: '', kind: 'empty' });
+  // a section: the user's answer for a wider group is inherited, their answer for the section is theirs
+  assert.deepEqual(L.meaningField('', 'wide', 'user', 'all', 'section'), { value: 'wide', kind: 'inherited', from: 'all' });
+  assert.deepEqual(L.meaningField('', 'lift', 'user', 'type', 'section'), { value: 'lift', kind: 'inherited', from: 'type' });
+  assert.deepEqual(L.meaningField('', 'close', 'user', 'section', 'section'), { value: 'close', kind: 'yours' });
+  assert.deepEqual(L.meaningField('', 'close', 'user', undefined, 'section'), { value: 'close', kind: 'yours' });
+  assert.deepEqual(L.meaningField('', 'lift', 'user', undefined, 'type'), { value: 'lift', kind: 'yours' });
+});
+
+test('meaningFieldWrite: an unreviewed suggestion never becomes the user\'s', () => {
+  const sugg = { value: 'draft text', kind: 'suggestion' };
+  assert.equal(L.meaningFieldWrite(sugg, 'draft text', false), false);        // untouched: stays a draft
+  assert.equal(L.meaningFieldWrite(sugg, ' draft text ', true), true);         // accepted
+  assert.equal(L.meaningFieldWrite(sugg, 'my own words', false), true);        // changed
+  assert.equal(L.meaningFieldWrite(sugg, '', false), true);                    // emptied on purpose is a change (clears)
+  assert.equal(L.meaningFieldWrite({ value: 'mine', kind: 'own' }, 'mine', false), true);
+  assert.equal(L.meaningFieldWrite({ value: 'mine', kind: 'own' }, '', false), true);       // clearing the viewer's value
+  assert.equal(L.meaningFieldWrite({ value: 'tmpl', kind: 'yours' }, 'tmpl', false), false); // it stays in the template
+  assert.equal(L.meaningFieldWrite({ value: 'tmpl', kind: 'yours' }, 'changed', false), true);
+  assert.equal(L.meaningFieldWrite({ value: 'wide', kind: 'inherited', from: 'all' }, '', false), false);  // shown as a hint only
+  assert.equal(L.meaningFieldWrite({ value: 'wide', kind: 'inherited', from: 'all' }, 'close', false), true);
+  assert.equal(L.meaningFieldWrite({ value: '', kind: 'empty' }, '', true), false);
+  assert.equal(L.meaningFieldWrite({ value: '', kind: 'empty' }, 'new', false), true);
+});

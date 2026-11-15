@@ -41,6 +41,10 @@ Recipes per engine: `references/RECIPES.md`.
   `"status": "draft"` (schema `meaning/schema.json`; every claim typed lyric|audio|external|speculative and cited by
   id or time; quotes <= 10 words), then run `mvh meaning out/<slug>`. Never overwrite the user's claims; conflicts go
   to `open_questions`. `mvh meaning out/<slug> --draft anthropic` drafts through the Claude API if the user wants that.
+  Draft after the user's song-level lines; word sections of one type alike.
+- Users review a draft in the viewer or with `mvh meaning --suggest` (lines marked `# suggestion` are not
+  answers): never unmark them or copy a draft into `intent.md`. Group answers (`every section`,
+  `every <label>`) are in `sections[]`.
 - **Do-not rules** (`meaning.json do_not`, from the template only, in brief.md verbatim) are hard constraints on
   everything you render. When brief.md says **template entries of meaning/intent.md did not parse**
   (`meaning.json intent_unparsed`), the user's typing broke part of the template: those lines are notes now, and a

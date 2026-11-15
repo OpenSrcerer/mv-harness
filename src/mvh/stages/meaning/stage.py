@@ -247,8 +247,14 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
     anchored_user: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     orphans: list[dict[str, Any]] = []
     reanchored = 0
+    # D81: where a user's answer was given. 'all' = every section, 'type' = every <label>, 'section' = anything else
+    scope_of: dict[int, str] = {}
+    group_claims: dict[str, list[dict[str, Any]]] = {}
     for cl in user_claims:
         a = anchor_claim(cl, sections, roles)
+        scope_of[id(cl)] = {"all": "all", "every": "type"}.get(a["how"], "section")
+        if a["how"] in ("all", "every"):
+            group_claims.setdefault("all" if a["how"] == "all" else a["group"], []).append(cl)
         if a["section_ids"]:
             reanchored += int(a["reanchored"])
             for sid in a["section_ids"]:
@@ -274,11 +280,13 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         ucl = [c for _sp, c in sorted(anchored_user.get(sid, []), key=lambda x: -x[0])]
         dcl = anchored_draft.get(sid, [])
         fsrc: dict[str, str] = {}
+        fscope: dict[str, str] = {}
 
         def pick(ufield: str, dfield: str, fname: str):
             for c in ucl:
                 if c.get(ufield):
                     fsrc[fname] = "user"
+                    fscope[fname] = scope_of[id(c)]
                     return c[ufield]
             for c in dcl:
                 if c.get(dfield):
@@ -309,6 +317,7 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         for c in ucl:
             if c.get("palette"):
                 palette_hint, fsrc["palette_hint"] = list(c["palette"]), "user"
+                fscope["palette_hint"] = scope_of[id(c)]
                 break
         if not palette_hint:
             for c in dcl:
@@ -354,7 +363,9 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
             "palette_hint": palette_hint, "movement_hint": movement, "camera_hint": camera,
             "characters_present": sorted(present, key=char_num), "do_not": dn, "provenance": prov,
             "label": s.get("label"), "field_sources": dict(sorted(fsrc.items())),
+            "field_scope": dict(sorted(fscope.items())),
         })
+    section_defaults = _section_defaults(sections, sections_out, group_claims)
     if reanchored:
         notes.append(f"re-anchored {reanchored} per-section claim(s) by time overlap")
     if orphans:
@@ -443,6 +454,12 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         "open_questions": open_q, "palette_names": palette_names, "field_sources": dict(sorted(gsrc.items())),
         "intent_form": intent["form"], "draft_used": draft is not None,
         "references": references, "notes": user_notes,
+        # D81 (additive): answers given once for a group of sections, the do-not rules a draft suggests (never
+        # applied), and the template lines still marked '# suggestion'
+        "section_defaults": section_defaults,
+        "suggested_do_not": [r.strip() for r in (d.get("do_not") or [])[:10]
+                             if isinstance(r, str) and r.strip() and r.strip() not in global_dn],
+        "intent_suggested": list(intent.get("suggested") or []),
         # additive (docs/contract/decisions/W4-words.md): template entries that did not parse, kept as notes
         "intent_unparsed": unparsed,
     }
@@ -501,6 +518,44 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
 
 
 # ============================================================================================ helpers
+#: the per-section fields a group (every section / every <label>) can answer: (template key, meaning.json key)
+GROUP_FIELDS = (("feel", "feel"), ("meaning", "meaning"), ("movement", "movement_hint"), ("camera", "camera_hint"),
+                ("palette", "palette_hint"))
+
+
+def _section_defaults(sections: Sequence[Mapping[str, Any]], sections_out: Sequence[Mapping[str, Any]],
+                      group_claims: Mapping[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """One entry for 'all' (every section) and one per section label: the user's answer for the group, or the
+    draft's when every section of the group has the same draft value (field_sources says which)."""
+    from .anchor import group_of
+
+    groups: dict[str, list[str]] = {"all": [s["id"] for s in sections]}
+    for s in sections:
+        if group_of(s):
+            groups.setdefault(group_of(s), []).append(s["id"])
+    by_id = {x["section_id"]: x for x in sections_out}
+    out = []
+    for gk, ids in groups.items():
+        ent: dict[str, Any] = {"key": gk, "section_ids": ids}
+        gfs: dict[str, str] = {}
+        for uf, mf in GROUP_FIELDS:
+            val = next((c[uf] for c in group_claims.get(gk, []) if c.get(uf)), None)
+            if val:
+                gfs[mf] = "user"
+            elif len(ids) > 1:
+                vals = [by_id[i].get(mf) for i in ids]
+                if vals[0] and all(v == vals[0] for v in vals) and all(
+                        (by_id[i].get("field_sources") or {}).get(mf) == "draft" for i in ids):
+                    val, gfs[mf] = vals[0], "draft"
+            if mf == "palette_hint":
+                ent[mf] = list(val or [])
+            else:
+                ent[mf] = val or None
+        ent["field_sources"] = gfs
+        out.append(ent)
+    return out
+
+
 def _sec_num(sid: str) -> int:
     m = re.fullmatch(r"S(\d+)", str(sid))
     return int(m.group(1)) if m else 10**6

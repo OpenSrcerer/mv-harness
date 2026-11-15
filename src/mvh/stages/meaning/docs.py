@@ -102,13 +102,38 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
     for key in ("symbolism", "references", "notes"):
         L.append(f"{key}: [" + ", ".join(_q(t) for t in intent.get(key) or []) + "]")
     L.append("sections:")
+    # D81: groups first. An answer is inherited downwards: every section -> every <label> -> the single section.
+    L.append("  # Answer once for a group: a single section overrides its group, and a group overrides 'every section'.")
+    for g in meaning.get("section_defaults") or []:
+        gfs = g.get("field_sources") or {}
+        ids = g.get("section_ids") or []
+        if g["key"] != "all" and len(ids) < 2 and "user" not in gfs.values():
+            continue  # a label with one section is that section
+
+        def gval(f: str) -> Any:
+            return g.get(f) if gfs.get(f) == "user" else None
+        if g["key"] == "all":
+            L.append("  every section:   # the default for the whole song")
+        else:
+            L.append(f"  every {g['key']}:   # group of {len(ids)}: {' '.join(ids)}")
+        L.append(f"    feel: {_q(gval('feel'))}")
+        L.append(f"    meaning: {_q(gval('meaning'))}")
+        L.append(f"    movement: {_q(gval('movement_hint'))}")
+        L.append(f"    camera: {_q(gval('camera_hint'))}")
+        L.append(f"    palette: [{', '.join(_q(h) for h in gval('palette_hint') or [])}]")
+    L.append("  # Single sections: fill in only what differs from the group.")
     for s in fc["sections"]:
         sm = next((x for x in meaning.get("sections") or [] if x["section_id"] == s["id"]), {})
         user = (sm.get("provenance") or {}).get("status") == "user"
         fs = sm.get("field_sources") or {}
+        fsc = sm.get("field_scope") or {}
+
+        def own(f: str) -> bool:
+            # the section's own answer: an answer inherited from a group is written at the group, not here
+            return bool(user and fs.get(f) == "user" and fsc.get(f, "section") == "section")
 
         def val(f: str) -> str:
-            return _q(sm.get(f) if user and fs.get(f) == "user" else None)
+            return _q(sm.get(f) if own(f) else None)
         t0, t1 = float(s["t"]), float(s["t"]) + float(s["d"])
         L.append(f"  {s['id']}:   # {s.get('occurrence_label')} {_mmss(t0)}-{_mmss(t1)}")
         L.append(f"    t0: {t0:.3f}")
@@ -119,7 +144,7 @@ def yaml_template(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Map
         L.append(f"    emotion: {_q(sm.get('emotion', {}).get('lyric') if fs.get('emotion.lyric') == 'user' else None)}")
         L.append(f"    movement: {val('movement_hint')}")
         L.append(f"    camera: {val('camera_hint')}")
-        ph = sm.get("palette_hint") if fs.get("palette_hint") == "user" else []
+        ph = sm.get("palette_hint") if fs.get("palette_hint") == "user" and own("palette_hint") else []
         L.append(f"    palette: [{', '.join(_q(h) for h in ph or [])}]")
         cp = sm.get("characters_present") if fs.get("characters_present") == "user" else []
         L.append(f"    characters: [{', '.join(cp or [])}]")
@@ -200,7 +225,8 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
         + (" ..." if len(fc["sections"]) > 24 else "")
         + (". EDM roles: " + ", ".join(roles) if roles else "")
         + (f". {len(tier1)} tier-1 cues (section starts, drops, builds) are in events/cues.json" if tier1 else "")
-        + ". For each: feel, what it means, movement/choreography, camera. Put them under `sections` in the template.")
+        + ". For each: feel, what it means, movement/choreography, camera. Put them under `sections` in the template. "
+          "You can answer once for a group (`every section`, `every drop`): a single section overrides its group.")
     mom = sorted(fc["moments"], key=lambda m: m.get("rank", 99))[:5]
     if mom:
         ask("**The top moments**: " + "; ".join(f"#{m.get('rank')} {_mmss(float(m['t']))} {m.get('kind')} ({m.get('cue_id')})" for m in mom)
@@ -266,6 +292,9 @@ def request_md(fc: Mapping[str, Any], meaning: Mapping[str, Any], gaps: list[str
             "  (`S03`, `L012`, `Q0034`, `V2`, `C1`) and/or time ranges (`t0`, `t1` in seconds); `quote` <= 10 words.",
             "- Per-section entries keep `section_id`, `t0`, `t1` and `occurrence_label` exactly as in input.json, so they can be",
             "  re-anchored if the sections move.",
+            "- Sections of the same type (every drop, every chorus) get the **same wording** unless they truly differ: the user",
+            "  then reviews one suggestion per type instead of one per section. Fields the user answered for a group (`every",
+            "  section`, `every <label>` in the template) are not gaps; do not draft over them.",
             "- Keep the character ids and voice mapping of input.json (`facts.characters`); add a character only for a voice",
             "  that has none. Do not write `do_not` rules for the user; suggest them in `open_questions`.",
             "- Then run `mvh meaning <song folder>` (or `mvh analyze <song folder> --only meaning,brief`): the draft is merged,",
@@ -286,15 +315,19 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
            f"Status: **{st}**" + {"user": " (the user's intent; draft and audio facts fill gaps)",
                                   "draft": " (an agent/LLM draft: not confirmed by the user)",
                                   "pending": " (nothing authored yet: see meaning/interview.md)"}[st], ""]
+    fs = meaning.get("field_sources") or {}
+
+    def mark(k: str) -> str:
+        # in a meaning the user started, say which fields are still the draft's (D81)
+        return " (draft)" if st == "user" and fs.get(k) == "draft" else ""
     if meaning.get("logline"):
-        out += [f"**Logline**: {meaning['logline']}", ""]
+        out += [f"**Logline**: {meaning['logline']}{mark('logline')}", ""]
     if meaning.get("summary") and meaning.get("summary") != meaning.get("logline"):
-        out += [meaning["summary"], ""]
+        out += [meaning["summary"] + mark("summary"), ""]
     for k, lab in (("setting", "Setting"), ("tone", "Tone")):
         if meaning.get(k):
-            out.append(f"**{lab}**: {meaning[k]}")
+            out.append(f"**{lab}**: {meaning[k]}{mark(k)}")
     p = meaning.get("perspective") or {}
-    fs = meaning.get("field_sources") or {}
     if any(p.values()):
         def who(k: str) -> str:
             return (p.get(k) or "?") + (" (draft)" if p.get(k) and fs.get(f"perspective.{k}") == "draft" else "")
@@ -315,9 +348,11 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
     out += ["", "## Sections", ""]
     for s in meaning.get("sections") or []:
         bits = []
+        sfs = s.get("field_sources") or {}
+        mixed = s["provenance"]["status"] == "user"  # a section the user answered in part: mark the draft's fields
         for k, lab in (("feel", "feel"), ("meaning", "meaning"), ("movement_hint", "movement"), ("camera_hint", "camera")):
             if s.get(k):
-                bits.append(f"{lab}: {s[k]}")
+                bits.append(f"{lab}: {s[k]}" + (" (draft)" if mixed and sfs.get(k) == "draft" else ""))
         e = s.get("emotion") or {}
         if e.get("lyric") or e.get("audio"):
             bits.append(f"emotion: {e.get('lyric') or '?'} / audio {e.get('audio') or '?'}"

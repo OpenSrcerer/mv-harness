@@ -5,22 +5,29 @@ A claim addresses sections by id (``S03``, with the ``t0``/``t1`` it was written
 ``build``, ``breakdown``: the sections that hold that role). Claims written against times are **re-anchored
 by time overlap** when the sections moved; claims that lose their section become orphans.
 
+Groups (D81): ``every section`` (also ``all``, ``all sections``, ``default``) is the song-wide default, and
+``every drop`` / ``every chorus`` (also ``each ...``, ``all ...``) addresses the sections with exactly that label
+(never the EDM role). A single section overrides its group, and a group overrides ``every section``.
+
 Rules (time-anchored claims, claim span C = [t0, t1)):
 * every section that lies mostly inside C (overlap >= 50 % of the section) receives the claim (a split section
   keeps the note on both halves);
 * otherwise the one section holding most of C (overlap >= 50 % of C) receives it (sections were merged);
 * otherwise the claim is an orphan (``reason`` says why).
 Specificity (used when several claims fill the same field of one section): id/time > occurrence > ordinal >
-EDM role > label.
+EDM role > label = ``every <label>`` > ``every section``.
 """
 from __future__ import annotations
 
 import re
 from typing import Any, Mapping, Sequence
 
-__all__ = ["anchor_claim", "SPECIFICITY", "norm_label"]
+__all__ = ["anchor_claim", "SPECIFICITY", "norm_label", "ALL_KEYS", "group_key", "group_of"]
 
-SPECIFICITY = {"id": 5, "occurrence": 4, "ordinal": 3, "role": 2, "label": 1}
+SPECIFICITY = {"id": 5, "occurrence": 4, "ordinal": 3, "role": 2, "label": 1, "every": 1, "all": 0}
+#: keys that address every section of the song (the song-wide default)
+ALL_KEYS = frozenset({"all", "all sections", "every section", "each section", "default", "whole song"})
+_EVERY = re.compile(r"(?:every|each|all)\s+([a-z][a-z\-]*)")
 ROLE_WORDS = {"build": "build", "buildup": "build", "build-up": "build", "drop": "drop", "breakdown": "breakdown"}
 LABEL_ALIASES = {"prechorus": "pre-chorus", "instrumental": "inst", "hook": "chorus", "refrain": "chorus",
                  "interlude": "inst"}
@@ -38,6 +45,20 @@ def norm_label(s: str) -> str:
     elif s not in _KNOWN and s.endswith("s") and s[:-1] in _KNOWN:
         s = s[:-1]  # verses, drops
     return LABEL_ALIASES.get(s, s)
+
+
+def group_key(key: str) -> str | None:
+    """'all' for a song-wide key, the normalised label for ``every <label>``, None for any other key."""
+    k = re.sub(r"\s+", " ", str(key or "").strip().lower())
+    if k in ALL_KEYS:
+        return "all"
+    m = _EVERY.fullmatch(k)
+    return norm_label(m.group(1)) if m else None
+
+
+def group_of(section: Mapping[str, Any]) -> str:
+    """The group a section belongs to: its normalised label."""
+    return norm_label(str(section.get("label") or ""))
 
 
 def _overlap(a0: float, a1: float, b0: float, b1: float) -> float:
@@ -83,6 +104,19 @@ def anchor_claim(claim: Mapping[str, Any], sections: Sequence[Mapping[str, Any]]
             res["orphan_reason"] = f"section {key} no longer exists and the claim has no time range"
         return res
     k = key.lower()
+    g = group_key(key)
+    if g == "all":
+        res["how"], res["specificity"] = "all", SPECIFICITY["all"]
+        res["section_ids"] = [s["id"] for s in sections]
+        if not res["section_ids"]:
+            res["orphan_reason"] = "the song has no sections"
+        return res
+    if g is not None:
+        res["how"], res["specificity"], res["group"] = "every", SPECIFICITY["every"], g
+        res["section_ids"] = [s["id"] for s in sections if group_of(s) == g]
+        if not res["section_ids"]:
+            res["orphan_reason"] = f"no section is labelled {g}"
+        return res
     m = re.fullmatch(r"([a-z\-]+)\s*(?:#|\s)(\d+)", k)
     if m:
         lab, occ = norm_label(m.group(1)), int(m.group(2))

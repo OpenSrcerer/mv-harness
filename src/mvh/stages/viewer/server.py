@@ -5,6 +5,8 @@
 * serves the song folder read-only (Range requests for audio); hidden / cache / intermediate folders are never served;
 * ``POST /api/overrides`` validates the document against the ``mvh/envelope/overrides`` schema and writes
   ``overrides.json`` atomically; ``POST /api/intent`` updates the viewer-managed block of ``meaning/intent.md``
+  (the whole-song box, group and section meaning, voices); ``POST /api/draft`` removes dismissed suggestions from
+  the draft ``meaning/authored.json``
   (everything else in that file is preserved);
 * both answer with the stages that will re-run (the override keys each stage declares, plus its dependants);
 * ``POST /api/rerun`` optionally runs ``mvh analyze <folder>`` in a child process;
@@ -138,14 +140,16 @@ def affected_by_keys(keys: list[str], specs: Mapping[str, Any] | None = None) ->
     return out
 
 
-def affected_by_intent(specs: Mapping[str, Any] | None = None) -> list[dict[str, str]]:
+def affected_by_intent(specs: Mapping[str, Any] | None = None, path: str = "meaning/intent.md") -> list[dict[str, str]]:
+    """The stages that re-run when the user file ``path`` (intent.md, or the draft authored.json) changes."""
     specs = specs if specs is not None else _specs()
+    fallback = ("voices", "meaning") if path == "meaning/intent.md" else ("meaning",)
     if not specs:
-        return [{"stage": s, "reason": "meaning/intent.md changed"} for s in ("voices", "meaning", "brief", "viewer")]
-    direct = [n for n, s in specs.items() if any(e.path == "meaning/intent.md" for e in s.external_inputs)]
+        return [{"stage": s, "reason": f"{path} changed"} for s in (*fallback, "brief", "viewer")]
+    direct = [n for n, s in specs.items() if any(e.path == path for e in s.external_inputs)]
     if not direct:
-        direct = [n for n in ("voices", "meaning") if n in specs]
-    return [{"stage": n, "reason": "meaning/intent.md changed" if n in direct else "an upstream stage re-runs"} for n in _closure(specs, direct)]
+        direct = [n for n in fallback if n in specs]
+    return [{"stage": n, "reason": f"{path} changed" if n in direct else "an upstream stage re-runs"} for n in _closure(specs, direct)]
 
 
 # ------------------------------------------------------------------------------------------------ validation
@@ -349,6 +353,32 @@ class ViewServer:
             st = ib.parse(new)
             st["exists"] = p.is_file()
             return 200, {"ok": True, "intent": st, "affected": affected_by_intent() if new != text else []}
+
+    def dismiss_draft(self, body: Any) -> tuple[int, dict[str, Any]]:
+        """Remove dismissed suggestions from meaning/authored.json (the draft). The user's intent.md is not touched."""
+        from . import draft_edit as de
+
+        if not isinstance(body, dict):
+            return 400, {"errors": ["expected {dismiss: [...]}"]}
+        with self._lock:
+            p = self.folder / "meaning" / "authored.json"
+            if not p.is_file():
+                return 404, {"error": "there is no draft (meaning/authored.json)"}
+            try:
+                doc = json.loads(p.read_text(encoding="utf-8"))
+                secs = json.loads((self.folder / "events" / "sections.json").read_text(encoding="utf-8")).get("items") or []
+            except (OSError, ValueError) as e:
+                return 409, {"error": f"the draft or events/sections.json could not be read ({type(e).__name__}); nothing was changed"}
+            if not isinstance(doc, dict):
+                return 409, {"error": "meaning/authored.json is not a JSON object; nothing was changed"}
+            try:
+                n = de.dismiss(doc, body.get("dismiss"), secs)
+            except de.DraftError as e:
+                return 400, {"errors": [str(e)]}
+            if n:
+                atomic.write_bytes(p, (json.dumps(doc, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
+            return 200, {"ok": True, "removed": n,
+                         "affected": affected_by_intent(path="meaning/authored.json") if n else []}
 
     # ---- status / rerun
     def status(self) -> dict[str, Any]:
@@ -554,6 +584,12 @@ def _make_handler(srv: ViewServer):
                     code, res = srv.write_intent(body)
                 except OSError as e:
                     code, res = 503, {"error": f"could not write intent.md ({type(e).__name__})"}
+                return self._json(code, res)
+            if path == "/api/draft":
+                try:
+                    code, res = srv.dismiss_draft(body)
+                except OSError as e:
+                    code, res = 503, {"error": f"could not write authored.json ({type(e).__name__})"}
                 return self._json(code, res)
             if path == "/api/rerun":
                 code, res = srv.start_rerun()

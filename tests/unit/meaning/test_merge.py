@@ -110,7 +110,8 @@ def test_interview_template_roundtrip(synth_source):
     iv = res["interview"]
     assert "V1" in iv and "V2" in iv and "Never show" in iv and "```yaml" in iv
     tmpl = iv[iv.index("```yaml"):]
-    filled = tmpl.replace('feel: ""', 'feel: "x"', 1).replace('name: ""', 'name: "A"', 2)
+    a = tmpl.index("  S01:")  # the first single section (the group entries come before it)
+    filled = (tmpl[:a] + tmpl[a:].replace('feel: ""', 'feel: "x"', 1)).replace('name: ""', 'name: "A"', 2)
     it = parse_intent(filled)
     assert it["form"] == "yaml" and set(it["characters"]) == {"C1", "C2"}
     assert len(it["sections"]) == 1 and it["sections"][0]["key"] == "S01" and it["sections"][0]["t0"] == 1.0

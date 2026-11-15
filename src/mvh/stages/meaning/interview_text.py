@@ -36,7 +36,9 @@ QUESTIONS: tuple[tuple[str, str], ...] = (
                    r"\(look, age, costume\)\?)?(?:\s*Any visual references \(films, artists, photos\)\?)?"),
     (r"The mood arc", r"the audio models hear\b.*?Where should it differ\?"),
     (r"How should each section feel and move\?", r"Sections:.*?For each: feel, what it means, movement/choreography, camera\."
-                                                 r"(?:\s*Put them under `sections` in the template\.)?"),
+                                                 r"(?:\s*Put them under `sections` in the template\.)?"
+                                                 r"(?:\s*You can answer once for a group \(`every section`, `every drop`\): "
+                                                 r"a single section overrides its group\.)?"),
     (r"The top moments", r":\s*#\d+ \d+:\d.*?What should happen on screen at each\?"),
     (r"Colours", r":\s*which palette belongs to the song\b[^?]*\?(?:\s*Per-section colours\?)?"
                  r"(?:\s*\(template: `palette`, `sections\.\*\.palette`\))?"),

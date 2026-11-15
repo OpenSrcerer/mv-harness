@@ -11,8 +11,10 @@ viewer's machine-written block:
    agent verbatim as ``notes`` (user-authored) and is NEVER parsed into fields or rules: a ``## Never show`` heading,
    a ``**Story:**`` label or a ``Chorus: wide`` line in free text is a note, not a do-not rule, a summary or a feel.
 3. **The viewer block** ``<!-- mvh-viewer:begin v1 --> ... <!-- mvh-viewer:end -->`` (M6a grammar,
-   ``mvh.stages.viewer.intent_block``): ``- V1 = C1 Name`` voice mappings and ``### S02 verse#1 9.000-17.000 s``
-   section bullets. It is machine-written and the latest edit, so it wins over the template.
+   ``mvh.stages.viewer.intent_block``): ``- V1 = C1 Name`` voice mappings, ``### S02 verse#1 9.000-17.000 s``
+   section bullets, and (D81) ``### Song`` (logline, summary, setting, tone, theme, palette, do not),
+   ``### Every section`` and ``### Every <label>`` group bullets. It is machine-written and the latest edit, so it
+   wins over the template (do-not rules are a union: a rule is never dropped by the other place).
 
 Other HTML comments (``<!-- ... -->``) are ignored.
 
@@ -63,10 +65,17 @@ TEMPLATE KEYS (``TEMPLATE_KEYS``):
   (the voices stage clusters into that many voices).
   ``line_singers``: ``{L005: C1+C2}`` or bullets ``- L005: C1+C2`` (``=`` / ``->`` too; ``+ & , /`` join singers).
   ``palette``: hex codes or colour words. ``motifs``: ``[{name, lines: [L001], note}]`` or ``- name (L001, L009): note``.
-  ``sections``: keyed by section id (``S05``) or by a label (``chorus``, ``chorus#2``, ``last chorus``, ``drop``; see
-  ``anchor.py``), each ``{t0, t1, occurrence_label, feel, meaning, emotion, movement, camera, palette, characters,
-  do_not}``; a plain string is the feel; bullets ``- Chorus: wide shots`` are ``{chorus: {feel: wide shots}}``.
+  ``sections``: keyed by section id (``S05``), by a label (``chorus``, ``chorus#2``, ``last chorus``, ``drop``; see
+  ``anchor.py``) or by a group (``every section`` = the song-wide default, ``every drop`` = the sections labelled
+  drop; a single section overrides its group, a group overrides ``every section``), each ``{t0, t1, occurrence_label,
+  feel, meaning, emotion, movement, camera, palette, characters, do_not}``; a plain string is the feel; bullets
+  ``- Chorus: wide shots`` are ``{chorus: {feel: wide shots}}``.
   Unknown keys are reported in a warning and kept verbatim as a note.
+
+SUGGESTIONS (D81). A template line that ends with the comment ``# suggestion`` (``feel: "slow rise"   # suggestion``)
+was typed in by ``mvh meaning --suggest`` from a draft. It is NOT the user's answer: its value is read as empty
+(the draft keeps applying as a draft) and its key path is listed in ``suggested``. Deleting the marker makes the
+line the user's answer, with or without changing the text.
 
 FREE TEXT -> NOTES. The text outside template regions and the viewer block is cut into notes: a note is a markdown
 heading with everything under it up to the next heading, template region or the end (text before the first heading is
@@ -89,7 +98,8 @@ from . import interview_text as IV
 from .colors import parse_palette
 
 __all__ = ["parse_intent", "empty_intent", "SECTION_WORDS", "TEMPLATE_KEYS", "TEMPLATE_HINTS", "split_singers",
-           "tolerant_yaml_line", "free_text_notes", "RULE_WORDS"]
+           "tolerant_yaml_line", "free_text_notes", "RULE_WORDS", "SUGGESTION_MARK", "is_suggested", "line_paths",
+           "template_regions"]
 
 TEMPLATE_KEYS = ("logline", "summary", "themes", "setting", "tone", "perspective", "characters", "voices",
                  "line_singers", "palette", "do_not", "motifs", "symbolism", "sections", "references", "notes")
@@ -141,7 +151,71 @@ TAB_WIDTH = 4
 #: the template's own hint comments: cut as comments whatever the spacing before them (they never become claims)
 TEMPLATE_HINTS = ("# hex (#", "# one per person on screen", "# the harness proposes voices", "# lead_backing:",
                   "# optional per-line fixes", "# rules in your own words", "# [{name: lanterns",
-                  "# name, the lyric lines", "# which character sings each voice")
+                  "# name, the lyric lines", "# which character sings each voice", "# the default for the whole song",
+                  "# group of ")
+
+
+#: what ``mvh meaning --suggest`` appends to a line it typed from a draft (the line is not the user's answer)
+SUGGESTION_MARK = "   # suggestion"
+_SUGG = re.compile(r"(?:[ \t]{2,}|\t)#[ \t]*suggestion\b.*$", re.I)
+_PATH_KEY = re.compile(r"^( *)(" + _KEY + r")[ \t]*:(?=[ \t]|$)")
+
+
+def is_suggested(line: str) -> bool:
+    """True for a template line that still carries the ``# suggestion`` marker."""
+    return bool(_SUGG.search(line)) and not line.lstrip().startswith("#")
+
+
+def line_paths(raw: list[str]) -> list[tuple[str, ...] | None]:
+    """For every line of a template region: the key path of a ``key:`` line (``('sections', 'S04', 'feel')``), None
+    for any other line (comments, list items, blank lines)."""
+    out: list[tuple[str, ...] | None] = []
+    stack: list[tuple[int, str]] = []
+    for ln in raw:
+        e = _expand_indent(ln)
+        m = None if e.lstrip().startswith(("#", "-")) else _PATH_KEY.match(e)
+        if not m:
+            out.append(None)
+            continue
+        ind = len(m.group(1))
+        while stack and stack[-1][0] >= ind:
+            stack.pop()
+        stack.append((ind, m.group(2).strip()))
+        out.append(tuple(k for _i, k in stack))
+    return out
+
+
+def template_regions(text: str) -> tuple[list[str], list[tuple[int, int]]]:
+    """The lines of ``text`` (as ``splitlines``) and the [a, b) line ranges of its template regions. The viewer
+    block and HTML comments are not template (their lines stay in place, so indices match the file)."""
+    masked = _VB_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    masked = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), masked, flags=re.S)
+    regions, _consumed = _regions(masked.splitlines())
+    return text.splitlines(), regions
+
+
+def _drop_suggested(raw: list[str], out: dict[str, Any]) -> list[str]:
+    """A region without its ``# suggestion`` lines: a marked ``key: value`` line keeps only its key (no answer), a
+    marked list item is removed. The key paths go to ``out['suggested']``."""
+    if not any(is_suggested(ln) for ln in raw):
+        return raw
+    paths = line_paths(raw)
+    res: list[str] = []
+    last: tuple[str, ...] = ()
+    for ln, p in zip(raw, paths):
+        if p:
+            last = p
+        if not is_suggested(ln):
+            res.append(ln)
+            continue
+        if p:
+            e = _expand_indent(ln)
+            res.append(e[:_PATH_KEY.match(e).end()])
+            out["suggested"].append(".".join(p))
+        else:
+            res.append("")
+            out["suggested"].append(".".join(last) + "[]" if last else "[]")
+    return res
 
 
 def empty_intent() -> dict[str, Any]:
@@ -153,6 +227,8 @@ def empty_intent() -> dict[str, Any]:
         "free_notes": [], "warnings": [], "n_characters": None,
         # W4A-UD1: the template key of every entry that did not parse and was kept as a note (one per entry)
         "unparsed_keys": [],
+        # D81: key paths of the template lines still marked '# suggestion' (typed from a draft, not answers)
+        "suggested": [],
     }
 
 
@@ -983,7 +1059,7 @@ def parse_intent(text: str | None) -> dict[str, Any]:
     free: list[str | None] = [None if i in consumed else ln for i, ln in enumerate(lines)]
     broken: list[str] = []
     for a, b in regions:
-        raw = lines[a:b]
+        raw = _drop_suggested(lines[a:b], out)
         d, fallback = _load_region(raw, out["warnings"], out["unparsed_keys"])
         if d:
             _apply_yaml(d, out)
@@ -1011,6 +1087,9 @@ _VB_RE = re.compile(r"<!-- mvh-viewer:begin v\d+ -->(.*?)<!-- mvh-viewer:end -->
 _VB_VOICE = re.compile(r"^- (V[1-9]\d*) = (C[1-9]\d*)(?: (.*))?$")
 _VB_SEC = re.compile(r"^### (S\d{2,})(?: (\S.*?))? (-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?) s$")
 _VB_KV = re.compile(r"^- (feel|meaning|movement|camera|palette|do not): ?(.*)$")
+_VB_SONG = re.compile(r"^### Song$")
+_VB_GROUP = re.compile(r"^### (Every section|Every \S.*?)$")
+_VB_SONG_KV = re.compile(r"^- (logline|summary|setting|tone|theme|palette|do not): ?(.*)$")
 
 
 def _map_voice(out: dict[str, Any], v: str, cid: str, name: str | None) -> None:
@@ -1031,11 +1110,39 @@ def _parse_viewer_block(body: str, out: dict[str, Any]) -> None:
     words edited in the viewer. It wins over the template (it is the latest edit)."""
     claims: list[dict[str, Any]] = []
     cur: dict[str, Any] | None = None
+    in_song = False
+    themes: list[str] = []
     for raw in body.splitlines():
         line = raw.rstrip()
         vm = _VB_VOICE.match(line)
         if vm:
             _map_voice(out, vm.group(1), vm.group(2), (vm.group(3) or "").strip())
+            continue
+        if line.startswith("### "):
+            in_song = bool(_VB_SONG.match(line))
+            cur = None
+        if in_song:  # D81: the whole-song box of the viewer; it wins over the template (do-not rules: a union)
+            km = _VB_SONG_KV.match(line)
+            v = km.group(2).strip() if km else ""
+            if not v:
+                continue
+            k = km.group(1)
+            if k == "theme":
+                themes.append(v)
+            elif k == "do not":
+                if v not in out["do_not"]:
+                    out["do_not"].append(v)
+            elif k == "palette":
+                out["palette"], out["palette_names"], out["palette_unparsed"] = parse_palette(_strs(v))
+            else:
+                out[k] = v
+            continue
+        gm = _VB_GROUP.match(line)
+        if gm:
+            cur = {"key": gm.group(1).lower(), "t0": None, "t1": None, "occurrence_label": None, "feel": None,
+                   "meaning": None, "emotion": None, "movement": None, "camera": None, "palette": [],
+                   "palette_unparsed": [], "characters": [], "do_not": [], "origin": "viewer"}
+            claims.append(cur)
             continue
         sm = _VB_SEC.match(line)
         if sm:
@@ -1057,6 +1164,8 @@ def _parse_viewer_block(body: str, out: dict[str, Any]) -> None:
                 cur["palette"], cur["palette_unparsed"] = hexes, bad
             else:
                 cur[k] = v
+    if themes:
+        out["themes"] = themes
     keep = [c for c in claims if any(c[k] for k in ("feel", "meaning", "movement", "camera", "palette", "do_not"))]
     out["sections"] = keep + out["sections"]  # first = preferred among equally specific claims
     if body.strip():

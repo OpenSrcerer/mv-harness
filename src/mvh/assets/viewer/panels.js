@@ -88,7 +88,14 @@ function updateNow(t) {
 
 // ------------------------------------------------------------------------------------------------ meaning pane
 function chip(text, cls) { return h('span', { class: 'pill ' + (cls || '') }, text); }
-function field(label, value) { return value == null || value === '' ? document.createDocumentFragment() : h('div', { class: 'kv' }, h('span', { class: 'k' }, label), h('span', { class: 'v' }, value)); }
+function field(label, value, src) {
+  if (value == null || value === '') return document.createDocumentFragment();
+  // src 'draft': a suggestion nobody confirmed yet
+  return h('div', { class: 'kv' }, h('span', { class: 'k' }, label), h('span', { class: 'v' }, value, src === 'draft' ? [' ', chip('suggestion', 'warn')] : null));
+}
+function editMeaningLink(text) {
+  return h('a', { href: '#', onclick: (e) => { e.preventDefault(); openTab('edit'); const el = $('#edit-meaning'); if (el) el.scrollIntoView({ block: 'start' }); } }, text);
+}
 function renderMeaning() {
   const host = $('#pane-meaning');
   if (!host || !V.model) return;
@@ -97,15 +104,18 @@ function renderMeaning() {
   if (!m) {
     host.append(h('h3', null, 'Meaning is pending'),
       h('p', { class: 'dim' }, 'The meaning stage has no output for this song yet. The harness asks the questions in meaning/interview.md; answer them in meaning/intent.md (free text) and run mvh meaning. The user is the authority on what a song means; any draft is labelled as such.'),
-      V.mode === 'edit' ? h('p', null, 'In edit mode you can write per-section meaning and map voices to characters on the ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); openTab('edit'); } }, 'Edit tab'), '.') : h('p', { class: 'dim' }, 'Open this song with mvh view to write meaning notes here.'));
+      V.mode === 'edit' ? h('p', null, 'You can write it here: ', editMeaningLink('edit the meaning'), ' (the whole song, a group of sections, or one section).') : h('p', { class: 'dim' }, 'Open this song with mvh view to write meaning notes here.'));
     return;
   }
   const status = m.status || 'pending';
   host.append(h('div', { class: 'row-between' }, h('h3', null, 'What the song means'), chip(status, status === 'user' ? 'good' : status === 'draft' ? 'warn' : '')));
   if (status === 'draft') host.append(h('p', { class: 'note warn' }, 'This is a DRAFT filled in by an agent or LLM. It has not been confirmed by the user.'));
-  if (m.logline) host.append(h('p', { class: 'logline' }, m.logline));
-  if (m.summary) host.append(h('p', null, m.summary));
-  host.append(field('tone', m.tone), field('setting', m.setting));
+  const gfs = m.field_sources || {};
+  const nSugg = Object.values(gfs).filter((v) => v === 'draft').length + (m.sections || []).reduce((n, x) => n + Object.values(x.field_sources || {}).filter((v) => v === 'draft').length, 0);
+  if (V.mode === 'edit') host.append(h('p', { class: 'small' }, editMeaningLink('Edit the meaning'), nSugg ? ` · ${nSugg} suggestion${nSugg > 1 ? 's' : ''} to accept, change or dismiss` : ''));
+  if (m.logline) host.append(h('p', { class: 'logline' }, m.logline, gfs.logline === 'draft' ? [' ', chip('suggestion', 'warn')] : null));
+  if (m.summary) host.append(h('p', null, m.summary, gfs.summary === 'draft' ? [' ', chip('suggestion', 'warn')] : null));
+  host.append(field('tone', m.tone, gfs.tone), field('setting', m.setting, gfs.setting));
   if (m.perspective && (m.perspective.narrator || m.perspective.addressee)) host.append(field('perspective', `narrator ${m.perspective.narrator ? M.charName(m.perspective.narrator) : '-'} → addressee ${m.perspective.addressee ? M.charName(m.perspective.addressee) : '-'}`));
   if ((m.themes || []).length) host.append(h('h4', null, 'Themes'), h('ul', null, m.themes.map((t) => h('li', null, t.text, ' ', chip(t.source || t.status || '', '')))));
   if ((m.palette || []).length) host.append(h('h4', null, 'Palette'), h('div', { class: 'swatches' }, m.palette.map((c) => h('span', { class: 'sw', style: { background: c }, title: c }))));
@@ -128,7 +138,8 @@ function renderMeaning() {
     const card = h('div', { class: 'card sec' + (SEL.sectionId === s.id ? ' sel' : ''), id: 'msec-' + s.id, style: { borderLeftColor: sectionColour(s.label) }, onclick: () => { selectSection(s.id); seek(s.t); ensureVisible(s.t, 0.05); } },
       h('div', { class: 'row-between' }, h('b', null, `${s.id} ${s.occurrence_label || s.label}`), h('span', { class: 'dim small' }, `${fmtTime(s.t, 1)} - ${fmtTime(s.t + s.d, 1)}`)));
     if (ms) {
-      card.append(field('feel', ms.feel), field('meaning', ms.meaning), field('movement', ms.movement_hint), field('camera', ms.camera_hint));
+      const sfs = ms.field_sources || {};
+      card.append(field('feel', ms.feel, sfs.feel), field('meaning', ms.meaning, sfs.meaning), field('movement', ms.movement_hint, sfs.movement_hint), field('camera', ms.camera_hint, sfs.camera_hint));
       if (ms.emotion) card.append(field('emotion', `lyric ${ms.emotion.lyric || '-'} / audio ${ms.emotion.audio || '-'} ${ms.emotion.agree === false ? '(disagree)' : ''}`));
       if ((ms.palette_hint || []).length) card.append(h('div', { class: 'swatches' }, ms.palette_hint.map((c) => h('span', { class: 'sw', style: { background: c }, title: c }))));
       if ((ms.characters_present || []).length) card.append(field('characters', ms.characters_present.map((c) => M.charName(c)).join(', ')));

@@ -993,6 +993,8 @@ X = rest/idle.
 against it with `status: "draft"`; the user's `meaning/intent.md` is read in exactly two ways (D78): the interview's YAML template
 (the only source of structured fields and do-not rules) and free text (the user's notes, verbatim, never parsed).
 Merge precedence for every claim: user > lyric > audio > external > speculative; draft claims never overwrite user claims.
+A per-section answer can be given once for a group (`every section`, `every <label>`) and is inherited by its sections; a
+template line marked `# suggestion` is a draft's value typed in for review, not an answer (D81).
 Every per-section entry stores `section_id`, `t0`, `t1` and `occurrence_label`, so `mvh meaning` can re-anchor it by time overlap;
 claims that lose their section go to `orphans.json` and a warning in brief.md.
 
@@ -1632,3 +1634,21 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
   review tests that demanded full recall on mix-only hard textures (808 / acoustic kicks over a held bass at other tempos and
   levels, ducked subs under a lead chord, quiet intros of those designs) are precision targets now
   (docs/contract/decisions/UD2.md); the kick-free textures and the contract fixture keep their hard targets.
+- **D81 Grouped meaning, draft suggestions and the viewer's whole-song box (user decision UD3; extends D78; meaning 1.2.0,
+  viewer 1.1.0).** Details: docs/contract/decisions/UD3.md.
+  - **Groups.** Under the template's `sections:`, `every section` (also `all`, `default`) is the song-wide default and
+    `every <label>` (`every drop`, `every chorus`) addresses the sections with that label. An answer is inherited downwards:
+    `every section` < `every <label>` < the single section. The template lists the groups before the single sections and
+    writes a group's answer back at the group.
+  - **Suggestions.** `mvh meaning --suggest` types a draft's values into the empty template fields of `meaning/intent.md`,
+    each line ending with the comment `# suggestion`. A marked line is NOT the user's answer (its value is read as empty; the
+    draft keeps applying as a draft) until the user deletes the marker. Suggested do-not rules are marked items under
+    `do_not` and are not rules until unmarked. Nothing else in the user's file is changed.
+  - **Viewer.** The managed block gains `### Song` (logline, summary, setting, tone, theme, palette, do not),
+    `### Every section` and `### Every <label>`; it wins over the template, and do-not rules are a union.
+    `POST /api/intent` takes `song` and `groups`; `POST /api/draft {dismiss: [...]}` deletes dismissed suggestions from
+    `meaning/authored.json`. The viewer never saves an unreviewed draft value as the user's.
+  - **meaning.json (additive).** `sections[].field_scope` (`all` | `type` | `section` per user-sourced field),
+    `section_defaults[]` (the answer per group, with `field_sources`), `suggested_do_not[]` (rules a draft suggests; never
+    applied) and `intent_suggested[]` (template lines still marked `# suggestion`). `sections[]` already carries every
+    inherited value, so readers that ignore the new fields are unaffected.

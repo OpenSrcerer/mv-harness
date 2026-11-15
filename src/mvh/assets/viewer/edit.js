@@ -1,7 +1,7 @@
 /* Edit mode (only when served by `mvh view`): corrections -> overrides.json / meaning/intent.md */
 const SECTION_LABELS = ['intro', 'verse', 'pre-chorus', 'chorus', 'bridge', 'build', 'drop', 'breakdown', 'solo', 'interlude', 'instrumental', 'outro'];
 const Edit = (() => {
-  const st = { affected: [], saving: false, last: '', history: [], rerun: null, error: '' };
+  const st = { affected: [], saving: false, last: '', history: [], rerun: null, error: '', group: 'all' };
   const J = (o) => JSON.stringify(o);
   const ovr = () => V.ovr || (V.ovr = {});
   const clean = (o) => {
@@ -74,11 +74,12 @@ const Edit = (() => {
     await save(JSON.parse(prev), 'undo', prev);
     renderBar();
   }
-  async function saveIntent(patch, label) {
+  async function saveIntent(patch, label, onOk) {
     st.saving = true; renderBar();
     const r = await api('api/intent', patch);
     st.saving = false;
     if (r.ok) {
+      if (onOk) onOk();
       V.intent = r.j.intent; st.affected = r.j.affected || []; st.last = label;
       toast(`Saved to meaning/intent.md: ${label}. Will re-run: ${st.affected.map((a) => a.stage).join(', ') || 'nothing'}`, 'good', 5000);
     } else { st.error = (r.j.errors || [r.j.error]).join('; '); toast('Not saved: ' + st.error, 'bad', 7000); }
@@ -205,6 +206,167 @@ const Edit = (() => {
   }
   function btn(text, fn, title) { return h('button', { class: 'btn sm', onclick: fn, title }, text); }
 
+  // ------------------------------------------------------------------ meaning forms (D81)
+  // The page shows the last analysis; a suggestion dismissed since then is hidden with this set until the re-run.
+  const dismissed = new Set();
+  const dkey = (it) => [it.scope, it.id || it.key || '', it.field, it.value == null ? '' : it.value].join('|');
+  // Text typed (and suggestions accepted) but not saved yet, by 'form|field'. The panel is redrawn whenever a section
+  // is selected or something is saved, and unsaved words must survive that. A form's entries go when it is saved.
+  const typed = new Map(), accepted = new Set();
+  const forget = (form) => { for (const k of [...typed.keys(), ...accepted]) if (k.startsWith(form + '|')) { typed.delete(k); accepted.delete(k); } };
+  /** a textarea whose unsaved text survives a redraw of the panel */
+  function keptArea(id, initial, attrs) {
+    const ta = h('textarea', attrs);
+    ta.value = typed.has(id) ? typed.get(id) : initial;
+    ta.addEventListener('input', () => typed.set(id, ta.value));
+    return ta;
+  }
+  async function dismiss(items, label) {
+    st.saving = true; renderBar();
+    const r = await api('api/draft', { dismiss: items });
+    st.saving = false;
+    if (r.ok) {
+      items.forEach((it) => dismissed.add(dkey(it)));
+      if ((r.j.affected || []).length) st.affected = r.j.affected;
+      st.last = 'dismissed ' + label;
+      toast(`Dismissed the suggestion for ${label}: it is removed from the draft (meaning/authored.json).`, 'good', 5000);
+    } else { st.error = (r.j.errors || [r.j.error]).join('; '); toast('Not dismissed: ' + st.error, 'bad', 7000); }
+    renderBar(); refreshPanel();
+  }
+  /** id: the form ('song', 'group:drop', 'sec:S04'); fields: [{key, label, rows, st (L.meaningField), placeholder, dis (the
+   *  dismiss item)}] -> {rows, collect(acceptAll), nSugg} */
+  function meaningForm(id, fields) {
+    const inputs = {};
+    const rows = fields.map((f) => {
+      const fid = id + '|' + f.key;
+      const sugg = f.st.kind === 'suggestion';
+      const shown = f.st.kind === 'inherited' ? '' : f.st.value;
+      const ta = keptArea(fid, shown, { rows: f.rows || 1, class: 'txt', placeholder: f.placeholder || '' });
+      inputs[f.key] = ta;
+      const tools = [];
+      if (sugg) {
+        const pill = h('span', { title: 'From a draft, not from you. It stays a draft until you accept or change it.' });
+        const show = () => {
+          const edited = ta.value.trim() !== shown.trim(), acc = accepted.has(fid);
+          ta.classList.toggle('sugg', !edited && !acc);
+          pill.className = 'pill ' + (edited || acc ? 'good' : 'warn');
+          pill.textContent = edited ? 'edited: yours when saved' : acc ? 'accepted: yours when saved' : 'suggestion';
+        };
+        ta.addEventListener('input', show);
+        show();
+        tools.push(pill, btn('accept', () => { accepted.add(fid); show(); }, 'keep this suggestion as your own answer'));
+        if (f.dis) tools.push(btn('dismiss', () => { typed.delete(fid); accepted.delete(fid); dismiss([f.dis], f.label); }, 'remove this suggestion from the draft'));
+      } else if (f.st.kind === 'own') tools.push(h('span', { class: 'pill good' }, 'yours'));
+      else if (f.st.kind === 'yours') tools.push(h('span', { class: 'pill good', title: 'From the template in meaning/intent.md. A change saved here wins over it.' }, 'yours (template)'));
+      return h('div', { class: 'blk' }, h('div', { class: 'lbl' }, f.label, ' ', tools), ta);
+    });
+    const collect = (acceptAll) => {
+      const rec = {};
+      for (const f of fields) {
+        const v = inputs[f.key].value.trim();
+        if (L.meaningFieldWrite(f.st, v, acceptAll || accepted.has(id + '|' + f.key))) rec[f.key] = v;
+      }
+      return rec;
+    };
+    return { id, rows, collect, nSugg: fields.filter((f) => f.st.kind === 'suggestion').length };
+  }
+  const SEC_FIELDS = [['feel', 'feel', 'how it feels', 1], ['meaning', 'meaning', 'what it means', 2], ['movement', 'movement_hint', 'movement', 2],
+    ['camera', 'camera_hint', 'camera', 2], ['palette', 'palette_hint', 'palette (hex, comma separated)', 1]];
+  function meaningPanel(host, M) {
+    const m = M.meaning || {}, defs = m.section_defaults || [];
+    const I = V.intent || {};
+    // a draft value is hidden once it was dismissed here
+    const live = (item, eff, src) => (src === 'draft' && dismissed.has(dkey(item)) ? ['', undefined] : [eff, src]);
+    const saveRow = (form, label, patchOf, clearPatch) => h('div', { class: 'btnrow' },
+      btn('save ' + label, () => saveIntent(patchOf(form.collect(false)), label, () => forget(form.id))),
+      form.nSugg ? btn(`accept all ${form.nSugg} suggestion${form.nSugg > 1 ? 's' : ''} and save`, () => saveIntent(patchOf(form.collect(true)), label + ' (suggestions accepted)', () => forget(form.id))) : null,
+      btn('clear', () => saveIntent(clearPatch, 'cleared ' + label, () => forget(form.id)), 'remove what the viewer saved here; the template and the draft are not touched'));
+
+    // ---- the whole song
+    host.append(h('h3', { id: 'edit-meaning' }, 'Meaning of the whole song'),
+      h('div', { class: 'dim small' }, 'Written to meaning/intent.md (the same fields as the template that mvh meaning --edit opens). What you save here wins over the template. Re-runs: meaning, brief.'));
+    const fs = m.field_sources || {}, own = I.song || {};
+    const songField = (key, label, rows, eff, src) => {
+      const dis = { scope: 'song', field: key };
+      const [e, sc] = live(dis, eff, src);
+      return { key, label, rows, dis, st: L.meaningField(Array.isArray(own[key]) ? own[key].join('\n') : own[key], e, sc, 'song', 'song') };
+    };
+    const song = meaningForm('song', [
+      songField('logline', 'logline: the song in one line', 2, m.logline, fs.logline),
+      songField('summary', 'story: what happens, start to end', 4, m.summary, fs.summary),
+      songField('setting', 'setting: the world it happens in', 2, m.setting, fs.setting),
+      songField('tone', 'tone', 1, m.tone, fs.tone),
+      songField('themes', 'themes (one per line)', 2, (m.themes || []).map((t) => t.text).join('\n'), fs.themes),
+      songField('palette', 'palette (hex or colour words, comma separated)', 1, (m.palette || []).join(', '), fs.palette),
+    ]);
+    const ownRules = own.do_not || [];
+    const rules = keptArea('song|do_not', ownRules.join('\n'), { rows: 3, class: 'txt', placeholder: 'one rule per line, in your own words' });
+    const tmplRules = (m.do_not || []).filter((r) => !ownRules.includes(r));
+    const sugRules = (m.suggested_do_not || []).filter((r) => !ownRules.includes(r) && !dismissed.has(dkey({ scope: 'song', field: 'do_not', value: r })));
+    host.append(...song.rows,
+      h('div', { class: 'blk' }, h('div', { class: 'lbl' }, 'never show: the only hard rules, copied word for word to every agent'), rules,
+        tmplRules.length ? h('div', { class: 'dim small' }, 'Also in the template of intent.md (edit them there): ' + tmplRules.join(' · ')) : null,
+        sugRules.map((r) => h('div', { class: 'pendrow' }, h('span', { class: 'pill warn' }, 'suggested rule'), ' ', r, ' ',
+          btn('add', () => { rules.value = (rules.value.trim() ? rules.value.trim() + '\n' : '') + r; typed.set('song|do_not', rules.value); toast('Added to the box: save to keep it'); }, 'put this rule in the box above'),
+          btn('dismiss', () => dismiss([{ scope: 'song', field: 'do_not', value: r }], 'a rule'), 'remove this suggestion from the draft')))),
+      saveRow(song, 'whole-song meaning', (rec) => ({ song: Object.assign(rec, { do_not: rules.value }) }), { song: null }));
+
+    // ---- a group of sections: every section, every <label>
+    host.append(h('h3', null, 'Meaning by group of sections'),
+      h('div', { class: 'dim small' }, 'Answer once for many sections. A single section overrides its group, and a group overrides "every section".'));
+    const gOwn = I.groups || {};
+    const groups = defs.filter((g) => g.key === 'all' || (g.section_ids || []).length > 1 || Object.keys(g.field_sources || {}).length || gOwn[g.key]);
+    const allDef = defs.find((g) => g.key === 'all') || {};
+    // an answer one level up, as a hint: what the viewer saved since the last run first, then the last run's
+    const upAll = (key, mf) => (gOwn.all || {})[key] || ((allDef.field_sources || {})[mf] === 'user' ? [].concat(allDef[mf] || []).join(', ') : '');
+    if (!groups.length) host.append(h('div', { class: 'dim' }, 'Re-run the analysis once to edit by group (this folder was made by an older version).'));
+    else {
+      if (!groups.some((g) => g.key === st.group)) st.group = 'all';
+      const g = groups.find((x) => x.key === st.group);
+      const level = g.key === 'all' ? 'all' : 'type';
+      const form = meaningForm('group:' + g.key, SEC_FIELDS.map(([key, mf, label, rows]) => {
+        const dis = { scope: 'group', key: g.key, field: key };
+        const [e, sc] = live(dis, g[mf], (g.field_sources || {})[mf]);
+        const stt = L.meaningField((gOwn[g.key] || {})[key], e, sc, level, level);
+        const up = level === 'type' && stt.kind === 'empty' ? upAll(key, mf) : '';
+        return { key, label, rows, dis, st: stt, placeholder: up ? 'from every section: ' + up : '' };
+      }));
+      const name = g.key === 'all' ? 'every section' : 'every ' + g.key;
+      host.append(h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'group'),
+        h('select', { onchange: (e) => { st.group = e.target.value; refreshPanel(); } }, groups.map((x) => h('option', { value: x.key, selected: x.key === g.key },
+          x.key === 'all' ? `every section (${(x.section_ids || []).length})` : `every ${x.key} (${(x.section_ids || []).length}: ${(x.section_ids || []).join(' ')})`)))),
+      ...form.rows, saveRow(form, 'meaning of ' + name, (rec) => ({ groups: { [g.key]: rec } }), { groups: { [g.key]: null } }));
+    }
+
+    // ---- one section
+    host.append(h('h3', null, 'Meaning of a section'), h('div', { class: 'dim small' }, 'Only what differs from its group. Anchored by section time. Select a section (click it in the Sections or Meaning lane).'));
+    const msec = SEL.sectionId ? M.sections.find((x) => x.id === SEL.sectionId) : null;
+    if (!msec) { host.append(h('div', { class: 'dim' }, 'No section selected.')); return; }
+    const ex = (I.sections || {})[msec.id] || {};
+    const base = M.meaningSections.get(msec.id) || {};
+    const grp = defs.find((x) => x.key !== 'all' && (x.section_ids || []).includes(msec.id));
+    const form = meaningForm('sec:' + msec.id, SEC_FIELDS.map(([key, mf, label, rows]) => {
+      const dis = { scope: 'section', id: msec.id, field: key };
+      const [e, sc] = live(dis, base[mf], (base.field_sources || {})[mf]);
+      let stt = L.meaningField(ex[key], e, sc, (base.field_scope || {})[mf], 'section');
+      // an answer for the group saved in the viewer since the last run beats a draft: show it as inherited
+      const viaGroup = grp ? (gOwn[grp.key] || {})[key] : '';
+      const viaAll = (gOwn.all || {})[key];
+      if (stt.kind === 'suggestion' && (viaGroup || viaAll)) stt = { value: '', kind: 'empty' };
+      let ph = '';
+      if (stt.kind === 'inherited') ph = `from every ${stt.from === 'all' ? 'section' : (grp ? grp.key : 'section of this type')}: ${stt.value}`;
+      else if (stt.kind === 'empty') ph = viaGroup ? `from every ${grp.key}: ${viaGroup}` : (upAll(key, mf) ? 'from every section: ' + upAll(key, mf) : '');
+      return { key, label, rows, dis, st: stt, placeholder: ph };
+    }));
+    const dn = keptArea('sec:' + msec.id + '|do_not', (ex.do_not || []).join('\n'), { rows: 2, class: 'txt', placeholder: 'rules for this section only, one per line' });
+    const heard = (base.emotion || {}).audio;
+    host.append(h('div', { class: 'card' }, h('b', null, `${msec.id} ${msec.occurrence_label || msec.label}`), ' ', h('span', { class: 'dim' }, `${fmtTime(msec.t, 1)}-${fmtTime(msec.t + msec.d, 1)}`),
+        heard ? h('div', { class: 'dim small' }, `Heard in the audio: ${heard}. Measured by the mood model: intensity is more reliable than happy or sad.`) : null),
+      ...form.rows, h('div', { class: 'blk' }, h('div', { class: 'lbl' }, 'never show in this section (one per line)'), dn),
+      saveRow(form, 'meaning of ' + msec.id, (rec) => ({ sections: { [msec.id]: Object.assign({ t0: msec.t, t1: msec.t + msec.d, label: msec.occurrence_label || msec.label }, rec, { do_not: dn.value }) } }),
+        { sections: { [msec.id]: null } }));
+  }
+
   function refreshPanel() {
     const host = $('#pane-edit');
     if (!host || V.mode !== 'edit' || !V.model) return;
@@ -285,25 +447,8 @@ const Edit = (() => {
         }))));
     }
     if (!M.voices.length) host.append(h('div', { class: 'dim' }, 'No voices detected.'));
-    // ---- section meaning
-    host.append(h('h3', null, 'Meaning of a section'), h('div', { class: 'dim small' }, 'Written to meaning/intent.md; anchored by section time. Select a section (click it in the Sections or Meaning lane).'));
-    const msec = SEL.sectionId ? M.sections.find((s) => s.id === SEL.sectionId) : null;
-    if (!msec) host.append(h('div', { class: 'dim' }, 'No section selected.'));
-    else {
-      const ex = (V.intent.sections || {})[msec.id] || {};
-      const base = M.meaningSections.get(msec.id) || {};
-      const f = {};
-      const mk = (key, label, init, rows) => { f[key] = h('textarea', { rows: rows || 2, class: 'txt' }); f[key].value = init || ''; return h('label', { class: 'blk' }, h('span', { class: 'lbl' }, label), f[key]); };
-      host.append(h('div', { class: 'card' }, h('b', null, `${msec.id} ${msec.occurrence_label || msec.label}`), ' ', h('span', { class: 'dim' }, `${fmtTime(msec.t, 1)}-${fmtTime(msec.t + msec.d, 1)}`)),
-        mk('feel', 'how it feels', ex.feel != null ? ex.feel : base.feel, 1), mk('meaning', 'what it means', ex.meaning != null ? ex.meaning : base.meaning, 3),
-        mk('movement', 'movement', ex.movement != null ? ex.movement : base.movement_hint, 2), mk('camera', 'camera', ex.camera != null ? ex.camera : base.camera_hint, 2),
-        mk('palette', 'palette (hex, comma separated)', ex.palette != null ? ex.palette : (base.palette_hint || []).join(', '), 1), mk('do_not', 'never show (one per line)', ex.do_not != null ? ex.do_not : (base.do_not || []).join('\n'), 2),
-        h('div', { class: 'btnrow' }, btn('save section meaning', () => {
-          const rec = { t0: msec.t, t1: msec.t + msec.d, label: msec.occurrence_label || msec.label };
-          for (const k of Object.keys(f)) rec[k] = f[k].value.trim();
-          saveIntent({ sections: { [msec.id]: rec } }, `meaning of ${msec.id}`);
-        }), btn('clear', () => saveIntent({ sections: { [msec.id]: null } }, `cleared ${msec.id}`))));
-    }
+    // ---- meaning: the whole song, a group of sections, one section (D81)
+    meaningPanel(host, M);
     // ---- pins
     host.append(h('h3', null, 'Pinned moments'), h('div', { class: 'dim small' }, 'Pins become tier-1 cues. Double-click the Cues lane or add one at the playhead. Re-runs: cues.'));
     const pins = ((ovr().cues || {}).pinned) || [];

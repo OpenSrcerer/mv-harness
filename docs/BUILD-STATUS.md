@@ -96,6 +96,19 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
   6. The continuous hits.kick curve (the viz-style pulse in vizState) is unchanged.
   7. rhythm, dynamics and structure keep using the mix kick internally as one input among several: no DAG change.
 
+- **UD3, grouped meaning + draft suggestions + whole-song box in the viewer: APPROVED and built (2026-11-15, by the
+  orchestrator, no agents).** CONTRACT D81, docs/contract/decisions/UD3.md. meaning 1.2.0, viewer 1.1.0.
+  - Answer once per group: `every section`, `every <label>` under `sections:`; inherited downwards.
+  - `mvh meaning --suggest` types a draft's values into empty template fields, marked `# suggestion` (not an answer
+    until the marker is deleted).
+  - Viewer Edit tab: forms for the whole song, a group and one section; suggestions can be accepted, changed or
+    dismissed; `POST /api/draft` removes dismissed ones from authored.json.
+  - Gate `all` on 2026-11-15 (out/_wip/gate-d80.log): unit 1673 passed; ruff, contract, validate, e2e, lib-node and
+    determinism pass; review 22 failed / 400 passed, the same 22 tests as the final gate of 2026-11-10.
+    Checked by hand in the viewer on a copy of a real song (edit, accept, dismiss, group, section, re-run).
+  - Not done: a drafting step that needs no agent or API key (a draft still comes from `--draft anthropic` or from an
+    agent following request.md).
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.

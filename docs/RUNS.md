@@ -29,7 +29,7 @@ In Windows PowerShell 5.1 never add `2>&1` to a native command (it turns stderr 
 | `mvh brief <folder> [--section S05]` | Prints brief.md, or a <= 1.5k-token zoom of one section. |
 | `mvh frames <folder> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` | One row per video frame (`frames/24fps.csv`, `frames/24_f1fps.csv` with `--frame0 1`). |
 | `mvh pack <folder> <dest>` | Copies what a web page or a video project loads (manifest, brief, lib/, curves/, events/, meta/, lyrics/, meaning/, lipsync/, notes/, tables/, artwork/, audio/) to `dest`: no stems/, .cache/ or viewer.html (`--with-stems`, `--with-viewer` add them). Section 8. |
-| `mvh meaning <folder> [--edit \| --init] [--editor CMD]` | Re-merges `intent.md` + `authored.json`, re-anchors claims to the current sections, refreshes singing / lines / brief. It runs every stage that reads the meaning files and the stages after them (voices, lipsync, meaning, brief, viewer); unchanged ones are cache hits. `--init` creates `meaning/intent.md` from the interview template when it is missing; `--edit` also opens it in an editor (`--editor`, `MVH_EDITOR` / `VISUAL` / `EDITOR`, VS Code, vim, Notepad), waits, then applies it. An existing intent.md is never replaced. |
+| `mvh meaning <folder> [--edit \| --init] [--suggest] [--editor CMD]` | Re-merges `intent.md` + `authored.json`, re-anchors claims to the current sections, refreshes singing / lines / brief. It runs every stage that reads the meaning files and the stages after them (voices, lipsync, meaning, brief, viewer); unchanged ones are cache hits. `--init` creates `meaning/intent.md` from the interview template when it is missing; `--edit` also opens it in an editor (`--editor`, `MVH_EDITOR` / `VISUAL` / `EDITOR`, VS Code, vim, Notepad), waits, then applies it. An existing intent.md is never replaced. `--suggest` types a draft's values (`meaning/authored.json`) into the EMPTY template fields, each line marked `# suggestion`: a marked line is not an answer until the marker is deleted, and nothing else in the file changes (D81). Alone it stops after writing; with `--edit` it then opens the editor. |
 | `mvh models fetch\|verify\|list` | The pinned models of `models.lock.json`. |
 | `mvh doctor` | Environment check. |
 
@@ -179,8 +179,13 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
     `rhythm.downbeat_phase`);
   - nudge lyric lines / words (`lyrics.lines`, `lyrics.words`), assign a line to a voice (`voices.lines`);
   - pin cues (`cues.pinned`);
-  - map voices to characters and write per-section feel / meaning / movement / camera / palette / do-not rules (the
-    managed block of `meaning/intent.md`; mapped voices are a floor for the voice count, D69).
+  - map voices to characters and write the meaning (the managed block of `meaning/intent.md`; mapped voices are a
+    floor for the voice count, D69). Three forms, the same fields as the template (D81): the **whole song** (logline,
+    story, setting, tone, themes, palette, never-show rules), a **group of sections** (`every section`, `every drop`:
+    feel / meaning / movement / camera / palette, inherited by the group's sections) and **one section** (only what
+    differs from its group). A draft's value appears prefilled and marked `suggestion`: accept it, change it, or
+    dismiss it (removes it from `meaning/authored.json`). A suggestion left alone is not saved as yours. Text typed
+    but not saved survives selecting another section.
   The server answers each save with the stages it affects; "re-run" starts `mvh analyze <folder>`, which re-runs only
   those stages. `tests/integration/test_override_roundtrip.py` checks the whole loop on real runs.
 - **By hand.** `overrides.json` and `meaning/intent.md` are user inputs: the runner never writes or deletes them. Edit

@@ -209,7 +209,34 @@ const MVHLOGIC = (function () {
     return r;
   }
 
-  return { r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  // ---------------------------------------------------------------------------------- meaning forms (D81)
+  /** One field of a meaning form: what to show, and where the value comes from.
+   *  own: the value saved in the viewer block at this level ('' / null when none)
+   *  eff, src, scope: the value of the last analysis (meaning.json), its source (user | draft) and, for a section,
+   *  the level the user answered at (all | type | section)
+   *  level: the level of this form (song | all | type | section)
+   *  -> kind: own (saved from the viewer) | yours (the user's answer at this level, from the template) |
+   *     inherited (the user's answer for a wider group; shown as a hint, never saved here) | suggestion (a draft) | empty */
+  function meaningField(own, eff, src, scope, level) {
+    if (own != null && String(own).trim() !== '') return { value: String(own), kind: 'own' };
+    if (Array.isArray(eff)) eff = eff.join(', ');
+    if (eff == null || String(eff).trim() === '') return { value: '', kind: 'empty' };
+    if (src === 'draft') return { value: String(eff), kind: 'suggestion' };
+    if (src !== 'user') return { value: '', kind: 'empty' };
+    const at = level === 'section' ? (scope || 'section') : level;
+    return at === level ? { value: String(eff), kind: 'yours' } : { value: String(eff), kind: 'inherited', from: at };
+  }
+  /** Does saving write this field into the viewer block? The viewer's own value always (emptying it clears it), a
+   *  value the user changed, and a suggestion only when it was accepted: an unreviewed draft never becomes the user's. */
+  function meaningFieldWrite(state, typed, accepted) {
+    const t = String(typed == null ? '' : typed).trim();
+    if (state.kind === 'own') return true;
+    const shown = state.kind === 'inherited' ? '' : String(state.value || '').trim();
+    if (t !== shown) return true;
+    return state.kind === 'suggestion' && !!accepted && t !== '';
+  }
+
+  return { meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

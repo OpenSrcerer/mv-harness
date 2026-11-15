@@ -50,6 +50,9 @@ def register(sub: argparse._SubParsersAction) -> None:
                    help="create meaning/intent.md from the template if missing, open it in an editor, then apply it")
     p.add_argument("--init", action="store_true",
                    help="only create meaning/intent.md from the template (never replaces an existing file)")
+    p.add_argument("--suggest", action="store_true",
+                   help="type the draft's suggestions into the empty fields of meaning/intent.md, each marked "
+                        "'# suggestion' (not an answer until you delete the marker); creates the file if missing")
     p.add_argument("--editor", default=None,
                    help='editor for --edit, e.g. "code --wait" (default: MVH_EDITOR, VISUAL, EDITOR, VS Code, vim, Notepad)')
     p.add_argument("--draft", choices=("agent", "anthropic", "off"), default=None,
@@ -70,15 +73,29 @@ def cmd_meaning(a: argparse.Namespace) -> int:
     if not prev.get("params_ext", {}).get("input"):
         print(f"mvh meaning: {folder} is not a song folder made by mvh analyze", file=sys.stderr)
         return 2
-    if a.init or a.edit:
-        from .edit import EditError, init_intent, open_editor
+    if a.init or a.edit or a.suggest:
+        from .edit import EditError, init_intent, open_editor, suggest_into
 
         try:
-            intent_path, created = init_intent(folder)
+            n_marked = None
+            if a.suggest:
+                intent_path, created, n_marked = suggest_into(folder)
+            else:
+                intent_path, created = init_intent(folder)
             print(f"mvh meaning: {'created' if created else 'found'} {intent_path}", file=sys.stderr)
+            if n_marked is not None:
+                print(f"mvh meaning: {n_marked} line(s) carry a draft suggestion ('# suggestion'); delete the marker "
+                      "on the ones you accept", file=sys.stderr)
             if not a.edit:
-                print(json.dumps({"intent": str(intent_path), "created": created}, ensure_ascii=False))
+                rep = {"intent": str(intent_path), "created": created}
+                if n_marked is not None:
+                    rep["suggested"] = n_marked
+                print(json.dumps(rep, ensure_ascii=False))
                 return 0
+            with open(intent_path, encoding="utf-8", errors="replace") as fh:
+                if "<!-- mvh-viewer:begin" in fh.read():
+                    print("mvh meaning: this file has a 'Viewer corrections' block (written by mvh view); its values "
+                          "win over the template", file=sys.stderr)
             cmd = open_editor(intent_path, a.editor)
             print(f"mvh meaning: edited with {Path(cmd[0]).name}; applying", file=sys.stderr)
         except EditError as e:
@@ -115,9 +132,12 @@ def cmd_meaning(a: argparse.Namespace) -> int:
     res = rr.analyze(s)
     m = folder / "meaning" / "meaning.json"
     status = None
+    still_suggested: list[str] = []
     if m.is_file():
         with open(m, encoding="utf-8") as fh:
-            status = json.load(fh).get("status")
+            mdoc = json.load(fh)
+        status = mdoc.get("status")
+        still_suggested = list(mdoc.get("intent_suggested") or [])
     not_run = [n for n in ("meaning", "brief") if n in (res.get("pending") or [])]
     report = {"meaning": str(m), "status": status, "brief": res.get("brief"),
               "warnings": res.get("warnings", []), "failed": res.get("failed")}
@@ -126,5 +146,11 @@ def cmd_meaning(a: argparse.Namespace) -> int:
         report["not_run"] = not_run
         print(f"mvh meaning: {', '.join(not_run)} did not run (upstream not cached or stale); "
               "run `mvh analyze` on the folder first", file=sys.stderr)
+    if still_suggested:
+        # D81: marked lines are not the user's answers; say so, or an edited-but-still-marked line looks ignored
+        report["still_suggested"] = len(still_suggested)
+        print(f"mvh meaning: {len(still_suggested)} line(s) of intent.md are still marked '# suggestion' and were not "
+              f"applied as your answers ({', '.join(still_suggested[:5])}{', ...' if len(still_suggested) > 5 else ''}). "
+              "Delete the marker on a line to make it yours.", file=sys.stderr)
     print(json.dumps(report, ensure_ascii=False))
     return 1 if (res.get("failed") or not_run) else 0
