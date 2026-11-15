@@ -2,7 +2,7 @@ r"""Machine-wide heavy/gpu slot locks (%LOCALAPPDATA%\mvh\locks), exclusive-crea
 import json, os, time, ctypes
 from pathlib import Path
 
-LOCKS = Path(os.environ["LOCALAPPDATA"]) / "mvh" / "locks"
+LOCKS = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "locks"
 STALE_S = 3 * 3600
 
 def _pid_alive(pid):

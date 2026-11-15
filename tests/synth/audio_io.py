@@ -125,11 +125,11 @@ def read_wav(path: Path | str) -> tuple[np.ndarray, int]:
 
 
 def ffmpeg_exe() -> str:
-    """ffmpeg resolution as in PLAN §3.4: MVH_FFMPEG, then %LOCALAPPDATA%/mvh/config.json, then PATH."""
+    """ffmpeg resolution as in PLAN §3.4: MVH_FFMPEG, then <mvh home>/config.json, then PATH."""
     env = os.environ.get("MVH_FFMPEG")
     if env and Path(env).exists():
         return env
-    cfg = Path(os.environ.get("LOCALAPPDATA", "")) / "mvh" / "config.json"
+    cfg = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "config.json"
     if cfg.exists():
         import json
 

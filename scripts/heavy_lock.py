@@ -35,7 +35,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-LOCK_DIR = Path(os.environ.get("MVH_HOME") or (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "mvh")) / "locks"
+LOCK_DIR = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "locks"
 SLOTS = ("heavy-0.lock", "heavy-1.lock")
 GPU_LOCK = "gpu.lock"
 STALE_AFTER_S = 3 * 3600

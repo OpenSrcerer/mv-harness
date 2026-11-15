@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mvh_locks import Slot
 
 ROOT = Path(__file__).resolve().parents[3]
-GGML = Path(os.environ["LOCALAPPDATA"]) / "mvh" / "models" / "ggml"
+GGML = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "models" / "ggml"
 FFMPEG = os.environ.get("MVH_FFMPEG") or r"C:\Users\OpenSrcerer\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe"
 
 

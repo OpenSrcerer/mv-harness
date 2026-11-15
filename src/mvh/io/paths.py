@@ -1,8 +1,11 @@
 r"""Well-known locations (PLAN §3.3/§3.4). Stdlib only.
 
-home()        %MVH_HOME% or %LOCALAPPDATA%\mvh   (models, hf, torch, numba, nltk, locks, bin, config.json)
+home()        %MVH_HOME% or %USERPROFILE%\.mvh   (models, hf, torch, numba, nltk, locks, bin, config.json)
+              NOT under AppData: Windows redirects a packaged app's AppData writes to a private per-app
+              folder, so files fetched from inside such an app (the Claude desktop app) were invisible to
+              a normal terminal.
 repo_root()   the mv-harness checkout (src/mvh/io/paths.py -> 3 levels up), or %MVH_REPO%
-config()      %LOCALAPPDATA%\mvh\config.json read with utf-8-sig ({} when absent or unreadable)
+config()      <home>\config.json read with utf-8-sig ({} when absent or unreadable)
 """
 
 from __future__ import annotations
@@ -19,8 +22,7 @@ def home() -> Path:
     h = os.environ.get("MVH_HOME")
     if h:
         return Path(h)
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-    return Path(base) / "mvh"
+    return Path.home() / ".mvh"
 
 
 def repo_root() -> Path:

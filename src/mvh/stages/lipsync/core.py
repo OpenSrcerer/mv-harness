@@ -36,7 +36,7 @@ def find_rhubarb() -> Path | None:
     v = os.environ.get("MVH_RHUBARB")
     if v and Path(v).is_file():
         return Path(v)
-    base = Path(os.environ.get("LOCALAPPDATA", "")) / "mvh"
+    base = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh"))
     try:
         with open(base / "config.json", encoding="utf-8-sig") as fh:
             c = json.load(fh).get("rhubarb")

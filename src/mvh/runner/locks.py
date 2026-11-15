@@ -1,7 +1,7 @@
 r"""Machine-wide heavy-work slots, compatible with ``scripts/heavy_lock.py`` (same files, same JSON, same
 rules).
 
-Two slots ``%LOCALAPPDATA%\mvh\locks\heavy-0.lock`` / ``heavy-1.lock``, plus ``gpu.lock`` for GPU work. A
+Two slots ``<mvh home>\locks\heavy-0.lock`` / ``heavy-1.lock``, plus ``gpu.lock`` for GPU work. A
 lock file
 is created exclusively (O_CREAT|O_EXCL) and holds ``{"owner", "pid", "started"}`` (ISO 8601, UTC). A lock is
 stale
@@ -53,7 +53,7 @@ MAX_THREADS = 6
 
 
 def lock_dir() -> Path:
-    base = os.environ.get("MVH_HOME") or str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "mvh")
+    base = os.environ.get("MVH_HOME") or str(Path.home() / ".mvh")
     return Path(base) / "locks"
 
 

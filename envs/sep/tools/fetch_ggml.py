@@ -4,7 +4,7 @@ import hashlib, json, os, sys, time
 from pathlib import Path
 import requests
 
-DEST = Path(os.environ["LOCALAPPDATA"]) / "mvh" / "models" / "ggml"
+DEST = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "models" / "ggml"
 FRAG = Path(__file__).resolve().parents[1] / "models.fragment.json"
 ITEMS = [
     ("ggml.whisper-large-v3-turbo-q8_0", "ggerganov/whisper.cpp", "5359861c739e955e79d9a303bcbc70fb988958b1", "ggml-large-v3-turbo-q8_0.bin", ["lyrics"], "MIT (OpenAI Whisper weights, converted by whisper.cpp)"),

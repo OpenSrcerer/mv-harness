@@ -3,7 +3,8 @@ rem mv-harness shell environment (cmd twin of mvh-env.ps1).  Use:  call scripts\
 rem No setlocal: the variables must survive in the caller's shell.
 set "MVH_REPO=%~dp0.."
 for %%I in ("%MVH_REPO%") do set "MVH_REPO=%%~fI"
-set "MVH_HOME=%LOCALAPPDATA%\mvh"
+if "%MVH_HOME%"=="%LOCALAPPDATA%\mvh" set "MVH_HOME="
+if not defined MVH_HOME set "MVH_HOME=%USERPROFILE%\.mvh"
 set "MVH_PYDIR=%LOCALAPPDATA%\Programs\Python\Python312"
 set "MVH_UVDIR=%APPDATA%\Python\Python312\Scripts"
 set "MVH_FFBIN=%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin"

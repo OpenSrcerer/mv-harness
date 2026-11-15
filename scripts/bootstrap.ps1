@@ -2,7 +2,7 @@
 .SYNOPSIS
   One-shot setup of the mv-harness MAIN environment (idempotent).
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1 [-SkipModels] [-SkipPrewarm] [-VerifyOnly]
-  Steps: 1) uv sync --frozen (main env, dev group, 'anthropic' extra)   2) write %LOCALAPPDATA%\mvh\config.json
+  Steps: 1) uv sync --frozen (main env, dev group, 'anthropic' extra)   2) write %USERPROFILE%\.mvh\config.json
          3) fetch + SHA-verify models (scripts\fetch_models.py, uses models.lock.json)   4) pre-warm the numba cache
   The sep worker envs (envs\sep, rocm/cpu locks) are synced by their own owner (env-sep): add them below when they exist.
   Only the orchestrator runs this; build agents never sync (UV_NO_SYNC=1).

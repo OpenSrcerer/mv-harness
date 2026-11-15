@@ -196,9 +196,14 @@ def run(ctx) -> StageResult:
         stats["classifier"] = st
         fallbacks.append("drums:classifier")
         fallbacks.append("drums:low_confidence(hat,cymbal)")
-        warnings.append("no DrumSep sub-stems: drum hits come from the band classifier on the drum stem; kick, snare and "
-                        "tom are reliable, hat and cymbal hits are low confidence (hats under snare tails and rides under "
-                        "strokes are missed or mislabelled)")
+        if any("is silent" in n for n in notes):
+            # DrumSep ran but every sub-stem is silent: most likely a song without a drum kit, not a missing separation
+            warnings.append("the DrumSep sub-stems are all silent (probably no drum kit in this song): any drum hits come "
+                            "from the band classifier on the drum stem and are low confidence")
+        else:
+            warnings.append("no DrumSep sub-stems: drum hits come from the band classifier on the drum stem; kick, snare "
+                            "and tom are reliable, hat and cymbal hits are low confidence (hats under snare tails and "
+                            "rides under strokes are missed or mislabelled)")
         for h in hits:
             if h.drum not in core.CLASSIFIER_RELIABLE:
                 h.conf = min(h.conf, 0.45)

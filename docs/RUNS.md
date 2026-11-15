@@ -116,7 +116,7 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
 1.2-1.4 GB of stems. Plan on 1-2.5 GB per song, plus about 12 GB of models.
 
 ### Heavy-slot behaviour
-- Two machine-wide heavy slots (`%LOCALAPPDATA%\mvh\locks\heavy-0.lock`, `heavy-1.lock`) plus `gpu.lock`. Every stage that
+- Two machine-wide heavy slots (`%USERPROFILE%\.mvh\locks\heavy-0.lock`, `heavy-1.lock`) plus `gpu.lock`. Every stage that
   loads a model or runs a separator takes a slot (the heavy slot first, then the GPU lock); at most 6 threads per slot.
   Several `mvh analyze` processes (or test runs) on one machine share the two slots and queue (`waiting for a heavy
   slot ... retry every 2s` on stderr). A lock whose pid is dead or that is older than 3 h is stale and is removed by
@@ -133,7 +133,7 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
   curves, events, tables, meta, lyrics, meaning, viewer.html (inlined data, <= 28 MB) and `.cache/` (one directory per
   stage key). Public outputs are hard links into `.cache/`, so they cost no extra space.
 - Re-runs with changed params keep the old cache entries; delete `out/<slug>/.cache/<stage>/<old key>` (or the whole
-  folder) to reclaim space. Models live in `%LOCALAPPDATA%\mvh\models` (about 12 GB).
+  folder) to reclaim space. Models live in `%USERPROFILE%\.mvh\models` (about 12 GB).
 
 ## 4. CPU vs ROCm
 
@@ -194,7 +194,7 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
 
 | Symptom | Cause / fix |
 |---|---|
-| `waiting for a heavy slot` for a long time | Another mvh process or test holds both slots (`%LOCALAPPDATA%\mvh\locks\*.lock` show the owner pid). Stale locks (dead pid, > 3 h) are removed automatically. |
+| `waiting for a heavy slot` for a long time | Another mvh process or test holds both slots (`%USERPROFILE%\.mvh\locks\*.lock` show the owner pid). Stale locks (dead pid, > 3 h) are removed automatically. |
 | A stage is `stale` in `mvh status` | Its key changed (params, version, override, upstream); `mvh analyze <folder>` re-runs it. |
 | `--only x` ran nothing | An upstream of x is stale; run without `--only`, or `--from <upstream>`. |
 | Results did not change after a code edit | Code is not in the cache key: `--force <stage>` or bump the stage version. |

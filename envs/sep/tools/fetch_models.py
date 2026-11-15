@@ -4,7 +4,7 @@ import hashlib, json, os, sys, time
 from pathlib import Path
 import requests
 
-MODEL_DIR = Path(os.environ["LOCALAPPDATA"]) / "mvh" / "models" / "separator"
+MODEL_DIR = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "models" / "separator"
 FRAG = Path(__file__).resolve().parents[1] / "models.fragment.json"
 MIRROR = "https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs"
 UPSTREAM = "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models"

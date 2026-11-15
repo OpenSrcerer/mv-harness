@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mvh_locks import Slot
 
 LOCALAPPDATA = Path(os.environ["LOCALAPPDATA"])
-MODEL_DIR = LOCALAPPDATA / "mvh" / "models" / "separator"
+MODEL_DIR = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "models" / "separator"
 FFMPEG = os.environ.get("MVH_FFMPEG") or r"C:\Users\OpenSrcerer\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe"
 os.environ["PATH"] = str(Path(FFMPEG).parent) + os.pathsep + os.environ["PATH"]  # audio-separator shells out to bare `ffmpeg`
 FRAG = Path(__file__).resolve().parents[1] / "models.fragment.json"

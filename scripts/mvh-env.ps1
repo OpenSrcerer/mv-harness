@@ -6,7 +6,7 @@
   Puts Python 3.12, uv and ffmpeg on PATH by ABSOLUTE path (none of them is on the machine PATH),
   and sets the variables PLAN 3.3 / 3.4 require:
     MVH_FFMPEG, MVH_THREADS (default 3) + OMP/OPENBLAS/MKL/NUMBA thread vars,
-    TORCH_HOME, HF_HOME, AUDIO_SEPARATOR_MODEL_DIR, NUMBA_CACHE_DIR, NLTK_DATA (all under %LOCALAPPDATA%\mvh),
+    TORCH_HOME, HF_HOME, AUDIO_SEPARATOR_MODEL_DIR, NUMBA_CACHE_DIR, NLTK_DATA (all under %MVH_HOME%, default %USERPROFILE%\.mvh),
     UV_NO_SYNC=1, UV_PYTHON, UV_CACHE_DIR, PYTHONUTF8=1, PYTHONPATH=<repo>\src.
   -Offline additionally sets HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1 and MVH_OFFLINE=1.
   Without -Offline those three are REMOVED again (so a previous -Offline does not stick).
@@ -20,7 +20,10 @@ param(
 
 # NOTE: no 'exit' and no $ErrorActionPreference change here: this file is dot-sourced into the caller's shell.
 $mvhRepo = Split-Path -Parent $PSScriptRoot
-$mvhHome = Join-Path $env:LOCALAPPDATA 'mvh'
+# NOT under AppData: a packaged app (the Claude desktop app) gets its AppData writes redirected to a private per-app
+# folder, so models fetched from inside it were invisible to a normal terminal.
+$mvhLegacyHome = Join-Path $env:LOCALAPPDATA 'mvh'      # the pre-2026-11-15 location; a shell that sourced the old script still has it
+$mvhHome = if ($env:MVH_HOME -and ($env:MVH_HOME -ne $mvhLegacyHome)) { $env:MVH_HOME } else { Join-Path $env:USERPROFILE '.mvh' }
 
 $mvhPyDir      = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312'
 $mvhPyExe      = Join-Path $mvhPyDir 'python.exe'

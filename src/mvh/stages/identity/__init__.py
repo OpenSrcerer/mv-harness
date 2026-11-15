@@ -45,7 +45,7 @@ def _acoustid_key() -> str | None:
     k = os.environ.get("ACOUSTID_API_KEY")
     if k:
         return k.strip() or None
-    cfg = Path(os.environ.get("LOCALAPPDATA", "")) / "mvh" / "config.json"
+    cfg = Path(os.environ.get("MVH_HOME") or (Path.home() / ".mvh")) / "config.json"
     try:
         with open(cfg, encoding="utf-8-sig") as fh:
             v = json.load(fh).get("acoustid_api_key")
