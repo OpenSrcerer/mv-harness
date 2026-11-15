@@ -1,12 +1,18 @@
-"""``mvh meaning <song folder> [--draft agent|anthropic|off] [--overwrite-draft]`` (D35 module verb, PLAN §8).
+"""``mvh meaning <song folder> [--edit | --init] [--editor CMD] [--draft agent|anthropic|off] [--overwrite-draft]``
+(D35 module verb, PLAN §8).
 
 Re-merges the user's ``meaning/intent.md`` and the draft ``meaning/authored.json`` into meaning.json (re-anchoring
 per-section claims to the current sections, orphans to orphans.json), refreshes singing.json, lines.tsv, the
-interview and brief.md: ``mvh analyze <folder> --only meaning,brief[,viewer]``.
+interview and brief.md. It runs every stage that reads ``meaning/intent.md`` or ``meaning/authored.json`` and the
+stages downstream of them (voices, lipsync, meaning, brief, viewer); unchanged ones are cache hits.
 
 ``--draft anthropic`` first asks the Claude API to draft the gaps into ``meaning/authored.json`` (opt-in: sends the
 lyrics too unless the song keeps them from agents). An existing authored.json is never replaced unless
-``--overwrite-draft`` is given. intent.md is never written.
+``--overwrite-draft`` is given.
+
+``--init`` creates ``meaning/intent.md`` from the interview's template when it does not exist, and stops. ``--edit``
+does the same, opens the file in an editor (``--editor``, MVH_EDITOR / VISUAL / EDITOR, VS Code, vim, Notepad: see
+edit.py), waits for it to close, then applies the answers. An existing intent.md is never rewritten.
 """
 from __future__ import annotations
 
@@ -16,12 +22,36 @@ import os
 import sys
 from pathlib import Path
 
-__all__ = ["register", "cmd_meaning"]
+__all__ = ["register", "cmd_meaning", "meaning_stages"]
+
+
+def meaning_stages(specs) -> list[str]:
+    """The stages ``mvh meaning`` runs: every stage that reads a file under ``meaning/`` (intent.md, authored.json),
+    plus everything downstream of one. voices reads intent.md too (the voice mapping, D51), so editing intent.md
+    makes it stale; running only meaning and brief would then refuse with 'upstream not done: voices (stale)'.
+    On-demand stages (frames) are left out."""
+    names = {n for n, sp in specs.items()
+             if any(str(e.path).startswith("meaning/") for e in (sp.external_inputs or ()))}
+    names |= {n for n in ("meaning", "brief") if n in specs}
+    grew = True
+    while grew:
+        grew = False
+        for n, sp in specs.items():
+            if n not in names and sp.trigger != "on_demand" and set(sp.deps) & names:
+                names.add(n)
+                grew = True
+    return [n for n in specs if n in names]
 
 
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("meaning", help="re-merge intent.md + authored.json (re-anchor), refresh singing/lines/brief")
     p.add_argument("folder", help="song folder (out/<slug>) made by mvh analyze")
+    p.add_argument("--edit", action="store_true",
+                   help="create meaning/intent.md from the template if missing, open it in an editor, then apply it")
+    p.add_argument("--init", action="store_true",
+                   help="only create meaning/intent.md from the template (never replaces an existing file)")
+    p.add_argument("--editor", default=None,
+                   help='editor for --edit, e.g. "code --wait" (default: MVH_EDITOR, VISUAL, EDITOR, VS Code, vim, Notepad)')
     p.add_argument("--draft", choices=("agent", "anthropic", "off"), default=None,
                    help="anthropic: draft the gaps with the Claude API into meaning/authored.json first")
     p.add_argument("--overwrite-draft", action="store_true", help="allow --draft anthropic to replace authored.json")
@@ -40,6 +70,20 @@ def cmd_meaning(a: argparse.Namespace) -> int:
     if not prev.get("params_ext", {}).get("input"):
         print(f"mvh meaning: {folder} is not a song folder made by mvh analyze", file=sys.stderr)
         return 2
+    if a.init or a.edit:
+        from .edit import EditError, init_intent, open_editor
+
+        try:
+            intent_path, created = init_intent(folder)
+            print(f"mvh meaning: {'created' if created else 'found'} {intent_path}", file=sys.stderr)
+            if not a.edit:
+                print(json.dumps({"intent": str(intent_path), "created": created}, ensure_ascii=False))
+                return 0
+            cmd = open_editor(intent_path, a.editor)
+            print(f"mvh meaning: edited with {Path(cmd[0]).name}; applying", file=sys.stderr)
+        except EditError as e:
+            print(f"mvh meaning: {e}", file=sys.stderr)
+            return 2
     cli_params = {k: dict(v) for k, v in (prev.get("cli_params") or {}).items()}
     mp = cli_params.setdefault("meaning", {})
     if a.no_lyrics_to_agents:
@@ -61,7 +105,7 @@ def cmd_meaning(a: argparse.Namespace) -> int:
             print(f"mvh meaning: {e}", file=sys.stderr)
             return 1
         atomic.write_text(dst, json.dumps(doc, ensure_ascii=False, indent=1) + "\n")
-    only = ["meaning", "brief"] + (["viewer"] if "viewer" in load_stage_specs() else [])
+    only = meaning_stages(load_stage_specs())
     s = rr.Settings(
         song=None, song_dir=folder.resolve(), slug=prev.get("slug") or folder.name,
         profile=prev.get("profile", "max"), threads=a.threads or rr._env_threads(), only=tuple(only),

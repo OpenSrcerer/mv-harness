@@ -79,12 +79,68 @@ inside such an app are invisible to a normal terminal.
    bands, and loud and quiet parts, with stem solo/mute, zoom and loop.
 3. **Correct**: in the viewer's edit mode, move or relabel sections, fix the BPM or downbeat, nudge lyric lines, map
    voices to characters, pin cues. **Re-run** repeats only the stages your edit affects.
-4. **Write the meaning**: read `out\my-song\meaning\interview.md`, put your answers in `meaning\intent.md`, then run
-   `mvh meaning out\my-song`. Anything that must be obeyed (characters, voice mapping, "never show" rules) goes in the
-   template; free text is passed to agents as your notes.
+4. **Write the meaning**: `mvh meaning out\my-song --edit` creates `meaning\intent.md`, opens it in your editor, and
+   applies it when you close the file. See [Writing the meaning](#writing-the-meaning).
 5. **Hand it to a video agent**: `mvh pack out\my-song <dest>` copies what a page or video project needs (no stems or
    cache). Point the agent at that folder and at [skill/mv-harness/SKILL.md](skill/mv-harness/SKILL.md). For
    frame-based tools, `mvh frames out\my-song --fps 24` writes one row per video frame.
+
+## Writing the meaning
+
+The harness measures the song; you say what it means. Your answers live in one file, `out\<slug>\meaning\intent.md`.
+Until it exists, the song's meaning status is `pending`.
+
+```powershell
+uv run --frozen --no-sync mvh meaning out\my-song --edit
+```
+
+That one command:
+
+1. creates `meaning\intent.md` from the song's template if the file does not exist yet (an existing file is never
+   replaced);
+2. opens it in your editor and waits until you close the file;
+3. applies your answers: `meaning.json`, `meaning.md`, `brief.md` and the viewer are refreshed, and the status becomes
+   `user`.
+
+Run it again whenever you want to refine the meaning. The questions to answer are in `meaning\interview.md`: what the
+song means to you, the world and characters, how each section should feel and move, the top moments, colours, and
+what must never appear.
+
+**The editor** is the first of these that exists: `--editor "<command>"`, then the `MVH_EDITOR`, `VISUAL` or `EDITOR`
+environment variable, then VS Code (`code --wait`), then `nvim` / `vim` / `vi` in a terminal, then Notepad. For
+example, to always use Vim: `$env:MVH_EDITOR = 'vim'`.
+
+**The file has two kinds of content:**
+
+- **The template** (the YAML block) is what agents must obey. Fill in what you care about; an empty field means "no
+  answer". `do_not` holds the only hard rules and is copied word for word to every agent. Keep each section's `t0` and
+  `t1` lines, so your notes follow a section if you move its boundaries later.
+- **Free text** anywhere outside the template is passed to agents as your notes, exactly as written. It is never
+  turned into fields or rules.
+
+```yaml
+logline: "A small light carried through an empty world"
+setting: "Abandoned city at dusk"
+palette: [#140c28, #4f1aa7, amber]
+do_not:
+  - never show faces
+sections:
+  S04:   # drop#1 0:30.7-0:44.2
+    t0: 30.715
+    t1: 44.156
+    feel: "the light flares up"
+    movement: "slow rise, arms opening"
+    camera: "pull back wide"
+```
+
+Other ways to work on it:
+
+| You want to | Do |
+|---|---|
+| Only create the file, and edit it yourself | `mvh meaning out\my-song --init`, edit `meaning\intent.md`, then `mvh meaning out\my-song` |
+| Write per-section notes while listening | `mvh view out\my-song`, edit mode, Meaning panel. It saves into a marked block in `intent.md`; that block wins where both set a field |
+| See what agents will read | `meaning\meaning.md` (every field is marked as yours or a draft) and `brief.md` |
+| Let an agent fill the gaps you left | Point it at `meaning\request.md`. Its suggestions go to `meaning\authored.json`, labelled as drafts; they never overwrite your answers and cannot create a `do_not` rule |
 
 ## What is in a song folder
 
@@ -108,7 +164,8 @@ inside such an app are invisible to a normal terminal.
 | `mvh analyze <song or folder>` | Runs the analysis; re-runs only what changed |
 | `mvh view <folder>` | Opens the viewer, with edit mode |
 | `mvh status <folder>` | Which stages are done, out of date or pending, and why |
-| `mvh meaning <folder>` | Applies changes to `meaning\intent.md` |
+| `mvh meaning <folder> --edit` | Creates `meaning\intent.md` if needed, opens it in your editor, then applies it |
+| `mvh meaning <folder>` | Applies changes to `meaning\intent.md` (`--init` only creates the file) |
 | `mvh brief <folder> [--section S05]` | Prints the brief, or a zoom on one section |
 | `mvh frames <folder> --fps 24` | One row per video frame |
 | `mvh pack <folder> <dest>` | Copies the agent-facing files |

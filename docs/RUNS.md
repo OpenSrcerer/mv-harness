@@ -29,7 +29,7 @@ In Windows PowerShell 5.1 never add `2>&1` to a native command (it turns stderr 
 | `mvh brief <folder> [--section S05]` | Prints brief.md, or a <= 1.5k-token zoom of one section. |
 | `mvh frames <folder> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` | One row per video frame (`frames/24fps.csv`, `frames/24_f1fps.csv` with `--frame0 1`). |
 | `mvh pack <folder> <dest>` | Copies what a web page or a video project loads (manifest, brief, lib/, curves/, events/, meta/, lyrics/, meaning/, lipsync/, notes/, tables/, artwork/, audio/) to `dest`: no stems/, .cache/ or viewer.html (`--with-stems`, `--with-viewer` add them). Section 8. |
-| `mvh meaning <folder>` | Re-merges `intent.md` + `authored.json`, re-anchors claims to the current sections, refreshes singing / lines / brief. |
+| `mvh meaning <folder> [--edit \| --init] [--editor CMD]` | Re-merges `intent.md` + `authored.json`, re-anchors claims to the current sections, refreshes singing / lines / brief. It runs every stage that reads the meaning files and the stages after them (voices, lipsync, meaning, brief, viewer); unchanged ones are cache hits. `--init` creates `meaning/intent.md` from the interview template when it is missing; `--edit` also opens it in an editor (`--editor`, `MVH_EDITOR` / `VISUAL` / `EDITOR`, VS Code, vim, Notepad), waits, then applies it. An existing intent.md is never replaced. |
 | `mvh models fetch\|verify\|list` | The pinned models of `models.lock.json`. |
 | `mvh doctor` | Environment check. |
 
