@@ -187,6 +187,22 @@
        "stable_ts",
        "interpolated"
       ]
+     },
+     "source_index": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "0-based position in the lyric source; null for a line the harness added",
+      "minimum": 0
+     },
+     "pin_key": {
+      "type": "string",
+      "description": "hash of the normalised text"
+     },
+     "pinned": {
+      "type": "boolean",
+      "description": "its start is pinned by the user"
      }
     },
     "required": [

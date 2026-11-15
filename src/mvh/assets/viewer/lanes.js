@@ -292,6 +292,8 @@ LANES.push({
       if (conf < 0.5) { c.save(); roundRect(c, x0, y, ww, bh, 4); c.clip(); c.strokeStyle = rgba(T.bad, 0.55); c.lineWidth = 1; for (let k = -bh; k < ww; k += 6) { c.beginPath(); c.moveTo(x0 + k, y + bh); c.lineTo(x0 + k + bh, y); c.stroke(); } c.restore(); }
       const selected = SEL.lineId === ln.id;
       if (selected || pend || ed) { c.strokeStyle = ed || pend ? T.edit : T.text; c.lineWidth = 1.5; roundRect(c, x0 + 0.5, y + 0.5, ww - 1, bh - 1, 4); c.stroke(); }
+      // a pinned line start (D82): a flag on its left edge
+      if (V.mode === 'edit' && Edit.linePinOf(ln)) { c.fillStyle = T.edit; c.beginPath(); c.moveTo(x0, y - 3); c.lineTo(x0 + 8, y - 3); c.lineTo(x0, y + 6); c.closePath(); c.fill(); c.fillRect(x0, y - 3, 1.5, bh + 3); }
       c.fillStyle = T.text; c.font = FONT; c.textAlign = 'left';
       const hasWords = pxs > 38 && (M.wordsByLine.get(ln.id) || []).length;
       const label = fitText(c, ln.text, ww - 6);

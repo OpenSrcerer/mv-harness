@@ -43,7 +43,7 @@ STAGE = StageSpec(
     "viewer",
     ANALYSIS_STAGES,
     "main",
-    "1.1.0",
+    "1.2.0",
     override_keys=(),
     outputs=catalog_outputs("viewer"),
     params={

@@ -77,8 +77,12 @@ inside such an app are invisible to a normal terminal.
    `--lyrics my.lrc` (`.lrc`, `.srt`, `.vtt` or `.txt`). `--profile draft` is a faster first look.
 2. **Review**: `mvh view out\my-song`. One timeline shows sections, lyrics and singers, beats and counts, drum hits,
    bands, and loud and quiet parts, with stem solo/mute, zoom and loop.
-3. **Correct**: in the viewer's edit mode, move or relabel sections, fix the BPM or downbeat, nudge lyric lines, map
-   voices to characters, pin cues. **Re-run** repeats only the stages your edit affects.
+3. **Correct**: in the viewer's edit mode, move or relabel sections, fix the BPM or downbeat, nudge or pin lyric
+   lines, map voices to characters, pin cues. **Re-run** repeats only the stages your edit affects.
+
+   *Lyrics out of sync in one part?* Select the first line of that part, put the playhead where it really starts and
+   press **pin start at playhead** (or **pin at start of** the section). Do the same for each pass, for example each
+   time the hook starts, then re-run: the lines between pins are placed again and their words snap to the singing.
 4. **Write the meaning**: `mvh meaning out\my-song --edit` creates `meaning\intent.md`, opens it in your editor, and
    applies it when you close the file. The viewer's Edit tab has the same fields. You can answer once for a whole
    group of sections, and review an agent's draft instead of writing every field. See
@@ -227,6 +231,7 @@ Prefix each with `uv run --frozen --no-sync`.
 | `waiting for a heavy slot` for a long time | Another `mvh` run is using both compute slots; it continues when one frees up. |
 | A stage failed | Read `out\<slug>\.cache\_logs\<stage>.log`, fix the cause, and run the same `analyze` command again. |
 | Lyrics are wrong or missing | Re-run with `--lyrics file.lrc` (or `.txt`). |
+| The words are right but a part is out of sync | Pin the first line of each pass in the viewer (Edit tab, Lyrics) and re-run. |
 | Separation is slow | It fell back to the CPU; `mvh doctor` says why. |
 
 More in [docs/RUNS.md](docs/RUNS.md): profiles, timings, the correction loop, known-weak areas, and how to serve a

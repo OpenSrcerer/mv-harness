@@ -457,14 +457,23 @@ OVERRIDES = obj(opt={
                                                 opt={"to_t": num("s")}), "edits anchored by time"),
                           "labels": arr(obj({"t": num("s", "any time inside the section"), "label": string(pattern=r"^[a-z][a-z-]*$")}))}),
     "lyrics": obj(opt={"lines": mapof(obj({"dt": num("s")}), "line id -> nudge", keys=ID_KINDS["line"].regex),
-                       "words": mapof(obj(opt={"t": num("s"), "d": D, "dt": num("s")}), "word id -> timing", keys=ID_KINDS["word"].regex)}),
+                       "words": mapof(obj(opt={"t": num("s"), "d": D, "dt": num("s")}), "word id -> timing", keys=ID_KINDS["word"].regex),
+                       # D82: fixed points for the alignment, keyed by the line's position in the lyric source
+                       "pins": arr(obj({"index": integer("0-based position of the line in the lyric source "
+                                                         "(lyrics.json lines[].source_index)", minimum=0),
+                                        "t": num("s", "where the line starts")},
+                                       opt={"key": string("lyrics.json lines[].pin_key: the pin is ignored when the text "
+                                                          "at index changed"),
+                                            "line": idref("line")}),
+                                   "line start pins: the aligner places and snaps the other lines between them")}),
     "voices": obj(opt={"lines": mapof(idref("voice"), "line id -> voice id", keys=ID_KINDS["line"].regex)}),
     "cues": obj(opt={"pinned": arr(obj({"t": num("s")}, opt={"d": D, "note": string()}))}),
 }, desc="overrides.json: user corrections (viewer edit mode or by hand); keys map to StageSpec.override_keys")
 OVERRIDE_KEYS = {
     "rhythm.beat_offset_s": "rhythm", "rhythm.bpm": "rhythm", "rhythm.downbeat_phase": "rhythm",
     "structure.boundaries": "structure", "structure.labels": "structure",
-    "lyrics.lines": "lyrics", "lyrics.words": "lyrics", "voices.lines": "voices", "cues.pinned": "cues",
+    "lyrics.lines": "lyrics", "lyrics.words": "lyrics", "lyrics.pins": "lyrics", "voices.lines": "voices",
+    "cues.pinned": "cues",
 }
 
 STAGE_RESULT = obj({
@@ -574,6 +583,11 @@ FILE_SCHEMAS: dict[str, dict] = {
             "conf": P01, "grade": GRADE, "first_word": nullable(idref("word")), "n_words": integer(minimum=0),
             "backing": boolean("parenthetical / backing line"), "speaker_hint": nullable(string("speaker label from the source")),
             "timing_source": string(enum=["user", "lrclib_word", "lrclib_line", "ctc", "whisper", "stable_ts", "interpolated"]),
+        }, opt={
+            # D82: what an overrides lyrics.pins entry for this line is keyed by
+            "source_index": nullable(integer("0-based position in the lyric source; null for a line the harness added",
+                                             minimum=0)),
+            "pin_key": string("hash of the normalised text"), "pinned": boolean("its start is pinned by the user"),
         })),
         "words": arr(obj({"id": idref("word"), "line_id": idref("line"), "t": T, "d": D, "text": string(), "conf": P01},
                          opt={"flags": arr(string())})),

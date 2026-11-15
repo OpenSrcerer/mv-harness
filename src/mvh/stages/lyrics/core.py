@@ -125,10 +125,16 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
     except StageError:
         sections = []
         warnings.append("no sections events: section_id left null")
-    stem_name, lead, _sr = VE.pick_vocal_stem(ctx, 16000)
-    if stem_name != "lead_vocals":
+    stem_name, lead, _sr, vocals_regions = VE.pick_alignment_signal(
+        ctx, 16000, gap_db=float(p.get("weak_lead_gap_db", 8.0)), min_s=float(p.get("weak_lead_min_s", 4.0)),
+        enabled=bool(p.get("weak_lead_regions", True)))
+    if stem_name == "vocals":
         fallbacks.append("lyrics:vocals_stem")
         warnings.append("lead_vocals is nearly silent: words aligned on the full vocals stem")
+    elif vocals_regions:
+        # D82: a hook sung by a group lands in the backing stem; the lead stem is nearly empty there
+        notes.append(f"lead_vocals is weak in {len(vocals_regions)} stretch(es) where the vocals are active "
+                     f"({sum(b - a for a, b in vocals_regions):.0f} s): the full vocals stem is used there")
     duration = float(ident.get("duration_s") or len(lead) / 16000.0)
     n100 = VE.frames_for(len(lead), 16000)
     rms = VE.rms_100hz(lead, 16000, n100)
@@ -315,6 +321,7 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
     logp = None
     lines: list[dict[str, Any]] = []
     align_info: dict[str, Any] = {}
+    pins: dict[int, float] = {}
     offset = 0.0
     offset_detected = None
     if not instrumental:
@@ -328,20 +335,29 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                                   speaker=ln.get("speaker"), backing=ln.get("backing", False),
                                   origin=ln.get("origin", "source"), order=i, tm=tm))
         logp = aligner.emissions(lead, float(p.get("window_s", 30.0)), float(p.get("context_s", 2.0)))
+        # D82: line pins (overrides lyrics.pins) are fixed points for everything below
+        pins = _read_pins(lines, ctx.overrides, warnings)
+        n_src = len(lines)
+        pinned = [i in pins for i in range(n_src)]
+        if pins:
+            align_info["pins"] = len(pins)
+            notes.append(f"{len(pins)} line start(s) pinned by the user (overrides lyrics.pins)")
         synced = bool(src.get("has_line_sync")) and all(x["src_t"] is not None for x in lines)
         if not synced and any(x["src_t"] is not None for x in lines):
             # partially timed (SRT continuation lines): interpolate the missing starts
             _fill_missing_times(lines, duration)
             synced = True
+        if synced and pins:
+            _pin_source_times(lines, pins, duration)
         mode = "synced" if synced else "anchored"
         ctxw = float(p.get("context_s", 2.0))
         slack = float(p.get("line_slack_s", 2.5))
         if synced:
             starts, ends = _expected(lines, duration)
         else:
-            starts, ends, matched = _asr_anchors(lines, aw, act, duration)
+            starts, ends, matched = _asr_anchors(lines, aw, act, duration, pins)
             align_info["anchor_matched_frac"] = round(matched, 3)
-            if matched < float(p.get("min_anchor_frac", 0.25)):
+            if matched < float(p.get("min_anchor_frac", 0.25)) and not pins:
                 mode = "whole_song"
             ctxw, slack = 3.0, 4.0
         if mode == "whole_song":
@@ -349,7 +365,8 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             fallbacks.append("lyrics:whole_song_alignment")
             nts = {"groups": 1}
         else:
-            res, n0 = A.align_groups(logp, starts, ends, [x["toks"] for x in lines], offset=0.0, ctx=ctxw, slack=slack, backing=[x["backing"] for x in lines])
+            res, n0 = A.align_groups(logp, starts, ends, [x["toks"] for x in lines], offset=0.0, ctx=ctxw, slack=slack,
+                                     backing=[x["backing"] for x in lines], pins=pinned)
             nts = n0.as_dict()
             if synced and kind != "transcribed":
                 devs = []
@@ -361,7 +378,8 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                     offset_detected = float(np.median(devs))
                     if abs(offset_detected) > G.THRESHOLDS["offset_apply"]:
                         offset = offset_detected
-                        res, n1 = A.align_groups(logp, starts, ends, [x["toks"] for x in lines], offset=offset, ctx=ctxw, slack=slack, backing=[x["backing"] for x in lines])
+                        res, n1 = A.align_groups(logp, starts, ends, [x["toks"] for x in lines], offset=offset, ctx=ctxw, slack=slack,
+                                                 backing=[x["backing"] for x in lines], pins=pinned)
                         nts = n1.as_dict()
             for x, r in zip(lines, res):
                 x["wres"] = r
@@ -374,6 +392,9 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             bounds = None
             if mode == "synced":
                 bounds = [(st - slack + offset, en + slack + offset) for st, en in zip(starts, ends)]
+            if pins and mode != "whole_song":
+                # no word is repaired across a pin (the same words are sung in every pass of a hook)
+                bounds = _pin_bounds(bounds or [(st - slack, en + slack) for st, en in zip(starts, ends)], pins)
             align_info["asr_repaired_words"] = _asr_repair(lines, aw, logp, bounds=bounds)
             if align_info["asr_repaired_words"]:
                 firsts = [next((z for z in x["wres"] if z is not None), None) for x in lines if not x.get("backing")]
@@ -412,8 +433,10 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                 warnings.append(f"stable-ts fallback failed ({type(e).__name__})")
 
     # ---------------------------------------------------------------- 4. final word times
+    if pins:
+        align_info["pins_moved_lines"] = _enforce_pins(lines, pins, n_src)
     for x in lines:
-        _finalise_line(x, offset, env, sustain_floor, kind, mode=align_info.get("mode"))
+        _finalise_line(x, 0.0 if x.get("pinned") else offset, env, sustain_floor, kind, mode=align_info.get("mode"))
     _apply_overrides(lines, ctx.overrides, warnings)
     lines = [x for x in lines if x["wt"]]
     lines.sort(key=lambda x: (round(x["wt"][0], 3), x["order"]))
@@ -506,6 +529,9 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             "repeat_group": lg.get(li), "conf": conf, "grade": G.line_grade(conf), "first_word": f"{lid}.01" if x["words"] else None,
             "n_words": len(x["words"]), "backing": bool(x["backing"]), "speaker_hint": x["speaker"],
             "timing_source": x["timing_source"],
+            # D82: what a pin of this line is keyed by (its position in the lyric source and a hash of its text)
+            "source_index": int(x["order"]) if x["origin"] in ("source", "transcribed") else None,
+            "pin_key": _pin_key(x["text"]), "pinned": bool(x.get("pinned")),
         })
     n_lines_out = len(out_lines)
     # M5-D52: lead-vocal activity after the last line (Jeremy's 217-300 s outro is wordless singing, SPIKE
@@ -542,7 +568,8 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
                               "mean_word_p": round(asr_mean_p, 4) if asr_mean_p is not None else None,
                               "precision": ms["precision"] if ms else None, "recall": ms["recall"] if ms else None,
                               "g1_scope": g1_scope, "gap_retry": (asr or {}).get("gap_retry")},
-        "alignment": {**align_info, "activity_source": act_src, "active_s": round(active_s, 2), "stem": stem_name},
+        "alignment": {**align_info, "activity_source": act_src, "active_s": round(active_s, 2), "stem": stem_name,
+                      "vocals_regions": [[round(a, 2), round(b, 2)] for a, b in vocals_regions]},
         "lrclib": lrclib_info,
     }
     ctx.writer.json("lyrics/lyrics.json", doc)
@@ -629,9 +656,126 @@ def _expected(lines: list[dict[str, Any]], duration: float) -> tuple[list[float]
     return starts, ends
 
 
-def _asr_anchors(lines: list[dict[str, Any]], aw: list[dict[str, Any]], act: np.ndarray, duration: float) -> tuple[list[float], list[float], float]:
+def _pin_key(text: str) -> str:
+    """A short hash of a line's normalised text: a pin stays with its line only while the text is the same."""
+    import hashlib
+
+    return hashlib.sha1(T.line_key(text).encode("utf-8")).hexdigest()[:10]
+
+
+def _read_pins(lines: list[dict[str, Any]], ovr: dict[str, Any], warnings: list[str]) -> dict[int, float]:
+    """overrides ``lyrics.pins`` [{index, t, key?, line?}] -> {line index in the lyric source: start time}.
+    A pin whose index is out of range, whose ``key`` no longer matches the text at that index (the lyrics changed
+    since it was set), or that goes backwards in time against an earlier pin is ignored with a warning."""
+    pins: dict[int, float] = {}
+    miss = 0
+    for r in ovr.get("lyrics.pins") or []:
+        try:
+            i, t = int(r["index"]), float(r["t"])
+        except (KeyError, TypeError, ValueError):
+            miss += 1
+            continue
+        if not (0 <= i < len(lines)) or t < 0 or (r.get("key") and r["key"] != _pin_key(lines[i]["text"])):
+            miss += 1
+            continue
+        pins[i] = t
+    back = 0
+    last = -1.0
+    for i in sorted(pins):
+        if pins[i] <= last:
+            del pins[i]
+            back += 1
+        else:
+            last = pins[i]
+    if miss:
+        warnings.append(f"{miss} lyric pin(s) no longer match the lyric text (it changed since they were set); ignored")
+    if back:
+        warnings.append(f"{back} lyric pin(s) are earlier than the pin of a line before them; ignored")
+    for i in pins:
+        lines[i]["pinned"] = True
+    return pins
+
+
+def _pin_span(pins: dict[int, float], i: int) -> tuple[float | None, float | None]:
+    """The pin times around line ``i``: (the nearest pin at or before it, the nearest pin after it)."""
+    lo = max((k for k in pins if k <= i), default=None)
+    hi = min((k for k in pins if k > i), default=None)
+    return (pins[lo] if lo is not None else None), (pins[hi] if hi is not None else None)
+
+
+def _pin_source_times(lines: list[dict[str, Any]], pins: dict[int, float], duration: float) -> None:
+    """Synced sources: a pinned line takes the pin as its source time (its own word times move with it); a source
+    time of another line that falls on the wrong side of a pin is forgotten and interpolated."""
+    for i, t in pins.items():
+        x = lines[i]
+        d = t - float(x["src_t"])
+        x["src_t"] = t
+        if x["src_end"] is not None:
+            x["src_end"] = float(x["src_end"]) + d
+        x["src_wt"] = [None if w is None else float(w) + d for w in x["src_wt"]]
+    dropped = False
+    for i, x in enumerate(lines):
+        if i in pins:
+            continue
+        lo = max((pins[k] for k in pins if k < i), default=None)
+        hi = min((pins[k] for k in pins if k > i), default=None)
+        if (lo is not None and x["src_t"] <= lo) or (hi is not None and x["src_t"] >= hi):
+            x["src_t"], x["src_end"] = None, None
+            x["src_wt"] = [None] * len(x["src_wt"])
+            dropped = True
+    if dropped:
+        _fill_missing_times(lines, duration)
+
+
+def _pin_bounds(bounds: list[tuple[float, float]], pins: dict[int, float]) -> list[tuple[float, float]]:
+    """Per-line (lo, hi) windows clipped to the pins around each line."""
+    out = []
+    for i, (lo, hi) in enumerate(bounds):
+        a, b = _pin_span(pins, i)
+        if a is not None:
+            lo = max(lo, a - A.PIN_TOL)
+        if b is not None:
+            hi = min(hi, b + A.SEAM_MARGIN_S)
+        out.append((lo, max(hi, lo + 0.2)))
+    return out
+
+
+def _enforce_pins(lines: list[dict[str, Any]], pins: dict[int, float], n_src: int) -> int:
+    """A pin is a fixed point. After every alignment and repair pass: a pinned line whose first aligned word is
+    more than PIN_TOL from the pin is moved as a whole so that it starts on the pin; an unpinned line that ended
+    up outside the pins around it is moved to its expected start. Returns the number of lines moved."""
+    moved = 0
+    for i, x in enumerate(lines[:n_src]):
+        ws = [r for r in x["wres"] if r is not None]
+        if not ws:
+            continue
+        first = ws[0]["start"]
+        if i in pins:
+            d = pins[i] - first
+            if abs(d) <= A.PIN_TOL:
+                continue
+        else:
+            lo = max((pins[k] for k in pins if k < i), default=None)
+            hi = min((pins[k] for k in pins if k > i), default=None)
+            if (lo is None or first > lo) and (hi is None or first < hi):
+                continue
+            if x["src_t"] is None:
+                continue
+            d = float(x["src_t"]) - first
+        for r in ws:
+            r["start"] += d
+            r["end"] += d
+        moved += 1
+    return moved
+
+
+def _asr_anchors(lines: list[dict[str, Any]], aw: list[dict[str, Any]], act: np.ndarray, duration: float,
+                 pins: dict[int, float] | None = None) -> tuple[list[float], list[float], float]:
     """Expected line times for an untimed text from LCS-matched ASR words; unmatched lines are spread
-    between their neighbours by word count. Returns (starts, ends, matched fraction of reference words)."""
+    between their neighbours by word count. ``pins`` (D82): {line index: start} fixed by the user; an ASR anchor on
+    the wrong side of a pin is dropped (a repeated line heard in another pass), and the lines from a pin to the next
+    known start share that span by word count. Returns (starts, ends, matched fraction of reference words)."""
+    pins = pins or {}
     ref, owner = [], []
     for li, x in enumerate(lines):
         for wi, w in enumerate(x["words"]):
@@ -650,14 +794,42 @@ def _asr_anchors(lines: list[dict[str, Any]], aw: list[dict[str, Any]], act: np.
         n = len(lines[li]["words"])
         starts[li] = max(0.0, lst[0][1] - 0.35 * lst[0][0])
         ends[li] = min(duration, lst[-1][2] + 0.35 * (n - 1 - lst[-1][0]))
+    for li in range(len(lines)):
+        if not pins or li in pins or starts[li] is None:
+            continue
+        lo = max((pins[k] for k in pins if k < li), default=None)
+        hi = min((pins[k] for k in pins if k > li), default=None)
+        if (lo is not None and starts[li] <= lo) or (hi is not None and (starts[li] >= hi or ends[li] > hi + 1.0)):
+            starts[li] = ends[li] = None
+    for li, t in pins.items():
+        if starts[li] is None or abs(starts[li] - t) > 1.0 or ends[li] <= t:
+            ends[li] = None  # the ASR heard this line elsewhere: its end says nothing about the pinned place
+        starts[li] = t
     # monotonic clean-up: an anchor that goes backwards is dropped
     last = -1.0
     for li in range(len(lines)):
-        if starts[li] is not None:
+        if li in pins:
+            last = max(last, starts[li])
+        elif starts[li] is not None:
             if starts[li] < last - 1.0:
                 starts[li] = ends[li] = None
             else:
                 last = max(last, starts[li])
+    for li in sorted(pins):  # a pinned line without a known end shares the span to the next known start
+        if ends[li] is not None:
+            continue
+        nxt = next((k for k in range(li + 1, len(lines)) if starts[k] is not None), None)
+        wc = max(1, len(lines[li]["words"]))
+        if nxt is None:
+            ends[li] = min(duration, starts[li] + 0.45 * wc)
+        else:
+            tot = wc + sum(max(1, len(lines[k]["words"])) for k in range(li + 1, nxt))
+            ends[li] = starts[li] + (starts[nxt] - starts[li]) * wc / tot
+    if pins:
+        known = [i for i in range(len(lines)) if starts[i] is not None]
+        for a, b in zip(known, known[1:]):
+            if ends[a] > starts[b]:
+                ends[a] = starts[b]
     act_t = np.flatnonzero(np.asarray(act) > 0.5) / 100.0
     first_act = float(act_t[0]) if len(act_t) else 0.0
     last_act = float(act_t[-1]) if len(act_t) else duration

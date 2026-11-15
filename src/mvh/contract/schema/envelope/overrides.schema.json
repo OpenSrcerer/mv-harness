@@ -138,6 +138,38 @@
       "pattern": "^L\\d{3,}\\.\\d{2,}$"
      },
      "description": "word id -> timing"
+    },
+    "pins": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "index": {
+        "type": "integer",
+        "description": "0-based position of the line in the lyric source (lyrics.json lines[].source_index)",
+        "minimum": 0
+       },
+       "t": {
+        "type": "number",
+        "x-unit": "s",
+        "description": "where the line starts"
+       },
+       "key": {
+        "type": "string",
+        "description": "lyrics.json lines[].pin_key: the pin is ignored when the text at index changed"
+       },
+       "line": {
+        "type": "string",
+        "description": "Lyric line, in sung order id",
+        "pattern": "^L\\d{3,}$"
+       }
+      },
+      "required": [
+       "index",
+       "t"
+      ]
+     },
+     "description": "line start pins: the aligner places and snaps the other lines between them"
     }
    },
    "required": []

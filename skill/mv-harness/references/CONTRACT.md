@@ -1020,7 +1020,8 @@ envs[], files[{path, url, revision, sha256, size}], licence, used_by[]}`), and t
 (`mvh/envelope/stage_result`). Override keys (dotted `<section>.<field>`; a stage declares the ones it reads in `override_keys`):
 `rhythm.beat_offset_s`, `rhythm.bpm`, `rhythm.downbeat_phase` (rhythm, applied after tracking and before fusion);
 `structure.boundaries`, `structure.labels` (structure; anchored by **time**, since section IDs move); `lyrics.lines`, `lyrics.words`
-(lyrics; keyed by line/word id); `voices.lines` (voices; line id -> voice id); `cues.pinned` (cues). Singer assignments made in the
+(lyrics; keyed by line/word id); `lyrics.pins` (lyrics; fixed line starts, keyed by the line's position in the lyric source, D82);
+`voices.lines` (voices; line id -> voice id); `cues.pinned` (cues). Singer assignments made in the
 viewer go to `meaning/intent.md` (an external input of voices and meaning).
 
 ---
@@ -1654,3 +1655,15 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
     `section_defaults[]` (the answer per group, with `field_sources`), `suggested_do_not[]` (rules a draft suggests; never
     applied) and `intent_suggested[]` (template lines still marked `# suggestion`). `sections[]` already carries every
     inherited value, so readers that ignore the new fields are unaffected.
+- **D82 Lyrics follow the singing; line pins (user decision UD4; lyrics 1.2.0, viewer 1.2.0).** Details:
+  docs/contract/decisions/UD4.md.
+  - **Alignment signal.** Where the `vocals` stem is active while `lead_vocals` is at least 8 dB quieter for at least 4 s (a
+    hook sung by a group, which the separator puts in the backing stem), the lyrics stage transcribes and aligns on the full
+    vocals stem for that stretch (`meta` `alignment.stem = lead_vocals+vocals`, `alignment.vocals_regions`;
+    `--param lyrics.weak_lead_regions=false` turns it off).
+  - **Pins.** `overrides.json` `lyrics.pins` = `[{index, t, key?, line?}]`: the line at position `index` of the lyric source
+    starts at `t`. The aligner treats pins as fixed points: the lines up to the next pin are placed again and their words
+    snap to the audio, no line crosses a pin, and a pinned line starts within 0.35 s of its pin. A pin is ignored (with a
+    warning) when `key` no longer matches the text at `index` or when it is not later than the pin of an earlier line.
+  - **lyrics.json (additive).** `lines[].source_index` (null for a line the harness added), `lines[].pin_key`,
+    `lines[].pinned`.

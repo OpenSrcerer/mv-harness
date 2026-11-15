@@ -25,7 +25,7 @@ from typing import Any, Sequence
 
 import numpy as np
 
-__all__ = ["FR", "SR", "MmsAligner", "align_window", "align_groups", "groups"]
+__all__ = ["FR", "SR", "MmsAligner", "align_window", "align_groups", "groups", "PIN_TOL"]
 
 FR = 0.02       # seconds per emission frame
 SR = 16000
@@ -33,6 +33,7 @@ SEAM_PRE_S = 3.0   # frames this long before a window seam are re-evaluated with
 SEAM_POST_S = 0.5
 SEAM_CTX_S = 8.0
 SEAM_MARGIN_S = 0.15  # how far a group window may reach into the neighbouring group
+PIN_TOL = 0.35        # a pinned line starts within this many seconds of its pin (D82)
 
 
 class MmsAligner:
@@ -190,16 +191,26 @@ class AlignNotes:
 
 def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float], line_toks: Sequence[Sequence[Sequence[int]]],
                  *, offset: float = 0.0, ctx: float = 2.0, slack: float = 2.5, max_span: float = 30.0,
-                 max_gap: float = 12.0, backing: Sequence[bool] | None = None
+                 max_gap: float = 12.0, backing: Sequence[bool] | None = None, pins: Sequence[bool] | None = None
                  ) -> tuple[list[list[dict[str, Any] | None]], AlignNotes]:
     """Align every line's (non-empty) words. ``starts``/``ends``: expected line times (source clock);
     ``offset`` is added to them. ``backing``: lines allowed to overlap their neighbours (excluded from the order
-    checks). Returns per line a list (one entry per word of line_toks[i]) and notes."""
+    checks). ``pins`` (D82): lines whose expected start is a fixed point set by the user. A pinned line starts its
+    own group, its window opens ``PIN_TOL`` before the pin (no earlier line reaches past it), it is re-aligned
+    whenever it lands more than ``PIN_TOL`` from the pin, and the global offset does not move it.
+    Returns per line a list (one entry per word of line_toks[i]) and notes."""
     T = len(logp)
     n_lines = len(line_toks)
     notes = AlignNotes()
     res: list[list[dict[str, Any] | None]] = [[None] * len(w) for w in line_toks]
     back = [bool(b) for b in backing] if backing is not None else [False] * n_lines
+    pin = [bool(b) for b in pins] if pins is not None else [False] * n_lines
+
+    def st(li: int) -> float:
+        return starts[li] + (0.0 if pin[li] else offset)
+
+    def en(li: int) -> float:
+        return ends[li] + (0.0 if pin[li] else offset)
 
     def run_group(g: list[int], t0: float, t1: float) -> bool:
         idx = [(li, wi) for li in g for wi, tk in enumerate(line_toks[li]) if tk]
@@ -217,15 +228,28 @@ def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float
         return True
 
     gl = groups(list(starts), list(ends), max_span, max_gap)
+    if any(pin):  # a pinned line opens a new group
+        split: list[list[int]] = []
+        for g in gl:
+            cur: list[int] = []
+            for li in g:
+                if pin[li] and cur:
+                    split.append(cur)
+                    cur = []
+                cur.append(li)
+            split.append(cur)
+        gl = split
     for gi, g in enumerate(gl):
         notes.groups += 1
-        t0 = starts[g[0]] + offset - ctx
-        t1 = ends[g[-1]] + offset + ctx
+        t0 = st(g[0]) - ctx
+        t1 = en(g[-1]) + ctx
         # a group never reaches past the neighbouring group's first expected start (R-WORDS A)
         if gi > 0:
-            t0 = max(t0, ends[gl[gi - 1][-1]] + offset - SEAM_MARGIN_S)
+            t0 = max(t0, en(gl[gi - 1][-1]) - SEAM_MARGIN_S)
         if gi + 1 < len(gl):
-            t1 = min(t1, starts[gl[gi + 1][0]] + offset + SEAM_MARGIN_S)
+            t1 = min(t1, st(gl[gi + 1][0]) + SEAM_MARGIN_S)
+        if pin[g[0]]:
+            t0 = max(0.0, st(g[0]) - PIN_TOL)
         t1 = max(t1, t0 + 0.2)
         if not run_group(g, t0, t1):
             notes.group_fail += 1
@@ -233,7 +257,7 @@ def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float
             if not run_group(g, t0 - 2 * ctx, t1 + 2 * ctx):
                 notes.group_split += 1
                 for li in g:
-                    run_group([li], starts[li] + offset - 3 * ctx, ends[li] + offset + 3 * ctx)
+                    run_group([li], st(li) - 3 * ctx, en(li) + 3 * ctx)
 
     def span(li: int) -> tuple[float, float] | None:
         ws = [r for r in res[li] if r is not None]
@@ -273,20 +297,21 @@ def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float
     # per-line window constraint, clipped to the neighbouring lines so a repeat cannot snap onto their audio
     for li, toks in enumerate(line_toks):
         ws = [r for r in res[li] if r is not None]
-        exp = starts[li] + offset
+        exp = st(li)
         dev = abs(ws[0]["start"] - exp) if ws else 99.0
-        if dev <= slack or not any(toks):
+        sl = PIN_TOL if pin[li] else slack
+        if dev <= sl or not any(toks):
             continue
         notes.line_realigned += 1
-        lo, hi = max(0.0, exp - slack), ends[li] + offset + slack
+        lo, hi = max(0.0, exp - sl), en(li) + slack
         if not back[li]:
             nlo, nhi = neighbours(li, li)
-            lo, hi = max(lo, nlo), min(hi, nhi)
+            lo, hi = (lo if pin[li] else max(lo, nlo)), min(hi, nhi)
         al = realign([li], lo, hi)
         if al is None:
             continue
         old = float(np.mean([r["score"] for r in ws])) if ws else -1.0
-        if float(np.mean([a["score"] for a in al[0]])) > old:
+        if pin[li] or float(np.mean([a["score"] for a in al[0]])) > old:
             notes.line_realign_accepted += 1
             for wi, a in zip([wi for wi, tk in enumerate(toks) if tk], al[0]):
                 res[li][wi] = a
@@ -300,10 +325,20 @@ def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float
             if not sa or not sb or sa[1] <= sb[0] + 0.1:
                 continue
             notes.crossings += 1
+            if pin[b_i]:
+                # the pinned line stays where it is: the line before it is re-aligned alone, ending at the pin
+                lo, _h = neighbours(a_i, a_i)
+                al1 = realign([a_i], max(lo, st(a_i) - slack), st(b_i) + SEAM_MARGIN_S)
+                if al1 is not None:
+                    for wi, a in zip([wi for wi, tk in enumerate(line_toks[a_i]) if tk], al1[0]):
+                        res[a_i][wi] = a
+                    notes.crossings_fixed += 1
+                    changed = True
+                continue
             lo, _h = neighbours(a_i, a_i)
             _l, hi = neighbours(b_i, b_i)
-            lo = max(lo, starts[a_i] + offset - slack)
-            hi = min(hi, ends[b_i] + offset + slack)
+            lo = max(lo, st(a_i) - slack)
+            hi = min(hi, en(b_i) + slack)
             al = realign([a_i, b_i], lo, hi)
             old = [r["score"] for li in (a_i, b_i) for r in res[li] if r is not None]
             if al is not None and float(np.mean([x["score"] for ln in al for x in ln])) >= 0.6 * float(np.mean(old)):
@@ -320,6 +355,6 @@ def align_groups(logp: np.ndarray, starts: Sequence[float], ends: Sequence[float
             notes.crossings_left += 1
     for li in range(n_lines):
         sp = span(li)
-        if sp and not back[li] and abs(sp[0] - (starts[li] + offset)) > 2.0:
+        if sp and not back[li] and abs(sp[0] - (st(li))) > 2.0:
             notes.lines_off_gt2s += 1
     return res, notes

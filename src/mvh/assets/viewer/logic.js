@@ -66,6 +66,27 @@ const MVHLOGIC = (function () {
     if (Math.abs(dt) < 0.0005) delete out[id]; else out[id] = { dt };
     return out;
   }
+  // ---- lyric line pins (D82): a fixed start for a line, keyed by its position in the lyric source
+  /** the pin of a line in overrides.lyrics, or null */
+  function linePin(lyrics, line) {
+    if (!line || line.source_index == null) return null;
+    return ((lyrics || {}).pins || []).find((p) => p.index === line.source_index) || null;
+  }
+  /** overrides.lyrics with `line` pinned at t; a pin replaces the line's nudge */
+  function setLinePin(lyrics, line, t) {
+    const out = Object.assign({}, lyrics || {});
+    out.pins = (out.pins || []).filter((p) => p.index !== line.source_index)
+      .concat([{ index: line.source_index, t: r3(Math.max(0, t)), key: line.pin_key, line: line.id }])
+      .sort((a, b) => a.index - b.index);
+    if (out.lines && out.lines[line.id]) { out.lines = Object.assign({}, out.lines); delete out.lines[line.id]; }
+    return out;
+  }
+  function removeLinePin(lyrics, index) {
+    const out = Object.assign({}, lyrics || {});
+    out.pins = (out.pins || []).filter((p) => p.index !== index);
+    if (!out.pins.length) delete out.pins;
+    return out;
+  }
   function setWord(words, id, patch) {
     const out = Object.assign({}, words || {});
     const e = Object.assign({}, out[id] || {}, patch);
@@ -236,7 +257,7 @@ const MVHLOGIC = (function () {
     return state.kind === 'suggestion' && !!accepted && t !== '';
   }
 
-  return { meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  return { linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

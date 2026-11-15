@@ -42,7 +42,7 @@ KNOWN_SECTIONS = ("schema", "schema_version", "rhythm", "structure", "lyrics", "
 KNOWN_FIELDS = {
     "rhythm": {"beat_offset_s", "bpm", "downbeat_phase"},
     "structure": {"boundaries", "labels"},
-    "lyrics": {"lines", "words"},
+    "lyrics": {"lines", "words", "pins"},
     "voices": {"lines"},
     "cues": {"pinned"},
 }

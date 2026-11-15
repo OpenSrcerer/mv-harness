@@ -178,6 +178,10 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
   - shift the beat grid, set the BPM or the downbeat phase (`rhythm.beat_offset_s`, `rhythm.bpm`,
     `rhythm.downbeat_phase`);
   - nudge lyric lines / words (`lyrics.lines`, `lyrics.words`), assign a line to a voice (`voices.lines`);
+  - **pin a lyric line** where it really starts (`lyrics.pins`, D82): "pin start at playhead" or "pin at start of
+    <section>" for the selected line. A nudge moves one line as it is; a pin is a fixed point for the aligner, so on
+    re-run the lines up to the next pin are placed again and their words snap to the singing. For a part that is out
+    of place, pin the first line of each pass (for example each time the hook starts);
   - pin cues (`cues.pinned`);
   - map voices to characters and write the meaning (the managed block of `meaning/intent.md`; mapped voices are a
     floor for the voice count, D69). Three forms, the same fields as the template (D81): the **whole song** (logline,
@@ -194,6 +198,10 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
   `--param vocals.style='"singing"'`, `--param notes.piano_mode='"..."'`; they are kept for later re-runs.
 - **Lyrics.** Give the text with `--lyrics file.lrc|.txt` when LRCLIB has no entry or the wrong one; it is kept for
   re-runs. `--no-lyrics-to-agents` keeps lyric text out of the agent-facing files and viewer.html.
+- **A part of the lyrics is out of sync** (often a hook sung by a group). The separator puts group singing in the
+  backing stem; the lyrics stage then uses the full vocals stem for that stretch by itself (D82; the stage's notes
+  say so). When lines are still out of place, pin them in the viewer (above) and re-run. Pins belong to the lyric
+  text: after `--lyrics` with a changed file, pins on the changed lines are ignored with a warning.
 
 ## 6. Troubleshooting
 

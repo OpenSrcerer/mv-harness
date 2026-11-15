@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["rms_100hz", "one_pole", "activity_from_env", "sustain_end", "frames_for"]
+__all__ = ["rms_100hz", "one_pole", "activity_from_env", "sustain_end", "frames_for", "pick_vocal_stem",
+           "weak_lead_regions", "blend_regions", "pick_alignment_signal"]
 
 
 def frames_for(n_samples: int, sr: int, rate: int = 100) -> int:
@@ -97,3 +98,73 @@ def pick_vocal_stem(ctx, sr: int | None = 16000, min_gap_db: float = 20.0) -> tu
     if p95db(x, int(lead.sr)) < p95db(y, int(voc.sr)) - min_gap_db:
         return "vocals", y, int(voc.sr)
     return "lead_vocals", x, int(lead.sr)
+
+
+def weak_lead_regions(lead: np.ndarray, voc: np.ndarray, sr: int, gap_db: float = 8.0, min_s: float = 4.0,
+                      bridge_s: float = 2.0, smooth_s: float = 1.0) -> list[tuple[float, float]]:
+    """Stretches (t0, t1) in seconds where the full ``vocals`` stem is active while ``lead_vocals`` is at least
+    ``gap_db`` quieter: sung parts the karaoke model sent to the backing stem (a group or layered hook). Levels are
+    1 s mean powers; runs closer than ``bridge_s`` are joined and runs shorter than ``min_s`` are dropped, so a
+    backing harmony under a lead line or a short ad-lib never counts."""
+    n = frames_for(max(len(lead), len(voc)), sr)
+    k = max(1, int(round(smooth_s * 100)))
+    box = np.ones(k) / k
+    pl = np.convolve(rms_100hz(lead, sr, n) ** 2, box, mode="same")
+    pv = np.convolve(rms_100hz(voc, sr, n) ** 2, box, mode="same")
+    if not np.any(pv > 0):
+        return []
+    dl = 10 * np.log10(pl + 1e-12)
+    dv = 10 * np.log10(pv + 1e-12)
+    thr = max(float(np.percentile(dv[pv > 0], 95)) - 25.0, -50.0)
+    weak = (dv > thr) & (dv - dl >= gap_db)
+    runs: list[list[int]] = []
+    i = 0
+    while i < n:
+        if not weak[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and weak[j]:
+            j += 1
+        if runs and i - runs[-1][1] < bridge_s * 100:
+            runs[-1][1] = j
+        else:
+            runs.append([i, j])
+        i = j
+    return [(a / 100.0, b / 100.0) for a, b in runs if b - a >= min_s * 100]
+
+
+def blend_regions(lead: np.ndarray, voc: np.ndarray, sr: int, regions: list[tuple[float, float]],
+                  fade_s: float = 0.05) -> np.ndarray:
+    """``lead`` with ``voc`` in its place inside ``regions`` (linear cross-fades of ``fade_s`` at the edges)."""
+    x = np.asarray(lead, dtype=np.float32)
+    y = np.zeros(len(x), np.float32)
+    m = min(len(x), len(voc))
+    y[:m] = np.asarray(voc, dtype=np.float32)[:m]
+    mask = np.zeros(len(x), np.float32)
+    for t0, t1 in regions:
+        mask[max(0, int(t0 * sr)):min(len(x), int(t1 * sr))] = 1.0
+    f = max(1, int(fade_s * sr))
+    mask = np.convolve(mask, np.ones(f, np.float32) / f, mode="same").astype(np.float32)
+    return x * (1.0 - mask) + y * mask
+
+
+def pick_alignment_signal(ctx, sr: int = 16000, gap_db: float = 8.0, min_s: float = 4.0, enabled: bool = True
+                          ) -> tuple[str, np.ndarray, int, list[tuple[float, float]]]:
+    """The signal the lyrics are transcribed and aligned on: ``pick_vocal_stem``'s choice, with the full vocals stem
+    in the stretches where the lead stem is weak (``weak_lead_regions``). Returns (name, mono samples, sr, regions);
+    the name is ``lead_vocals+vocals`` when any stretch was replaced."""
+    from mvh.runner.spec import StageError
+
+    name, x, rate = pick_vocal_stem(ctx, sr)
+    if name != "lead_vocals" or not enabled:
+        return name, x, rate, []
+    try:
+        voc = ctx.audio("vocals", sr=rate, mono=True)
+    except (StageError, AttributeError, KeyError):
+        return name, x, rate, []
+    y = np.asarray(voc.samples[0], dtype=np.float32)
+    regions = weak_lead_regions(x, y, rate, gap_db, min_s)
+    if not regions:
+        return name, x, rate, []
+    return "lead_vocals+vocals", blend_regions(x, y, rate, regions), rate, regions

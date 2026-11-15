@@ -146,3 +146,21 @@ test('meaningFieldWrite: an unreviewed suggestion never becomes the user\'s', ()
   assert.equal(L.meaningFieldWrite({ value: '', kind: 'empty' }, '', true), false);
   assert.equal(L.meaningFieldWrite({ value: '', kind: 'empty' }, 'new', false), true);
 });
+
+test('line pins: keyed by the position in the lyric source; a pin replaces the nudge of its line', () => {
+  const l16 = { id: 'L016', source_index: 15, pin_key: 'abc', t: 61 };
+  const l19 = { id: 'L019', source_index: 18, pin_key: 'def', t: 70 };
+  let ly = L.setLinePin({ lines: { L016: { dt: 0.4 }, L002: { dt: 0.1 } } }, l19, 74.4004);
+  ly = L.setLinePin(ly, l16, 59.5);
+  assert.deepEqual(ly.pins, [{ index: 15, t: 59.5, key: 'abc', line: 'L016' }, { index: 18, t: 74.4, key: 'def', line: 'L019' }]);
+  assert.deepEqual(ly.lines, { L002: { dt: 0.1 } });
+  ly = L.setLinePin(ly, l16, -3);                                  // moving a pin keeps one entry; never before 0
+  assert.equal(ly.pins.length, 2);
+  assert.equal(L.linePin(ly, l16).t, 0);
+  assert.equal(L.linePin(ly, { id: 'L040', source_index: null }), null);   // a line the harness added
+  assert.equal(L.linePin(ly, { id: 'L001' }), null);                        // an older folder: no source_index
+  assert.equal(L.linePin(undefined, l16), null);
+  ly = L.removeLinePin(ly, 15);
+  assert.deepEqual(ly.pins.map((p) => p.index), [18]);
+  assert.equal('pins' in L.removeLinePin(ly, 18), false);
+});

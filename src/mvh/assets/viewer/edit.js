@@ -89,7 +89,30 @@ const Edit = (() => {
   // ------------------------------------------------------------------ pending state helpers
   const appliedLines = () => (V.model.applied || {}) && (appliedOverrides('lyrics')['lyrics.lines'] || {});
   const appliedWords = () => appliedOverrides('lyrics')['lyrics.words'] || {};
+  // ---- lyric line pins (D82)
+  const appliedPins = () => appliedOverrides('lyrics')['lyrics.pins'] || [];
+  const linePinOf = (ln) => L.linePin(ovr().lyrics, ln);
+  /** the line's pin when the last run has not applied it yet */
+  function pendingPin(ln) {
+    const p = linePinOf(ln);
+    if (!p) return null;
+    const a = appliedPins().find((x) => x.index === p.index);
+    return a && Math.abs(a.t - p.t) < 0.0005 ? null : p;
+  }
+  function pinLine(id, t) {
+    const ln = V.model.lines.find((l) => l.id === id);
+    if (!ln) return;
+    if (ln.source_index === undefined) { toast('Re-run the analysis once to pin lines (this folder was made by an older version)', 'bad', 6000); return; }
+    if (ln.source_index === null) { toast('This line was added by the harness (a repeat it heard), so it cannot be pinned', 'bad', 6000); return; }
+    return commit(`pin ${id} at ${fmtTime(t, 2)}`, (o) => { o.lyrics = L.setLinePin(o.lyrics, ln, t); });
+  }
+  function unpinLine(index, label) {
+    return commit(`unpin ${label}`, (o) => { o.lyrics = L.removeLinePin(o.lyrics, index); });
+  }
   function lineShift(id) {
+    const ln = V.model.lines.find((l) => l.id === id);
+    const pp = ln ? pendingPin(ln) : null;
+    if (pp) return pp.t - ln.t;   // a pending pin shows the line where it will start
     const o = ((ovr().lyrics || {}).lines || {})[id];
     const a = (appliedLines()[id] || {}).dt || 0;
     return (o ? o.dt : 0) - a;
@@ -414,6 +437,16 @@ const Edit = (() => {
       host.append(h('div', { class: 'card' }, h('b', null, ln.id + '  '), h('span', { class: 'dim' }, fmtTime(ln.t, 2)), h('div', null, ln.text)),
         h('div', { class: 'btnrow' }, [-100, -20, -10, 10, 20, 100].map((d) => btn((d > 0 ? '+' : '') + d + ' ms', () => nudgeLine(ln.id, d))), btn('start at playhead', () => setLineTime(ln.id, V.t))),
         h('div', { class: 'dim small' }, `nudge now ${cur != null ? Math.round(cur * 1000) : 0} ms (applied by the last run ${Math.round(a * 1000)} ms)`));
+      // pins: a fixed start; the re-run places the lines up to the next pin again and snaps their words
+      const pin = linePinOf(ln);
+      // the section start nearest to the playhead, looked up when the button is pressed (the playhead moves)
+      const nearStart = () => M.sections.reduce((b, s) => (Math.abs(s.t - V.t) < Math.abs(b.t - V.t) ? s : b)).t;
+      host.append(h('div', { class: 'btnrow' },
+        btn(pin ? 'move pin to playhead' : 'pin start at playhead', () => pinLine(ln.id, V.t), 'fix where this line starts'),
+        M.sections.length ? btn('pin at nearest section start', () => pinLine(ln.id, nearStart()), 'the section boundary closest to the playhead') : null,
+        pin ? btn('remove pin', () => unpinLine(pin.index, ln.id)) : null),
+        h('div', { class: 'dim small' }, pin ? `Pinned at ${fmtTime(pin.t, 2)}${pendingPin(ln) ? ': applies on the next re-run.' : '.'}`
+          : 'When a part is out of place, pin the first line of each pass where it really starts, then re-run: the lines up to the next pin are placed again and their words snap to the singing.'));
       const vopts = M.voices.map((v) => v.id);
       const curV = (((ovr().voices || {}).lines || {})[ln.id]) || M.voiceOfLine.get(ln.id) || '';
       host.append(h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'sung by'), h('select', { onchange: (e) => setLineVoice(ln.id, e.target.value) }, h('option', { value: '' }, '(automatic)'),
@@ -427,6 +460,15 @@ const Edit = (() => {
             numRow('word length', Math.round((wp.d != null ? wp.d : w.d) * 1000), 'ms', (v) => setWordDur(w.id, v / 1000), { step: 5, min: 0 }));
         }
       }
+    }
+    const allPins = (ovr().lyrics || {}).pins || [];
+    if (allPins.length) {
+      host.append(h('div', { class: 'dim small' }, 'pinned lines:'), ...allPins.map((p) => {
+        const l = M.lines.find((x) => x.source_index === p.index);
+        const name = l ? l.id : 'line ' + (p.index + 1);
+        return h('div', { class: 'pendrow', onclick: () => { if (l) selectLine(l.id); seek(p.t); } }, `${name} at ${fmtTime(p.t, 2)}`, ' ',
+          btn('×', (e) => { e.stopPropagation(); unpinLine(p.index, name); }, 'remove this pin'));
+      }));
     }
     // ---- voices -> characters (intent.md)
     host.append(h('h3', null, 'Voices → characters'), h('div', { class: 'dim small' }, 'Written to meaning/intent.md (managed block). Re-runs: voices, meaning.'));
@@ -459,6 +501,6 @@ const Edit = (() => {
     host.scrollTop = keep;
   }
 
-  return { moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
+  return { linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
     refreshPanel, renderBar, save, commit, state: st };
 })();

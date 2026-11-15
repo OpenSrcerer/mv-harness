@@ -109,6 +109,19 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
   - Not done: a drafting step that needs no agent or API key (a draft still comes from `--draft anthropic` or from an
     agent following request.md).
 
+- **UD4, lyrics follow the singing + line pins: APPROVED and built (2026-11-15, by the orchestrator, no agents).**
+  CONTRACT D82, docs/contract/decisions/UD4.md. lyrics 1.2.0, viewer 1.2.0.
+  - Where lead_vocals is weak and vocals is active (a group hook in the backing stem), the lyrics stage uses the
+    full vocals stem for that stretch.
+  - `overrides.json` `lyrics.pins`: fixed line starts set in the viewer; the aligner re-places and snaps the lines
+    between pins.
+  - Measured on the song that prompted it: hook line confidence about 0.18 -> 0.76, the second hook from 25 s late
+    to on time. The reference songs are unchanged.
+  - Gate `all` on 2026-11-15 (out/_wip/gate-d82.log): unit 1691 passed after rebuilding the local synth fixture
+    (it holds copies of the two changed schemas; `python -m tests.synth.build --only synth`); ruff, contract,
+    validate, e2e, lib-node and determinism pass; review 22 failed / 400 passed, the same 22 tests as before.
+    Pins checked by hand in the viewer on a copy of the song (pin, move, remove, Re-run).
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.
