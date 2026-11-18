@@ -33,15 +33,23 @@ const Edit = (() => {
     try { j = await r.json(); } catch (e) { /* */ }
     return { status: r.status, ok: r.ok, j };
   }
-  async function commit(label, mutate, opts) {
-    const before = J(clean(ovr()));
-    const next = JSON.parse(before);
-    mutate(next);
-    const doc = clean(next);
-    if (J(doc) === before) return;
-    st.history.push(before);
-    if (st.history.length > 60) st.history.shift();
-    await save(doc, label);
+  // Saves run one at a time: each one sends the etag of the previous save, so two in flight (a held key, quick
+  // drags) would make the server reject the second one as a conflict. A commit waits for the one before it and
+  // then applies its change to the latest state.
+  let queue = Promise.resolve();
+  function commit(label, mutate, opts) {
+    const run = async () => {
+      const before = J(clean(ovr()));
+      const next = JSON.parse(before);
+      mutate(next);
+      const doc = clean(next);
+      if (J(doc) === before) return;
+      st.history.push(before);
+      if (st.history.length > 60) st.history.shift();
+      await save(doc, label);
+    };
+    queue = queue.then(run, run);
+    return queue;
   }
   async function save(doc, label, popped) {
     const prev = V.ovr;
@@ -67,12 +75,16 @@ const Edit = (() => {
     }
     renderBar(); refreshPanel(); requestDraw('all');
   }
-  async function undo() {
-    if (st.saving) return; // a second Undo must not go out with a stale etag
-    const prev = st.history.pop();
-    if (prev == null) { toast('Nothing to undo'); return; }
-    await save(JSON.parse(prev), 'undo', prev);
-    renderBar();
+  function undo() {
+    // queued like every save, so it never goes out with a stale etag
+    const run = async () => {
+      const prev = st.history.pop();
+      if (prev == null) { toast('Nothing to undo'); return; }
+      await save(JSON.parse(prev), 'undo', prev);
+      renderBar();
+    };
+    queue = queue.then(run, run);
+    return queue;
   }
   async function saveIntent(patch, label, onOk) {
     st.saving = true; renderBar();
@@ -161,12 +173,48 @@ const Edit = (() => {
     if (!ln) return;
     return setLineTime(id, ln.t + lineShift(id) + dtMs / 1000);
   }
+  // ---- single words
+  const wordById = (id) => (V.song._get('lyrics').words || []).find((x) => x.id === id);
+  /** where a word shows now (see logic.wordPos): {t, d, pending} */
+  function wordShown(w, dlt) {
+    const ov = ((ovr().lyrics || {}).words || {})[w.id];
+    const p = pendingWord(w.id);
+    return Object.assign(L.wordPos(w, ov, p, dlt == null ? lineShift(w.line_id) : dlt), { pending: !!p });
+  }
   function setWordTime(id, t) {
-    return commit(`retime word ${id}`, (o) => { (o.lyrics = o.lyrics || {}).words = L.setWord((o.lyrics || {}).words, id, { t }); });
+    // an absolute start replaces any relative shift of the word
+    return commit(`retime word ${id} to ${fmtTime(t, 3)}`, (o) => {
+      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t: Math.max(0, t) });
+      delete ws[id].dt;
+      o.lyrics.words = ws;
+    });
   }
   function setWordDur(id, d) {
-    const w = (V.song._get('lyrics').words || []).find((x) => x.id === id);
-    return commit(`word ${id} duration`, (o) => { (o.lyrics = o.lyrics || {}).words = L.setWord((o.lyrics || {}).words, id, { t: (((o.lyrics || {}).words || {})[id] || {}).t != null ? o.lyrics.words[id].t : w.t, d }); });
+    const w = wordById(id);
+    if (!w) return;
+    const t = wordShown(w).t;
+    return commit(`word ${id} length ${Math.round(d * 1000)} ms`, (o) => {
+      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t, d: Math.max(0.02, d) });
+      delete ws[id].dt;
+      o.lyrics.words = ws;
+    });
+  }
+  function nudgeWord(id, ms) {
+    const w = wordById(id);
+    if (!w) return;
+    // relative to where the word is when this save runs (queued saves before it may have moved it)
+    return commit(`move word ${id} ${ms > 0 ? '+' : ''}${ms} ms`, (o) => {
+      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t: Math.max(0, wordShown(w).t + ms / 1000) });
+      delete ws[id].dt;
+      o.lyrics.words = ws;
+    });
+  }
+  function resetWord(id) {
+    return commit(`reset word ${id}`, (o) => { const ws = Object.assign({}, (o.lyrics || {}).words || {}); delete ws[id]; (o.lyrics = o.lyrics || {}).words = ws; });
+  }
+  function selectWord(id, lineId) {
+    SEL.lineId = lineId; SEL.wordId = id;
+    requestDraw('lyrics'); refreshPanel();
   }
   function setLineVoice(id, voice) {
     return commit(`${id} sung by ${voice || '(auto)'}`, (o) => { const v = (o.voices = o.voices || {}); v.lines = Object.assign({}, v.lines || {}); if (voice) v.lines[id] = voice; else delete v.lines[id]; });
@@ -451,14 +499,21 @@ const Edit = (() => {
       const curV = (((ovr().voices || {}).lines || {})[ln.id]) || M.voiceOfLine.get(ln.id) || '';
       host.append(h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'sung by'), h('select', { onchange: (e) => setLineVoice(ln.id, e.target.value) }, h('option', { value: '' }, '(automatic)'),
         vopts.map((v) => h('option', { value: v, selected: v === curV }, v + (M.charOfVoice.get(v) ? ' — ' + M.charName(M.charOfVoice.get(v)) : ''))))));
-      if (SEL.wordId) {
-        const w = (V.song._get('lyrics').words || []).find((x) => x.id === SEL.wordId);
-        if (w) {
-          const wp = (((ovr().lyrics || {}).words || {})[w.id]) || {};
-          host.append(h('div', { class: 'card' }, h('b', null, w.id), ' ', w.text),
-            numRow('word start', Math.round((wp.t != null ? wp.t : w.t) * 1000), 'ms', (v) => setWordTime(w.id, v / 1000), { step: 5 }),
-            numRow('word length', Math.round((wp.d != null ? wp.d : w.d) * 1000), 'ms', (v) => setWordDur(w.id, v / 1000), { step: 5, min: 0 }));
-        }
+      const w = SEL.wordId ? wordById(SEL.wordId) : null;
+      if (w && w.line_id === ln.id) {
+        const pos = wordShown(w);
+        const ov = ((ovr().lyrics || {}).words || {})[w.id];
+        host.append(h('div', { class: 'card' }, h('b', null, w.id), ' ', w.text, ' ',
+          h('span', { class: 'dim small' }, `${fmtTime(pos.t, 3)} · ${Math.round(pos.d * 1000)} ms${pos.pending ? ' · not re-run yet' : ''}`)),
+        h('div', { class: 'btnrow' }, [-50, -10, 10, 50].map((d) => btn((d > 0 ? '+' : '') + d + ' ms', () => nudgeWord(w.id, d))),
+          btn('start at playhead', () => setWordTime(w.id, V.t), 'the word starts where the playhead is'),
+          btn('end at playhead', () => { if (V.t - pos.t >= 0.02) setWordDur(w.id, V.t - pos.t); else toast('The playhead is before the word: nothing changed', 'bad'); }, 'the word ends where the playhead is'),
+          ov ? btn('reset', () => resetWord(w.id), 'back to the analysed timing') : null),
+        numRow('word start', Math.round(pos.t * 1000), 'ms', (v) => setWordTime(w.id, v / 1000), { step: 5 }),
+        numRow('word length', Math.round(pos.d * 1000), 'ms', (v) => setWordDur(w.id, v / 1000), { step: 5, min: 20 }),
+        h('div', { class: 'dim small' }, 'In the Lyrics lane: drag a word to move it, drag its right edge to change its length, click it to select it. Keys < and > move the selected word by 10 ms.'));
+      } else {
+        host.append(h('div', { class: 'dim small' }, 'Single words: zoom in on the Lyrics lane until the words show under the line, then drag one or click it to select it.'));
       }
     }
     const allPins = (ovr().lyrics || {}).pins || [];
@@ -501,6 +556,6 @@ const Edit = (() => {
     host.scrollTop = keep;
   }
 
-  return { linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
+  return { wordShown, nudgeWord, selectWord, resetWord, linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
     refreshPanel, renderBar, save, commit, state: st };
 })();

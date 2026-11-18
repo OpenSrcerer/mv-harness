@@ -177,7 +177,11 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
     time). Edits are applied locally: no boundary the user did not touch moves (D68);
   - shift the beat grid, set the BPM or the downbeat phase (`rhythm.beat_offset_s`, `rhythm.bpm`,
     `rhythm.downbeat_phase`);
-  - nudge lyric lines / words (`lyrics.lines`, `lyrics.words`), assign a line to a voice (`voices.lines`);
+  - nudge lyric lines / words (`lyrics.lines`, `lyrics.words`), assign a line to a voice (`voices.lines`). Single
+    words: zoom in until the words show under their line; drag a word to move it, drag its right edge to change its
+    length, click it to select it. The selected word has -50/-10/+10/+50 ms buttons, "start / end at playhead" and
+    "reset" in the Edit tab, and the keys `<` / `>` move it by 10 ms. A word override is an absolute time: it stays
+    where you put it even if its line is nudged later;
   - **pin a lyric line** where it really starts (`lyrics.pins`, D82): "pin start at playhead" or "pin at start of
     <section>" for the selected line. A nudge moves one line as it is; a pin is a fixed point for the aligner, so on
     re-run the lines up to the next pin are placed again and their words snap to the singing. For a part that is out

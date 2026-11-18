@@ -87,6 +87,13 @@ const MVHLOGIC = (function () {
     if (!out.pins.length) delete out.pins;
     return out;
   }
+  /** where a word shows in the viewer. An override with an absolute start (t) is the word's final time (the lyrics
+   *  stage applies it after the line nudges); otherwise the analysis time, moved with its line's pending shift, plus a
+   *  pending relative shift (dt). A length (d) from the override wins. */
+  function wordPos(word, ov, pending, lineDlt) {
+    if (ov && ov.t != null) return { t: ov.t + (ov.dt || 0), d: ov.d != null ? ov.d : word.d };
+    return { t: word.t + (lineDlt || 0) + ((pending && pending.dt) || 0), d: pending && pending.d != null ? pending.d : word.d };
+  }
   function setWord(words, id, patch) {
     const out = Object.assign({}, words || {});
     const e = Object.assign({}, out[id] || {}, patch);
@@ -257,7 +264,7 @@ const MVHLOGIC = (function () {
     return state.kind === 'suggestion' && !!accepted && t !== '';
   }
 
-  return { linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  return { wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

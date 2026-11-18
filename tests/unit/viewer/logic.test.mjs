@@ -164,3 +164,13 @@ test('line pins: keyed by the position in the lyric source; a pin replaces the n
   assert.deepEqual(ly.pins.map((p) => p.index), [18]);
   assert.equal('pins' in L.removeLinePin(ly, 18), false);
 });
+
+test('wordPos: where a lyric word shows while it is being corrected', () => {
+  const w = { id: 'L001.02', t: 10.0, d: 0.3 };
+  assert.deepEqual(L.wordPos(w, null, null, 0), { t: 10.0, d: 0.3 });
+  assert.deepEqual(L.wordPos(w, null, null, 0.5), { t: 10.5, d: 0.3 });                       // moves with its line's nudge
+  assert.deepEqual(L.wordPos(w, { t: 11.2 }, { t: 11.2 }, 0.5), { t: 11.2, d: 0.3 });         // an absolute start wins over the line
+  assert.deepEqual(L.wordPos(w, { t: 11.2, d: 0.4 }, null, 0), { t: 11.2, d: 0.4 });          // applied already: same place
+  assert.deepEqual(L.wordPos(w, { dt: 0.1 }, { dt: 0.1 }, 0), { t: 10.1, d: 0.3 });           // a relative shift typed by hand
+  assert.deepEqual(L.wordPos(w, { d: 0.5 }, { d: 0.5 }, 0), { t: 10.0, d: 0.5 });
+});

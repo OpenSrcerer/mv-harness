@@ -191,7 +191,8 @@ function updateValues(force) {
 function buildHelp() {
   const keys = [['Space', 'play / pause'], ['← →', 'seek 1 s (Shift 5 s, Alt 0.1 s)'], ['[ ]', 'previous / next section'], [', .', 'previous / next beat'], ['+ -', 'zoom in / out around the playhead'],
     ['0', 'fit the whole song'], ['F', 'cycle follow: page / centre / off'], ['M', 'metronome on / off'], ['L', 'loop the current section'], ['Ctrl+wheel', 'zoom at the pointer'], ['Shift+wheel / drag', 'pan the time axis'],
-    ['click', 'seek to the clicked time'], ['E', 'edit panel (edit mode only)'], ['Ctrl+Z', 'undo the last correction (edit mode)'], ['Delete', 'remove the selected boundary or pin (edit mode)']];
+    ['click', 'seek to the clicked time'], ['E', 'edit panel (edit mode only)'], ['Ctrl+Z', 'undo the last correction (edit mode)'], ['Delete', 'remove the selected boundary or pin (edit mode)'],
+    ['< / >', 'move the selected lyric word 10 ms earlier / later (edit mode)']];
   $('#pane-help').append(h('h3', null, 'Keys'), h('table', { class: 'vals' }, keys.map(([k, v]) => h('tr', null, h('td', { class: 'k' }, k), h('td', { class: 'v' }, v)))),
     h('h3', null, 'Modes'),
     h('p', { class: 'dim' }, V.mode === 'edit' ? 'EDIT MODE: served by mvh view on 127.0.0.1. Corrections are saved to overrides.json (and meaning/intent.md); the Edit tab lists the stages that will re-run.' : V.mode === 'served' ? 'Served read-only (no edit server).' : 'Opened from the disk: read-only. Preview data is inlined. Run mvh view <song> to correct beats, sections, lyrics, singers and meaning.'),

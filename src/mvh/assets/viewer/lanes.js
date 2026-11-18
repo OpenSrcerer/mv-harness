@@ -264,6 +264,8 @@ LANES.push({
 
 // ================================================================================================ lyrics & singers
 const LROW = 34;
+/** pixels per second from which the words of a line are drawn (and can be dragged) */
+const WORD_PXS = 38;
 LANES.push({
   id: 'lyrics', title: 'Lyrics & singers', sub: 'line blocks by singer; word ticks', h: () => 26 + V.model.nRows * LROW,
   buildHead(head, lane) {
@@ -295,27 +297,35 @@ LANES.push({
       // a pinned line start (D82): a flag on its left edge
       if (V.mode === 'edit' && Edit.linePinOf(ln)) { c.fillStyle = T.edit; c.beginPath(); c.moveTo(x0, y - 3); c.lineTo(x0 + 8, y - 3); c.lineTo(x0, y + 6); c.closePath(); c.fill(); c.fillRect(x0, y - 3, 1.5, bh + 3); }
       c.fillStyle = T.text; c.font = FONT; c.textAlign = 'left';
-      const hasWords = pxs > 38 && (M.wordsByLine.get(ln.id) || []).length;
+      const hasWords = pxs > WORD_PXS && (M.wordsByLine.get(ln.id) || []).length;
       const label = fitText(c, ln.text, ww - 6);
       if (label) c.fillText(label, Math.max(x0, 0) + 4, y + (hasWords ? 9 : bh / 2));
-      // words
+      // words: drag a word to move it, drag its right edge to change its length, click it to select it. Words are
+      // grabbable whenever they are drawn; while dragged, the word is drawn where it will go.
       if (hasWords) {
         const dlt = lt - ln.t;
         c.font = FONT_S;
         for (const wd of M.wordsByLine.get(ln.id)) {
-          const wp = Edit.pendingWord(wd.id);
-          const wt = (wp && wp.t != null ? wp.t : wd.t) + dlt, wdd = wp && wp.d != null ? wp.d : wd.d;
+          const pos = Edit.wordShown(wd, dlt);
+          const dr = E.wordDrag && E.wordDrag.id === wd.id ? E.wordDrag : null;
+          const wt = dr ? dr.t : pos.t, wdd = dr ? dr.d : pos.d;
           const wx0 = t2x(wt), wx1 = t2x(wt + (wdd || 0.1));
           if (wx1 < 0 || wx0 > w) continue;
           const wc = wd.conf == null ? 1 : wd.conf;
-          c.fillStyle = rgba(wp ? T.edit : '#ffffff', 0.18 + 0.4 * wc);
-          c.fillRect(wx0, y + 17, Math.max(1.5, wx1 - wx0 - 1), 3);
-          if (wx1 - wx0 > 14) { c.fillStyle = T.dim; const t = fitText(c, wd.text, wx1 - wx0 - 2); if (t) c.fillText(t, wx0 + 1, y + 27); }
-          if (V.mode === 'edit' && pxs > 80) lane.hits.push({ x: wx0 - 1, y: y + 14, w: Math.max(4, wx1 - wx0), h: bh - 12, drag: true, cursor: 'ew-resize', pad: 1,
-            tip: () => `${wd.id} "${wd.text}"  ${fmtTime(wt, 3)}  d=${(wdd || 0).toFixed(3)} conf ${wc.toFixed(2)}\nDrag to retime the word`,
-            onDragStart: () => { SEL.wordId = wd.id; SEL.lineId = ln.id; E.wordDrag = { id: wd.id, t: wd.t, t0: wd.t, anchor: null }; },
-            onDrag: (t) => { const d = E.wordDrag; if (d.anchor == null) d.anchor = t - d.t0; d.t = t - d.anchor; requestDraw('lyrics'); },
-            onDragEnd: (t, moved) => { const d = E.wordDrag; E.wordDrag = null; if (moved) Edit.setWordTime(wd.id, d.t); requestDraw('lyrics'); } });
+          const sel = SEL.wordId === wd.id;
+          c.fillStyle = rgba(dr || pos.pending ? T.edit : '#ffffff', dr ? 0.9 : 0.18 + 0.4 * wc);
+          c.fillRect(wx0, y + 16, Math.max(1.5, wx1 - wx0 - 1), sel || dr ? 5 : 3);
+          if (sel && !dr) { c.strokeStyle = T.edit; c.lineWidth = 1; c.strokeRect(wx0 - 0.5, y + 12.5, Math.max(2, wx1 - wx0), bh - 13); }
+          if (wx1 - wx0 > 14) { c.fillStyle = dr || sel ? T.text : T.dim; const t = fitText(c, wd.text, wx1 - wx0 - 2); if (t) c.fillText(t, wx0 + 1, y + 27); }
+          if (V.mode !== 'edit') continue;
+          const tip = () => `${wd.id} "${wd.text}"  ${fmtTime(wt, 3)}  length ${Math.round((wdd || 0) * 1000)} ms  conf ${wc.toFixed(2)}\nDrag to move it, drag its right edge to change its length, click to select it`;
+          // anchor = where the word (or its end) was grabbed, so it follows the pointer without a jump
+          const begin = (mode) => (t) => { E.wordDrag = { id: wd.id, line: ln.id, mode, t: wt, d: wdd || 0.1, t0: wt, d0: wdd || 0.1, anchor: mode === 'move' ? t - wt : t - (wt + (wdd || 0.1)) }; requestDraw('lyrics'); };
+          const wpx = wx1 - wx0, hw = Math.max(10, wpx);
+          lane.hits.push({ wid: wd.id, x: wx0 - (hw - wpx) / 2, y: y + 11, w: hw, h: bh - 11, drag: true, cursor: 'ew-resize', tip, onDragStart: begin('move'),
+            onDrag: (t) => { const d = E.wordDrag; if (!d) return; d.t = Math.max(0, t - d.anchor); requestDraw('lyrics'); }, onDragEnd: wordDragEnd });
+          if (wpx >= 14) lane.hits.push({ wid: wd.id, x: wx1 - 5, y: y + 11, w: 8, h: bh - 11, drag: true, cursor: 'col-resize', tip, onDragStart: begin('length'),
+            onDrag: (t) => { const d = E.wordDrag; if (!d) return; d.d = Math.max(0.02, t - d.anchor - d.t0); requestDraw('lyrics'); }, onDragEnd: wordDragEnd });
         }
       }
       const hit = { x: x0, y, w: ww, h: bh, tip: () => lineTip(ln), onClick: () => { selectLine(ln.id); seek(ln.t); } };
@@ -325,6 +335,11 @@ LANES.push({
         onDragEnd: (t, moved) => { const d = E.lineDrag; E.lineDrag = null; if (moved) Edit.setLineTime(ln.id, d.t); else { seek(ln.t); } requestDraw('lyrics'); } });
       lane.hits.unshift(hit);
     }
+    // the selected word is grabbed first where words overlap (a word moved onto its neighbour stays reachable)
+    if (SEL.wordId) {
+      const top = lane.hits.filter((x) => x.wid === SEL.wordId);
+      if (top.length) lane.hits = lane.hits.filter((x) => x.wid !== SEL.wordId).concat(top);
+    }
     // voice row labels
     if (M.voices.length > 1) {
       c.font = FONT_S; c.textAlign = 'left'; c.textBaseline = 'top';
@@ -332,10 +347,23 @@ LANES.push({
     }
   },
 });
+/** the end of a word drag: save the new start or length. The word stays selected (its fine-tuning controls show in
+ *  the Edit tab); a click without movement also seeks to it. */
+function wordDragEnd(_t, moved) {
+  const d = E.wordDrag;
+  E.wordDrag = null;
+  if (!d) return;
+  Edit.selectWord(d.id, d.line);
+  if (!moved) seek(d.t0);
+  else if (d.mode === 'move' && Math.abs(d.t - d.t0) > 0.0005) Edit.setWordTime(d.id, d.t);
+  else if (d.mode === 'length' && Math.abs(d.d - d.d0) > 0.0005) Edit.setWordDur(d.id, d.d);
+  requestDraw('lyrics');
+}
 function lineTip(ln) {
   const M = V.model, sg = M.singers.get(ln.id) || [];
   const who = sg.map((s) => `${s.character_id || '?'}/${s.voice_id}${s.lead_backing === 'backing' ? ' (backing)' : ''}`).join(', ') || (M.voiceOfLine.get(ln.id) || ln.speaker_hint || 'singer unknown');
-  return `${ln.id}  ${fmtTime(ln.t, 2)} - ${fmtTime(ln.t + ln.d, 2)}\n${ln.text}\nsinger: ${who}   conf ${ln.conf != null ? ln.conf.toFixed(2) : '-'}  grade ${ln.grade || '-'}  timing ${ln.timing_source || '-'}`;
+  const zoom = V.mode === 'edit' && VW.w / (VW.t1 - VW.t0) <= WORD_PXS ? '\nZoom in (+ or Ctrl+wheel) to move single words' : '';
+  return `${ln.id}  ${fmtTime(ln.t, 2)} - ${fmtTime(ln.t + ln.d, 2)}\n${ln.text}\nsinger: ${who}   conf ${ln.conf != null ? ln.conf.toFixed(2) : '-'}  grade ${ln.grade || '-'}  timing ${ln.timing_source || '-'}${zoom}`;
 }
 
 // ================================================================================================ beats and counts
