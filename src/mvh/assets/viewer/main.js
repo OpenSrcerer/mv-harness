@@ -128,6 +128,7 @@ function onKey(e) {
   else if ((k === 'e' || k === 'E') && V.mode === 'edit') openTab('edit');
   else if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey) && V.mode === 'edit') { e.preventDefault(); Edit.undo(); }
   else if ((k === '<' || k === '>') && V.mode === 'edit' && SEL.wordId) { e.preventDefault(); Edit.nudgeWord(SEL.wordId, k === '<' ? -10 : 10); }
+  else if (k === 'Escape' && V.mode === 'edit' && SEL.words.size) Edit.clearWords();
   else if ((k === 'Delete' || k === 'Backspace') && V.mode === 'edit') {
     if (SEL.boundary != null) { Edit.removeBoundary(SEL.boundary); SEL.boundary = null; }
     else if (SEL.pin != null) Edit.removePin(SEL.pin);

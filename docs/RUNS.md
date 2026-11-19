@@ -180,8 +180,15 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
   - nudge lyric lines / words (`lyrics.lines`, `lyrics.words`), assign a line to a voice (`voices.lines`). Single
     words: zoom in until the words show under their line; drag a word to move it, drag its right edge to change its
     length, click it to select it. The selected word has -50/-10/+10/+50 ms buttons, "start / end at playhead" and
-    "reset" in the Edit tab, and the keys `<` / `>` move it by 10 ms. A word override is an absolute time: it stays
-    where you put it even if its line is nudged later;
+    "reset" in the Edit tab, and the keys `<` / `>` move it by 10 ms. Ctrl+click adds a word to the selection,
+    Shift+click selects a range, Esc clears it; dragging a selected word or nudging moves the whole selection. A word
+    stays inside its bar: drag the bar's left or right edge to stretch it (its words keep their places). Moving a line
+    moves its hand-placed words with it (D83);
+  - **split a bar and give it its own voice** (`lyrics.splits`, `voices.lines`, D83): select words of one bar, then
+    "split the bar before this word" or "move these words to a new bar"; after the re-run the new bar is a line of its
+    own, which can be moved (for example over another line, for a layered sample) and given a voice under "sung by".
+    "+ new voice" there adds a voice the model did not find; "remove voice: merge into ..." on a voice card removes
+    one (`voices.merge`). "join with the bar before" undoes a split;
   - **pin a lyric line** where it really starts (`lyrics.pins`, D82): "pin start at playhead" or "pin at start of
     <section>" for the selected line. A nudge moves one line as it is; a pin is a fixed point for the aligner, so on
     re-run the lines up to the next pin are placed again and their words snap to the singing. For a part that is out

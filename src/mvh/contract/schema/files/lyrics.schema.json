@@ -203,6 +203,33 @@
      "pinned": {
       "type": "boolean",
       "description": "its start is pinned by the user"
+     },
+     "ref": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "stable reference: r<source index>, r<source index>p<part> for a split bar; null for a line the harness added"
+     },
+     "source_part": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "0-based bar of a split source line",
+      "minimum": 0
+     },
+     "source_word": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "place of the first word in the source line",
+      "minimum": 0
+     },
+     "legacy_id": {
+      "type": "string",
+      "description": "the line id as numbered before any split or correction: what an id key in overrides.json (L012, L012.03) refers to"
      }
     },
     "required": [
@@ -263,6 +290,10 @@
       "items": {
        "type": "string"
       }
+     },
+     "ref": {
+      "type": "string",
+      "description": "D83: stable reference r<source index>w<place in the source line>"
      }
     },
     "required": [

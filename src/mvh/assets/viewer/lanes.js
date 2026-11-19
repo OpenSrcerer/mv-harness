@@ -280,12 +280,16 @@ LANES.push({
     const pxs = w / (VW.t1 - VW.t0);
     c.textBaseline = 'middle';
     const top = 4;
+    const splits = V.mode === 'edit' ? Edit.pendingSplitWords() : new Set();   // splits waiting for a re-run
+    const edges = [];   // bar edges: grabbed before the words of a neighbouring bar that touches them
     for (const ln of visible(M.lines, VW.t0, VW.t1)) {
-      let lt = ln.t + Edit.lineShift(ln.id), ld = Math.max(0.05, ln.d || 0.3);
+      // the bar: the line's span joined with where its words show now (D83: words stay inside it)
       const ed = E.lineDrag && E.lineDrag.id === ln.id ? E.lineDrag : null;
-      if (ed) lt = ed.t;
-      const pend = Edit.pendingLine(ln.id);
-      const x0 = t2x(lt), x1 = t2x(lt + ld), ww = Math.max(2, x1 - x0 - 1);
+      const view = Edit.lineView(ln, ed ? ed.t : null);
+      const bd = E.barDrag && E.barDrag.id === ln.id ? E.barDrag : null;
+      const ba = bd ? bd.a2 : view.a, bb = bd ? bd.b2 : view.b, lt = view.lt;
+      const pend = Edit.pendingLine(ln.id) || view.words.some((x) => x.pending);
+      const x0 = t2x(ba), x1 = t2x(bb), ww = Math.max(2, x1 - x0 - 1);
       const row = M.rowOfLine(ln), y = top + row * LROW, bh = LROW - 6;
       const key = M.lineKey.get(ln.id), col = M.keyColour(key);
       const conf = ln.conf == null ? 1 : ln.conf;
@@ -300,45 +304,75 @@ LANES.push({
       const hasWords = pxs > WORD_PXS && (M.wordsByLine.get(ln.id) || []).length;
       const label = fitText(c, ln.text, ww - 6);
       if (label) c.fillText(label, Math.max(x0, 0) + 4, y + (hasWords ? 9 : bh / 2));
-      // words: drag a word to move it, drag its right edge to change its length, click it to select it. Words are
-      // grabbable whenever they are drawn; while dragged, the word is drawn where it will go.
+      // words (D83): click selects, Ctrl+click adds, Shift+click selects a range; drag moves the selection, the right edge
+      // changes a word's length. A word never leaves its bar; the bar's edges stretch it. While dragged, words are drawn
+      // where they will go.
       if (hasWords) {
-        const dlt = lt - ln.t;
         c.font = FONT_S;
-        for (const wd of M.wordsByLine.get(ln.id)) {
-          const pos = Edit.wordShown(wd, dlt);
-          const dr = E.wordDrag && E.wordDrag.id === wd.id ? E.wordDrag : null;
-          const wt = dr ? dr.t : pos.t, wdd = dr ? dr.d : pos.d;
+        const dr = E.wordDrag && !E.wordDrag.click ? E.wordDrag : null;
+        for (const x of view.words) {
+          const wd = x.w;
+          let wt = x.t, wdd = x.d;
+          if (bd) { const st = L.stretch(x.t, x.d, view.a, view.b, bd.a2, bd.b2); wt = st.t; wdd = st.d; }
+          const g = dr && dr.base[wd.id];
+          if (g) { if (dr.mode === 'move') wt = g.t + dr.delta; else wdd = Math.max(0.02, g.d + dr.delta); }
           const wx0 = t2x(wt), wx1 = t2x(wt + (wdd || 0.1));
           if (wx1 < 0 || wx0 > w) continue;
           const wc = wd.conf == null ? 1 : wd.conf;
-          const sel = SEL.wordId === wd.id;
-          c.fillStyle = rgba(dr || pos.pending ? T.edit : '#ffffff', dr ? 0.9 : 0.18 + 0.4 * wc);
-          c.fillRect(wx0, y + 16, Math.max(1.5, wx1 - wx0 - 1), sel || dr ? 5 : 3);
-          if (sel && !dr) { c.strokeStyle = T.edit; c.lineWidth = 1; c.strokeRect(wx0 - 0.5, y + 12.5, Math.max(2, wx1 - wx0), bh - 13); }
-          if (wx1 - wx0 > 14) { c.fillStyle = dr || sel ? T.text : T.dim; const t = fitText(c, wd.text, wx1 - wx0 - 2); if (t) c.fillText(t, wx0 + 1, y + 27); }
+          const sel = SEL.words.has(wd.id);
+          c.fillStyle = rgba(g || x.pending ? T.edit : '#ffffff', g ? 0.9 : 0.18 + 0.4 * wc);
+          c.fillRect(wx0, y + 16, Math.max(1.5, wx1 - wx0 - 1), sel || g ? 5 : 3);
+          if (sel && !g) { c.strokeStyle = T.edit; c.lineWidth = 1; c.strokeRect(wx0 - 0.5, y + 12.5, Math.max(2, wx1 - wx0), bh - 13); }
+          if (splits.has(wd.id)) { c.save(); c.strokeStyle = T.edit; c.lineWidth = 1.5; c.setLineDash([3, 2]); c.beginPath(); c.moveTo(wx0 - 1, y - 2); c.lineTo(wx0 - 1, y + bh + 2); c.stroke(); c.restore(); }
+          if (wx1 - wx0 > 14) { c.fillStyle = g || sel ? T.text : T.dim; const t = fitText(c, wd.text, wx1 - wx0 - 2); if (t) c.fillText(t, wx0 + 1, y + 27); }
           if (V.mode !== 'edit') continue;
-          const tip = () => `${wd.id} "${wd.text}"  ${fmtTime(wt, 3)}  length ${Math.round((wdd || 0) * 1000)} ms  conf ${wc.toFixed(2)}\nDrag to move it, drag its right edge to change its length, click to select it`;
-          // anchor = where the word (or its end) was grabbed, so it follows the pointer without a jump
-          const begin = (mode) => (t) => { E.wordDrag = { id: wd.id, line: ln.id, mode, t: wt, d: wdd || 0.1, t0: wt, d0: wdd || 0.1, anchor: mode === 'move' ? t - wt : t - (wt + (wdd || 0.1)) }; requestDraw('lyrics'); };
+          const tip = () => `${wd.id} "${wd.text}"  ${fmtTime(wt, 3)}  length ${Math.round((wdd || 0) * 1000)} ms  conf ${wc.toFixed(2)}\nClick: select · Ctrl+click: add · Shift+click: range · drag: move · right edge: length`;
+          const begin = (mode) => (t, e) => {
+            if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) { E.wordDrag = { click: e.shiftKey ? 'range' : 'toggle', id: wd.id, line: ln.id }; return; }
+            const ids = mode === 'move' && SEL.words.has(wd.id) ? [...SEL.words] : [wd.id];
+            const items = Edit.wordsInBars(ids);
+            const base = {};
+            for (const it of items) base[it.w.id] = { t: it.t, d: it.d };
+            const me = items.find((it) => it.w.id === wd.id) || { t: wt, d: wdd, a: ba, b: bb };
+            E.wordDrag = { id: wd.id, line: ln.id, mode, ids, items, base, delta: 0, anchor: t, t0: me.t, d0: me.d, me };
+            requestDraw('lyrics');
+          };
+          const drag = (t) => {
+            const d = E.wordDrag;
+            if (!d || d.click) return;
+            const raw = t - d.anchor;
+            d.delta = d.mode === 'move' ? L.clampGroupDelta(d.items, raw) : Math.max(0.02 - d.d0, Math.min(raw, d.me.b - (d.me.t + d.me.d)));
+            requestDraw('lyrics');
+          };
           const wpx = wx1 - wx0, hw = Math.max(10, wpx);
-          lane.hits.push({ wid: wd.id, x: wx0 - (hw - wpx) / 2, y: y + 11, w: hw, h: bh - 11, drag: true, cursor: 'ew-resize', tip, onDragStart: begin('move'),
-            onDrag: (t) => { const d = E.wordDrag; if (!d) return; d.t = Math.max(0, t - d.anchor); requestDraw('lyrics'); }, onDragEnd: wordDragEnd });
-          if (wpx >= 14) lane.hits.push({ wid: wd.id, x: wx1 - 5, y: y + 11, w: 8, h: bh - 11, drag: true, cursor: 'col-resize', tip, onDragStart: begin('length'),
-            onDrag: (t) => { const d = E.wordDrag; if (!d) return; d.d = Math.max(0.02, t - d.anchor - d.t0); requestDraw('lyrics'); }, onDragEnd: wordDragEnd });
+          lane.hits.push({ wid: wd.id, x: wx0 - (hw - wpx) / 2, y: y + 11, w: hw, h: bh - 11, drag: true, cursor: 'ew-resize', tip, onDragStart: begin('move'), onDrag: drag, onDragEnd: wordDragEnd });
+          if (wpx >= 14) lane.hits.push({ wid: wd.id, x: wx1 - 5, y: y + 11, w: 8, h: bh - 11, drag: true, cursor: 'col-resize', tip, onDragStart: begin('length'), onDrag: drag, onDragEnd: wordDragEnd });
         }
       }
-      const hit = { x: x0, y, w: ww, h: bh, tip: () => lineTip(ln), onClick: () => { selectLine(ln.id); seek(ln.t); } };
+      // the bar's left and right edges stretch it (its words keep their places in it)
+      if (V.mode === 'edit' && hasWords && x1 - x0 >= 24) {
+        for (const side of ['a', 'b']) {
+          const ex = side === 'a' ? x0 : x1;
+          // inward strips: where two bars touch, the left half of the boundary is the left bar's end, the right half the next bar's start
+          edges.push({ x: side === 'a' ? ex : ex - 6, y, w: 6, h: bh, drag: true, cursor: 'col-resize',
+            tip: () => `${ln.id}: drag to stretch the bar from its ${side === 'a' ? 'start' : 'end'}; its words keep their places in it`,
+            onDragStart: (t) => { E.barDrag = { id: ln.id, side, a: view.a, b: view.b, a2: view.a, b2: view.b, anchor: t - (side === 'a' ? view.a : view.b) }; },
+            onDrag: (t) => { const d = E.barDrag; if (!d) return; const v = t - d.anchor; if (d.side === 'a') d.a2 = Math.max(0, Math.min(v, d.b - 0.1)); else d.b2 = Math.max(v, d.a + 0.1); requestDraw('lyrics'); },
+            onDragEnd: (_t, moved) => { const d = E.barDrag; E.barDrag = null; if (d && moved && (Math.abs(d.a2 - d.a) > 0.0005 || Math.abs(d.b2 - d.b) > 0.0005)) Edit.stretchLine(ln.id, d.a2, d.b2); requestDraw('lyrics'); } });
+        }
+      }
+      const hit = { x: x0, y, w: ww, h: bh, tip: () => lineTip(ln), onClick: () => { selectLine(ln.id); seek(lt); } };
       if (V.mode === 'edit') Object.assign(hit, { drag: true, cursor: 'grab',
-        onDragStart: () => { selectLine(ln.id); E.lineDrag = { id: ln.id, t: ln.t, t0: ln.t, anchor: null }; },
-        onDrag: (t) => { const d = E.lineDrag; if (d.anchor == null) d.anchor = t - d.t0; d.t = Math.max(0, t - d.anchor); requestDraw('lyrics'); },
-        onDragEnd: (t, moved) => { const d = E.lineDrag; E.lineDrag = null; if (moved) Edit.setLineTime(ln.id, d.t); else { seek(ln.t); } requestDraw('lyrics'); } });
+        onDragStart: (t) => { selectLine(ln.id); E.lineDrag = { id: ln.id, t: lt, t0: lt, anchor: t - lt }; },
+        onDrag: (t) => { const d = E.lineDrag; if (!d) return; d.t = Math.max(0, t - d.anchor); requestDraw('lyrics'); },
+        onDragEnd: (t, moved) => { const d = E.lineDrag; E.lineDrag = null; if (!d) return; if (moved) Edit.setLineTime(ln.id, d.t); else seek(lt); requestDraw('lyrics'); } });
       lane.hits.unshift(hit);
     }
-    // the selected word is grabbed first where words overlap (a word moved onto its neighbour stays reachable)
-    if (SEL.wordId) {
-      const top = lane.hits.filter((x) => x.wid === SEL.wordId);
-      if (top.length) lane.hits = lane.hits.filter((x) => x.wid !== SEL.wordId).concat(top);
+    lane.hits.push(...edges);
+    // selected words are grabbed first where words overlap (a word moved onto its neighbour stays reachable)
+    if (SEL.words.size) {
+      const top = lane.hits.filter((x) => x.wid && SEL.words.has(x.wid));
+      if (top.length) lane.hits = lane.hits.filter((x) => !(x.wid && SEL.words.has(x.wid))).concat(top);
     }
     // voice row labels
     if (M.voices.length > 1) {
@@ -353,10 +387,11 @@ function wordDragEnd(_t, moved) {
   const d = E.wordDrag;
   E.wordDrag = null;
   if (!d) return;
-  Edit.selectWord(d.id, d.line);
-  if (!moved) seek(d.t0);
-  else if (d.mode === 'move' && Math.abs(d.t - d.t0) > 0.0005) Edit.setWordTime(d.id, d.t);
-  else if (d.mode === 'length' && Math.abs(d.d - d.d0) > 0.0005) Edit.setWordDur(d.id, d.d);
+  if (d.click) { Edit.selectWord(d.id, d.line, d.click); return; }
+  if (!moved) { Edit.selectWord(d.id, d.line, 'only'); seek(d.t0); requestDraw('lyrics'); return; }
+  Edit.selectWord(d.id, d.line, 'keep');
+  if (d.mode === 'move' && Math.abs(d.delta) > 0.0005) Edit.moveWords(d.ids, d.delta);
+  else if (d.mode === 'length' && Math.abs(d.delta) > 0.0005) Edit.setWordDur(d.id, d.d0 + d.delta);
   requestDraw('lyrics');
 }
 function lineTip(ln) {

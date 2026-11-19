@@ -87,6 +87,55 @@ const MVHLOGIC = (function () {
     if (!out.pins.length) delete out.pins;
     return out;
   }
+  // ---------------------------------------------------------------------------------- bars, groups, splits (D83)
+  /** the bar a line's words live in: its analysed span joined with where its words show now, [a, b] */
+  function barOf(lineT, lineD, words) {
+    let a = lineT, b = lineT + Math.max(0.05, lineD || 0);
+    for (const w of words || []) { a = Math.min(a, w.t); b = Math.max(b, w.t + w.d); }
+    return [a, b];
+  }
+  /** the largest move <= |delta| that keeps every word inside its bar: items [{t, d, a, b}] (a, b = the bar) */
+  function clampGroupDelta(items, delta) {
+    let lo = -Infinity, hi = Infinity;
+    for (const x of items) { lo = Math.max(lo, x.a - x.t); hi = Math.min(hi, x.b - (x.t + x.d)); }
+    if (lo > hi) return 0;
+    return Math.min(Math.max(delta, Math.min(0, lo)), Math.max(0, hi));
+  }
+  /** a word of a bar stretched from [a, b] to [a2, b2] */
+  function stretch(t, d, a, b, a2, b2) {
+    const s = (b2 - a2) / Math.max(1e-6, b - a);
+    return { t: r3(a2 + (t - a) * s), d: r3(Math.max(0.02, d * s)) };
+  }
+  /** the word's place in its source line, from its stable reference r12w4 -> 4 (null without one) */
+  function refWord(ref) {
+    const m = /^r(\d+)w(\d+)$/.exec(ref || '');
+    return m ? { index: +m[1], k: +m[2] } : null;
+  }
+  /** overrides.lyrics.splits with word positions added to / removed from the split of source line `index` */
+  function editSplits(splits, index, key, add, remove) {
+    const out = (splits || []).filter((s) => s.index !== index);
+    const cur = (splits || []).find((s) => s.index === index);
+    const at = new Set((cur && cur.at) || []);
+    for (const k of add || []) if (k > 0) at.add(k);
+    for (const k of remove || []) at.delete(k);
+    if (at.size) out.push(Object.assign({ index, at: [...at].sort((x, y) => x - y) }, key ? { key } : {}));
+    return out.sort((x, y) => x.index - y.index);
+  }
+  /** every override key the lyrics stage applies to a line: its bar reference, the whole source line, its id */
+  function lineKeys(line) {
+    const ks = [];
+    if (line.ref) { ks.push(line.ref); const whole = line.ref.replace(/p\d+$/, ''); if (whole !== line.ref) ks.push(whole); }
+    const old = line.legacy_id || line.id;   // an id key means the numbering before any split
+    if (!ks.includes(old)) ks.push(old);
+    return ks;
+  }
+  /** the id key of a word in the numbering before any split (what an old correction was written against) */
+  function legacyWordKey(word, line) {
+    const m = /\.(\d+)$/.exec(word.id);
+    if (!line || !m) return word.id;
+    const k = (line.source_word || 0) + (+m[1]);
+    return (line.legacy_id || line.id) + '.' + String(k).padStart(2, '0');
+  }
   /** where a word shows in the viewer. An override with an absolute start (t) is the word's final time (the lyrics
    *  stage applies it after the line nudges); otherwise the analysis time, moved with its line's pending shift, plus a
    *  pending relative shift (dt). A length (d) from the override wins. */
@@ -264,7 +313,7 @@ const MVHLOGIC = (function () {
     return state.kind === 'suggestion' && !!accepted && t !== '';
   }
 
-  return { wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  return { barOf, clampGroupDelta, stretch, refWord, editSplits, lineKeys, legacyWordKey, wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

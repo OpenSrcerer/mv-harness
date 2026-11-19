@@ -437,6 +437,13 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
         align_info["pins_moved_lines"] = _enforce_pins(lines, pins, n_src)
     for x in lines:
         _finalise_line(x, 0.0 if x.get("pinned") else offset, env, sustain_floor, kind, mode=align_info.get("mode"))
+    # D83: the ids as numbered without splits (what an id key in overrides.json means), the splits of a source line
+    # into bars, then stable references for every line and word
+    _assign_legacy_ids(lines)
+    lines = _apply_splits(lines, ctx.overrides, warnings)
+    if any(x.get("part") is not None for x in lines):
+        align_info["split_lines"] = len({x["order"] for x in lines if x.get("part") is not None})
+    _assign_refs(lines)
     _apply_overrides(lines, ctx.overrides, warnings)
     lines = [x for x in lines if x["wt"]]
     lines.sort(key=lambda x: (round(x["wt"][0], 3), x["order"]))
@@ -508,6 +515,8 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             wconf.append(c)
             wd = {"id": f"{lid}.{wi + 1:02d}", "line_id": lid, "t": round(x["wt"][wi], 6), "d": round(max(0.02, x["wd"][wi]), 6),
                   "text": w, "conf": c}
+            if x.get("ref"):
+                wd["ref"] = f"r{x['order']}w{x['word0'] + wi}"   # D83: stable: the word's place in the lyric source
             fl = []
             if r is None:
                 fl.append("interpolated")
@@ -531,7 +540,10 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             "timing_source": x["timing_source"],
             # D82: what a pin of this line is keyed by (its position in the lyric source and a hash of its text)
             "source_index": int(x["order"]) if x["origin"] in ("source", "transcribed") else None,
-            "pin_key": _pin_key(x["text"]), "pinned": bool(x.get("pinned")),
+            "pin_key": _pin_key(x["source_text"] if x.get("source_text") else x["text"]), "pinned": bool(x.get("pinned")),
+            # D83: stable reference (r<source index>, p<part> for a split bar) and the first word's place in the source line
+            "ref": x.get("ref"), "source_part": x.get("part"), "source_word": x.get("word0", 0) if x.get("ref") else None,
+            "legacy_id": x.get("legacy_id"),
         })
     n_lines_out = len(out_lines)
     # M5-D52: lead-vocal activity after the last line (Jeremy's 217-300 s outro is wordless singing, SPIKE
@@ -1200,29 +1212,141 @@ def _finalise_line(x: dict[str, Any], offset: float, env: np.ndarray, floor: flo
     x["wp"] = list(x.get("src_wp") or [None] * k) if kind == "transcribed" else [None] * k
 
 
+#: per-word lists of an internal line (cut together when a line is split)
+_PER_WORD = ("words", "toks", "wres", "wt", "wd", "src_wt", "src_wp", "wp")
+
+
+def _split_points(ovr: dict[str, Any], lines: list[dict[str, Any]], n_src: int, warnings: list[str]) -> dict[int, list[int]]:
+    """overrides ``lyrics.splits`` [{index, at: [k, ...], key?}] -> {source line index: sorted word positions}. A bar
+    starts at each word position k (0-based place of the word in the source line, 1 <= k < number of words). An entry
+    whose index is out of range or whose key no longer matches the text is ignored with a warning."""
+    out: dict[int, list[int]] = {}
+    bad = 0
+    for r in ovr.get("lyrics.splits") or []:
+        try:
+            i = int(r["index"])
+            at = sorted({int(k) for k in r.get("at") or []})
+        except (KeyError, TypeError, ValueError):
+            bad += 1
+            continue
+        if not (0 <= i < n_src) or (r.get("key") and r["key"] != _pin_key(lines[i]["text"])):
+            bad += 1
+            continue
+        n = len(lines[i]["words"])
+        at = [k for k in at if 0 < k < n]
+        if at:
+            out[i] = sorted(set(out.get(i, [])) | set(at))
+    if bad:
+        warnings.append(f"{bad} lyric split(s) no longer match the lyric text (it changed since they were set); ignored")
+    return out
+
+
+def _apply_splits(lines: list[dict[str, Any]], ovr: dict[str, Any], warnings: list[str]) -> list[dict[str, Any]]:
+    """D83: a source line split by the user becomes one line per part ('bars'). Each part keeps its words' timing,
+    confidence and flags; ``part`` is its 0-based number and ``word0`` the place of its first word in the source line.
+    Lines the harness added (repeats, ASR-only lines) are never split."""
+    n_src = sum(1 for x in lines if x["origin"] in ("source", "transcribed"))
+    pts = _split_points(ovr, lines, n_src, warnings)
+    out: list[dict[str, Any]] = []
+    for i, x in enumerate(lines):
+        x.setdefault("word0", 0)
+        at = pts.get(i) if x["origin"] in ("source", "transcribed") else None
+        if not at or not x.get("wt"):
+            out.append(x)
+            continue
+        cuts = [0, *at, len(x["words"])]
+        for p_, (a, b) in enumerate(zip(cuts, cuts[1:])):
+            y = dict(x)
+            for f in _PER_WORD:
+                if isinstance(x.get(f), list) and len(x[f]) == len(x["words"]):
+                    y[f] = x[f][a:b]
+            y["text"] = " ".join(y["words"])
+            y["source_text"] = x["text"]
+            y["part"], y["word0"] = p_, a
+            y["pinned"] = bool(x.get("pinned")) and p_ == 0
+            out.append(y)
+    return out
+
+
+def _assign_legacy_ids(lines: list[dict[str, Any]]) -> None:
+    """``legacy_id``: the line id as numbered after the alignment and before any split or correction (lines sorted by
+    start time). An id key in overrides.json (L012, L012.03) means this numbering, so a split added later never moves
+    an older correction to another line; every bar of a split line keeps its source line's legacy id."""
+    order = sorted(range(len(lines)), key=lambda i: (round(lines[i]["wt"][0], 3) if lines[i]["wt"] else 1e9, lines[i]["order"]))
+    for n, i in enumerate(order):
+        lines[i]["legacy_id"] = f"L{n + 1:03d}"
+
+
+def _assign_refs(lines: list[dict[str, Any]]) -> None:
+    """D83: ``ref`` = r<source index> (p<part> for a split bar): the line's place in the lyric source, which does not
+    change when lines are moved, split or renumbered. Lines the harness added have none."""
+    for x in lines:
+        if x["origin"] in ("source", "transcribed"):
+            x["ref"] = f"r{x['order']}" + (f"p{x['part']}" if x.get("part") is not None else "")
+        else:
+            x["ref"] = None
+
+
+_LREF = re.compile(r"^r(\d+)(?:p(\d+))?$")
+_WREF = re.compile(r"^r(\d+)w(\d+)$")
+
+
 def _apply_overrides(lines: list[dict[str, Any]], ovr: dict[str, Any], warnings: list[str]) -> None:
-    """lyrics.lines {L001: {dt}} and lyrics.words {L001.03: {t, d, dt}}, keyed by the ids this run assigns
-    (lines sorted by start time). Applied after alignment, before the exports."""
+    """lyrics.lines {L001 | r12 | r12p1: {dt}} and lyrics.words {L001.03 | r12w4: {t, d, dt}}, applied after
+    alignment, before the exports. ``L`` ids are the ones this run assigns (lines sorted by start time; kept for files
+    written by hand); ``r`` references (D83) are stable: r12 is source line 12 (every bar of it when it is split),
+    r12p1 its second bar, r12w4 its fifth word wherever that word is now."""
     lo = ovr.get("lyrics.lines") or {}
     wo = ovr.get("lyrics.words") or {}
     if not lo and not wo:
         return
-    order = sorted(range(len(lines)), key=lambda i: (round(lines[i]["wt"][0], 3) if lines[i]["wt"] else 1e9, lines[i]["order"]))
-    ids = {f"L{n + 1:03d}": i for n, i in enumerate(order)}
+    if any("legacy_id" not in x for x in lines):
+        _assign_legacy_ids(lines)
+    ids: dict[str, list[int]] = {}
+    for i, x in enumerate(lines):
+        ids.setdefault(x["legacy_id"], []).append(i)
     miss = 0
+
+    def by_ref(key: str) -> list[int]:
+        m = _LREF.match(key)
+        if not m:
+            return []
+        src, part = int(m.group(1)), m.group(2)
+        return [i for i, x in enumerate(lines) if x.get("ref") and x["order"] == src
+                and (part is None or x.get("part") == int(part) or (x.get("part") is None and part == "0"))]
+
+    def word_at(key: str) -> tuple[int, int] | None:
+        m = _WREF.match(key)
+        if m:
+            src, k = int(m.group(1)), int(m.group(2))
+            for i, x in enumerate(lines):
+                if x.get("ref") and x["order"] == src and x["word0"] <= k < x["word0"] + len(x["wt"]):
+                    return i, k - x["word0"]
+            return None
+        m = re.match(r"^(L\d{3,})\.(\d{2,})$", key)
+        k = int(m.group(2)) - 1 if m else -1
+        for i in ids.get(m.group(1), []) if m else []:
+            x = lines[i]
+            if x["word0"] <= k < x["word0"] + len(x["wt"]):
+                return i, k - x["word0"]
+        return None
+
     for lid, v in sorted(lo.items()):
-        i = ids.get(lid)
-        if i is None:
+        targets = by_ref(lid) if lid.startswith("r") else ids.get(lid, [])
+        if not targets:
             miss += 1
             continue
         dt = float(v.get("dt", 0.0))
-        lines[i]["wt"] = [t + dt for t in lines[i]["wt"]]
-        lines[i]["timing_source"] = "user"
+        for i in targets:
+            lines[i]["wt"] = [t + dt for t in lines[i]["wt"]]
+            lines[i]["timing_source"] = "user"
     for wid, v in sorted(wo.items()):
-        m = re.match(r"^(L\d{3,})\.(\d{2,})$", wid)
-        i = ids.get(m.group(1)) if m else None
-        k = int(m.group(2)) - 1 if m else -1
-        if i is None or not (0 <= k < len(lines[i]["wt"])):
+        hit = word_at(wid)
+        if hit is None:
+            miss += 1
+            continue
+        i, k = hit
+        if not (0 <= k < len(lines[i]["wt"])):
             miss += 1
             continue
         if "t" in v:

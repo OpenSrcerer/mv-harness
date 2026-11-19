@@ -81,7 +81,13 @@ inside such an app are invisible to a normal terminal.
    lines, map voices to characters, pin cues. **Re-run** repeats only the stages your edit affects.
 
    *One word off?* Zoom in until the words show under the line, then drag the word (its right edge changes its
-   length), or click it and use the buttons in the Edit tab or the `<` / `>` keys (10 ms steps).
+   length), or click it and use the buttons in the Edit tab or the `<` / `>` keys (10 ms steps). Ctrl+click or
+   Shift+click selects several words to move together. Words stay inside their line's bar; drag the bar's edge to
+   stretch it.
+
+   *Two singers merged into one voice?* Select the words the other singer sings, press **move these words to a new
+   bar**, re-run, then pick **+ new voice** under "sung by" for the new bar. A voice that should not exist can be
+   merged into another from its card under "Voices → characters".
 
    *Lyrics out of sync in one part?* Select the first line of that part, put the playhead where it really starts and
    press **pin start at playhead** (or **pin at start of** the section). Do the same for each pass, for example each

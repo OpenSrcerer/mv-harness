@@ -449,6 +449,10 @@ MODELS_LOCK = obj({
         "generated_by": string(), "models_dir": string("models root, e.g. %LOCALAPPDATA%\\mvh\\models")},
     desc="models.lock.json (repo root): the only list of downloadable model files")
 
+#: D83: override keys for lines and words: the ids of this run, or stable references to the lyric source
+LINE_KEY = r"^(L\d{3,}|r\d+(p\d+)?)$"
+WORD_KEY = r"^(L\d{3,}\.\d{2,}|r\d+w\d+)$"
+
 OVERRIDES = obj(opt={
     "schema": {"const": "mvh/overrides"}, "schema_version": SEMVER,
     "rhythm": obj(opt={"beat_offset_s": num("s", "shift of the whole beat grid"), "bpm": num("BPM", "forced global tempo", minimum=1),
@@ -456,8 +460,14 @@ OVERRIDES = obj(opt={
     "structure": obj(opt={"boundaries": arr(obj({"t": num("s"), "action": string(enum=["add", "remove", "move"])},
                                                 opt={"to_t": num("s")}), "edits anchored by time"),
                           "labels": arr(obj({"t": num("s", "any time inside the section"), "label": string(pattern=r"^[a-z][a-z-]*$")}))}),
-    "lyrics": obj(opt={"lines": mapof(obj({"dt": num("s")}), "line id -> nudge", keys=ID_KINDS["line"].regex),
-                       "words": mapof(obj(opt={"t": num("s"), "d": D, "dt": num("s")}), "word id -> timing", keys=ID_KINDS["word"].regex),
+    # D83: line and word keys are ids (L012, L012.03) or stable references to the lyric source (r11, r11p1, r11w2)
+    "lyrics": obj(opt={"lines": mapof(obj({"dt": num("s")}), "line id or reference -> nudge", keys=LINE_KEY),
+                       "words": mapof(obj(opt={"t": num("s"), "d": D, "dt": num("s")}), "word id or reference -> timing", keys=WORD_KEY),
+                       "splits": arr(obj({"index": integer("0-based position of the line in the lyric source", minimum=0),
+                                          "at": arr(integer("0-based place in the source line of the word that starts a new bar",
+                                                            minimum=1), min_items=1)},
+                                         opt={"key": string("lyrics.json lines[].pin_key: ignored when the text changed")}),
+                                     "split a lyric line into bars (D83)"),
                        # D82: fixed points for the alignment, keyed by the line's position in the lyric source
                        "pins": arr(obj({"index": integer("0-based position of the line in the lyric source "
                                                          "(lyrics.json lines[].source_index)", minimum=0),
@@ -466,14 +476,15 @@ OVERRIDES = obj(opt={
                                                           "at index changed"),
                                             "line": idref("line")}),
                                    "line start pins: the aligner places and snaps the other lines between them")}),
-    "voices": obj(opt={"lines": mapof(idref("voice"), "line id -> voice id", keys=ID_KINDS["line"].regex)}),
+    "voices": obj(opt={"lines": mapof(idref("voice"), "line id or reference -> voice id (a new id adds a voice)", keys=LINE_KEY),
+                       "merge": mapof(idref("voice"), "removed voice -> the voice its spans go to (D83)", keys=ID_KINDS["voice"].regex)}),
     "cues": obj(opt={"pinned": arr(obj({"t": num("s")}, opt={"d": D, "note": string()}))}),
 }, desc="overrides.json: user corrections (viewer edit mode or by hand); keys map to StageSpec.override_keys")
 OVERRIDE_KEYS = {
     "rhythm.beat_offset_s": "rhythm", "rhythm.bpm": "rhythm", "rhythm.downbeat_phase": "rhythm",
     "structure.boundaries": "structure", "structure.labels": "structure",
-    "lyrics.lines": "lyrics", "lyrics.words": "lyrics", "lyrics.pins": "lyrics", "voices.lines": "voices",
-    "cues.pinned": "cues",
+    "lyrics.lines": "lyrics", "lyrics.words": "lyrics", "lyrics.pins": "lyrics", "lyrics.splits": "lyrics",
+    "voices.lines": "voices", "voices.merge": "voices", "cues.pinned": "cues",
 }
 
 STAGE_RESULT = obj({
@@ -588,9 +599,17 @@ FILE_SCHEMAS: dict[str, dict] = {
             "source_index": nullable(integer("0-based position in the lyric source; null for a line the harness added",
                                              minimum=0)),
             "pin_key": string("hash of the normalised text"), "pinned": boolean("its start is pinned by the user"),
+            # D83
+            "ref": nullable(string("stable reference: r<source index>, r<source index>p<part> for a split bar; null for a "
+                                   "line the harness added")),
+            "source_part": nullable(integer("0-based bar of a split source line", minimum=0)),
+            "source_word": nullable(integer("place of the first word in the source line", minimum=0)),
+            "legacy_id": string("the line id as numbered before any split or correction: what an id key in "
+                                "overrides.json (L012, L012.03) refers to"),
         })),
         "words": arr(obj({"id": idref("word"), "line_id": idref("line"), "t": T, "d": D, "text": string(), "conf": P01},
-                         opt={"flags": arr(string())})),
+                         opt={"flags": arr(string()),
+                              "ref": string("D83: stable reference r<source index>w<place in the source line>")})),
     }),
     "files/meaning": obj({
         "schema": {"const": "mvh/files/meaning"}, "schema_version": SEMVER,

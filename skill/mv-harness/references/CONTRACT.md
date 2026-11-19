@@ -1020,8 +1020,10 @@ envs[], files[{path, url, revision, sha256, size}], licence, used_by[]}`), and t
 (`mvh/envelope/stage_result`). Override keys (dotted `<section>.<field>`; a stage declares the ones it reads in `override_keys`):
 `rhythm.beat_offset_s`, `rhythm.bpm`, `rhythm.downbeat_phase` (rhythm, applied after tracking and before fusion);
 `structure.boundaries`, `structure.labels` (structure; anchored by **time**, since section IDs move); `lyrics.lines`, `lyrics.words`
-(lyrics; keyed by line/word id); `lyrics.pins` (lyrics; fixed line starts, keyed by the line's position in the lyric source, D82);
-`voices.lines` (voices; line id -> voice id); `cues.pinned` (cues). Singer assignments made in the
+(lyrics; keyed by line/word id or by a stable reference r12 / r12p1 / r12w4, D83); `lyrics.pins` (lyrics; fixed line starts, keyed
+by the line's position in the lyric source, D82); `lyrics.splits` (lyrics; a line cut into bars, D83); `voices.lines` (voices; line id
+or reference -> voice id, a new id adds a voice); `voices.merge` (voices; a removed voice -> the voice that takes its lines, D83);
+`cues.pinned` (cues). Singer assignments made in the
 viewer go to `meaning/intent.md` (an external input of voices and meaning).
 
 ---
@@ -1667,3 +1669,13 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
     warning) when `key` no longer matches the text at `index` or when it is not later than the pin of an earlier line.
   - **lyrics.json (additive).** `lines[].source_index` (null for a line the harness added), `lines[].pin_key`,
     `lines[].pinned`.
+- **D83 Lyric bars, split bars and user voices (user decision UD5; lyrics 1.3.0, voices 1.4.0, viewer 1.4.0).** Details:
+  docs/contract/decisions/UD5.md.
+  - **Stable references.** lyrics.json `lines[].ref` = `r<source index>` (`r<index>p<part>` for a split bar; null for a line
+    the harness added), `words[].ref` = `r<source index>w<place in the source line>`. `lyrics.lines`, `lyrics.words` and
+    `voices.lines` accept these keys as well as ids; they stay with the right line when lines are moved, split or renumbered.
+  - **Splits.** `lyrics.splits` = `[{index, at: [k...], key?}]` cuts source line `index` into bars at word places `k`; each bar
+    is a line of its own (`source_part`, `source_word`) and keeps its words' timing.
+  - **Voices.** A voice in `voices.lines` that the clustering did not find is a new voice; `voices.merge` = `{V3: V1}` removes
+    V3 (its spans go to V1).
+  - **Viewer.** Words stay inside their bar; a bar's edges stretch it; words can be selected together and moved together.

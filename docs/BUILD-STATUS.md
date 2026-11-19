@@ -122,6 +122,10 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
     validate, e2e, lib-node and determinism pass; review 22 failed / 400 passed, the same 22 tests as before.
     Pins checked by hand in the viewer on a copy of the song (pin, move, remove, Re-run).
 
+- **UD5, lyric bars, word groups, split bars, user voices: APPROVED and built (2026-11-19, by the orchestrator, no
+  agents).** CONTRACT D83, docs/contract/decisions/UD5.md. lyrics 1.3.0, voices 1.4.0, viewer 1.4.0. Overrides are
+  keyed by stable references to the lyric source (r12, r12p1, r12w4) so splits and moves cannot renumber them.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.

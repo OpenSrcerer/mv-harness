@@ -121,20 +121,194 @@ const Edit = (() => {
   function unpinLine(index, label) {
     return commit(`unpin ${label}`, (o) => { o.lyrics = L.removeLinePin(o.lyrics, index); });
   }
+  // ---- line and word keys (D83): overrides are written under stable references (r12, r12p1, r12w4) when the line
+  // has one, so they stay with the right line when lines are moved, split or renumbered; old id keys still count
+  const lineById = (id) => V.model.lines.find((l) => l.id === id);
+  const sumDt = (map, ks) => ks.reduce((s, k) => s + (((map || {})[k] || {}).dt || 0), 0);
   function lineShift(id) {
-    const ln = V.model.lines.find((l) => l.id === id);
-    const pp = ln ? pendingPin(ln) : null;
+    const ln = lineById(id);
+    if (!ln) return 0;
+    const pp = pendingPin(ln);
     if (pp) return pp.t - ln.t;   // a pending pin shows the line where it will start
-    const o = ((ovr().lyrics || {}).lines || {})[id];
-    const a = (appliedLines()[id] || {}).dt || 0;
-    return (o ? o.dt : 0) - a;
+    const ks = L.lineKeys(ln);
+    return sumDt((ovr().lyrics || {}).lines, ks) - sumDt(appliedLines(), ks);
   }
   function pendingLine(id) { return Math.abs(lineShift(id)) > 0.0004; }
+  const oldWordKey = (w) => L.legacyWordKey(w, lineById(w.line_id));
+  const wordKey = (w) => w.ref || oldWordKey(w);
+  const wordEntry = (w, map) => (map ? (w.ref && map[w.ref]) || map[oldWordKey(w)] || null : null);
   function pendingWord(id) {
-    const o = ((ovr().lyrics || {}).words || {})[id];
+    const w = wordById(id);
+    if (!w) return null;
+    const o = wordEntry(w, (ovr().lyrics || {}).words);
     if (!o) return null;
-    const a = appliedWords()[id];
-    return J(o) === J(a) ? null : o;
+    return J(o) === J(wordEntry(w, appliedWords())) ? null : o;
+  }
+  /** set fields of a word's override (under its stable key; an old id key is folded in) */
+  function putWord(o, w, patch) {
+    const ws = Object.assign({}, (o.lyrics = o.lyrics || {}).words || {});
+    const k = wordKey(w), old = oldWordKey(w);
+    const e = Object.assign({}, ws[old] || {}, ws[k] || {}, patch);
+    if (k !== old) delete ws[old];
+    for (const f of Object.keys(e)) { if (e[f] == null) delete e[f]; else e[f] = L.r3(e[f]); }
+    delete e.dt;   // an absolute start replaces a relative shift
+    ws[k] = e;
+    o.lyrics.words = ws;
+  }
+  /** where a line and its words show now: {lt, a, b, words: [{w, t, d, pending}]}; `lt` moves it (a line drag) */
+  function lineView(ln, lt) {
+    const sh = lineShift(ln.id);
+    const extra = lt != null ? lt - (ln.t + sh) : 0;
+    const words = (V.model.wordsByLine.get(ln.id) || []).map((w) => {
+      const p = wordShown(w, sh);
+      return { w, t: p.t + extra, d: p.d, pending: p.pending };
+    });
+    const [a, b] = L.barOf(ln.t + sh + extra, ln.d, words);
+    return { lt: ln.t + sh + extra, a, b, words };
+  }
+  function setLineTime(id, newT) {
+    const ln = lineById(id);
+    if (!ln) return;
+    const ks = L.lineKeys(ln), k = ks[0];
+    const delta = newT - (ln.t + lineShift(id));
+    return commit(`move ${id} to ${fmtTime(newT, 2)}`, (o) => {
+      const ls = Object.assign({}, (o.lyrics = o.lyrics || {}).lines || {});
+      const want = sumDt(appliedLines(), ks) + (newT - ln.t);   // what the stage should add to this line in total
+      const old = ks[ks.length - 1];
+      if (k !== old && ls[old] && !ln.source_part) { ls[k] = { dt: ((ls[k] || {}).dt || 0) + ls[old].dt }; delete ls[old]; }
+      const dt = L.r3(want - sumDt(ls, ks.filter((x) => x !== k)));
+      if (Math.abs(dt) < 0.0005) delete ls[k]; else ls[k] = { dt };
+      o.lyrics.lines = ls;
+      // words placed by hand have an absolute time: they move with their line
+      for (const w of V.model.wordsByLine.get(id) || []) {
+        const e = wordEntry(w, o.lyrics.words);
+        if (e && e.t != null) putWord(o, w, { t: Math.max(0, e.t + delta) });
+      }
+    });
+  }
+  function nudgeLine(id, dtMs) {
+    const ln = lineById(id);
+    if (!ln) return;
+    return setLineTime(id, ln.t + lineShift(id) + dtMs / 1000);
+  }
+  // ---- single words and groups of words (D83: a word stays inside its bar)
+  let wordIndex = null;
+  const wordById = (id) => {
+    const ws = V.song._get('lyrics').words || [];
+    if (!wordIndex || wordIndex.src !== ws) wordIndex = { src: ws, map: new Map(ws.map((w) => [w.id, w])) };
+    return wordIndex.map.get(id);
+  };
+  /** where a word shows now (see logic.wordPos): {t, d, pending} */
+  function wordShown(w, dlt) {
+    const ov = wordEntry(w, (ovr().lyrics || {}).words);
+    const p = pendingWord(w.id);
+    return Object.assign(L.wordPos(w, ov, p, dlt == null ? lineShift(w.line_id) : dlt), { pending: !!p });
+  }
+  /** [{w, t, d, a, b}] for word ids: where each shows and the bar it must stay in */
+  function wordsInBars(ids) {
+    const out = [];
+    const views = new Map();
+    for (const id of ids) {
+      const w = wordById(id);
+      if (!w) continue;
+      if (!views.has(w.line_id)) { const ln = lineById(w.line_id); if (ln) views.set(w.line_id, lineView(ln)); }
+      const v = views.get(w.line_id);
+      const p = v ? v.words.find((x) => x.w.id === id) : null;
+      if (p) out.push({ w, t: p.t, d: p.d, a: v.a, b: v.b });
+    }
+    return out;
+  }
+  /** move words by `delta` seconds, together; the move is cut so that none leaves its bar */
+  function moveWords(ids, delta, label) {
+    if (!ids.length) return;
+    return commit(label || `move ${ids.length > 1 ? ids.length + ' words' : 'word ' + ids[0]}`, (o) => {
+      const items = wordsInBars(ids);   // evaluated when this save runs: saves queued before it may have moved them
+      const d = L.clampGroupDelta(items, delta);
+      if (Math.abs(d) < 0.0005) { if (Math.abs(delta) >= 0.0005) toast('The words are at the edge of their bar: drag the bar\'s edge to make room'); return; }
+      for (const x of items) putWord(o, x.w, { t: x.t + d });
+    });
+  }
+  function setWordTime(id, t) {
+    const x = wordsInBars([id])[0];
+    if (x) return moveWords([id], t - x.t, `move word ${id} to ${fmtTime(t, 3)}`);
+  }
+  function setWordDur(id, d) {
+    const x = wordsInBars([id])[0];
+    if (!x) return;
+    const nd = Math.max(0.02, Math.min(d, x.b - x.t));
+    if (nd < d - 0.0005) toast('The word would end after its bar: it ends at the bar\'s end');
+    return commit(`word ${id} length ${Math.round(nd * 1000)} ms`, (o) => putWord(o, x.w, { t: x.t, d: nd }));
+  }
+  function nudgeWord(id, ms) { return moveWords(selectedWords(id), ms / 1000, `move ${selectedWords(id).length > 1 ? selectedWords(id).length + ' words' : 'word ' + id} ${ms > 0 ? '+' : ''}${ms} ms`); }
+  function resetWord(id) {
+    const ids = selectedWords(id);
+    return commit(`reset ${ids.length > 1 ? ids.length + ' words' : 'word ' + id}`, (o) => {
+      const ws = Object.assign({}, (o.lyrics || {}).words || {});
+      for (const i of ids) { const w = wordById(i); if (w) { delete ws[oldWordKey(w)]; if (w.ref) delete ws[w.ref]; } }
+      (o.lyrics = o.lyrics || {}).words = ws;
+    });
+  }
+  /** a line's bar stretched to [a2, b2]: its words keep their places relative to the bar */
+  function stretchLine(id, a2, b2) {
+    const ln = lineById(id);
+    if (!ln) return;
+    const v = lineView(ln);
+    if (b2 - a2 < 0.1) { toast('A bar needs at least 0.1 s', 'bad'); return; }
+    return commit(`stretch ${id} to ${fmtTime(a2, 2)}-${fmtTime(b2, 2)}`, (o) => {
+      for (const x of v.words) putWord(o, x.w, L.stretch(x.t, x.d, v.a, v.b, a2, b2));
+    });
+  }
+  /** the words an action applies to: the selection when `id` is in it, else just `id` */
+  function selectedWords(id) { return SEL.words.has(id) ? [...SEL.words] : [id]; }
+  /** mode: 'only' (a click), 'toggle' (Ctrl/Cmd+click), 'range' (Shift+click: every word between the last one and this) */
+  function selectWord(id, lineId, mode) {
+    if (mode === 'toggle') { if (SEL.words.has(id)) SEL.words.delete(id); else SEL.words.add(id); }
+    else if (mode === 'range' && SEL.wordId) {
+      const all = V.song._get('lyrics').words || [];
+      const i = all.findIndex((w) => w.id === SEL.wordId), j = all.findIndex((w) => w.id === id);
+      if (i >= 0 && j >= 0) for (let k = Math.min(i, j); k <= Math.max(i, j); k++) SEL.words.add(all[k].id);
+    } else if (mode !== 'keep' || !SEL.words.has(id)) { SEL.words.clear(); SEL.words.add(id); }
+    if (!SEL.words.size) { SEL.wordId = null; } else { SEL.wordId = SEL.words.has(id) ? id : [...SEL.words][0]; SEL.lineId = wordById(SEL.wordId).line_id; }
+    requestDraw('lyrics'); refreshPanel();
+  }
+  function clearWords() { SEL.words.clear(); SEL.wordId = null; requestDraw('lyrics'); refreshPanel(); }
+  // ---- splits: a source line cut into bars at word positions (D83)
+  function splitAt(ln, ks, joinKs) {
+    if (ln.source_index == null) { toast(ln.source_index === undefined ? 'Re-run the analysis once to split lines (this folder was made by an older version)' : 'This line was added by the harness, so it cannot be split', 'bad', 6000); return; }
+    return commit(`${ks.length ? 'split' : 'join'} ${ln.id}`, (o) => {
+      (o.lyrics = o.lyrics || {}).splits = L.editSplits(o.lyrics.splits, ln.source_index, ln.pin_key, ks, joinKs);
+      if (!o.lyrics.splits.length) delete o.lyrics.splits;
+    });
+  }
+  /** the word positions (in the source line) that cut the selection into its own bar */
+  function splitSelection(ids) {
+    const ws = ids.map(wordById).filter(Boolean);
+    const ln = ws.length ? lineById(ws[0].line_id) : null;
+    if (!ln || ws.some((w) => w.line_id !== ln.id)) { toast('Select words of one bar to split it', 'bad'); return; }
+    const all = V.model.wordsByLine.get(ln.id) || [];
+    const idx = ws.map((w) => all.indexOf(w)).sort((x, y) => x - y);
+    if (idx[idx.length - 1] - idx[0] + 1 !== idx.length) { toast('Select words that follow each other', 'bad'); return; }
+    const first = L.refWord(all[idx[0]].ref), lastNext = idx[idx.length - 1] + 1 < all.length ? L.refWord(all[idx[idx.length - 1] + 1].ref) : null;
+    if (!first) { toast('Re-run the analysis once to split lines (this folder was made by an older version)', 'bad', 6000); return; }
+    const ks = [];
+    if (idx[0] > 0) ks.push(first.k);
+    if (lastNext) ks.push(lastNext.k);
+    if (!ks.length) { toast('These are all the words of the bar: nothing to split', 'warn'); return; }
+    return splitAt(ln, ks, []);
+  }
+  /** the split positions waiting for a re-run, as word ids (drawn as a mark in their bar) */
+  function pendingSplitWords() {
+    const out = new Set();
+    const applied = appliedOverrides('lyrics')['lyrics.splits'] || [];
+    for (const s of ((ovr().lyrics || {}).splits || [])) {
+      const a = applied.find((x) => x.index === s.index);
+      for (const k of s.at) {
+        if (a && a.at.includes(k)) continue;
+        const w = (V.song._get('lyrics').words || []).find((x) => x.ref === `r${s.index}w${k}`);
+        if (w) out.add(w.id);
+      }
+    }
+    return out;
   }
   function pendingBoundaries() {
     const a = [].concat(appliedOverrides('sections')['structure.boundaries'] || []).map(J);
@@ -162,62 +336,24 @@ const Edit = (() => {
     if (label && !lab) { toast('Label: lower-case letters and dashes only', 'warn'); return; }
     return commit(`label ${sec.id} = ${lab || '(auto)'}`, (o) => { (o.structure = o.structure || {}).labels = L.setSectionLabel((o.structure || {}).labels, sec.t, sec.t + sec.d, lab); });
   }
-  function setLineTime(id, newT) {
-    const ln = V.model.lines.find((l) => l.id === id);
-    const a = (appliedLines()[id] || {}).dt || 0;
-    const shown = ln.t;
-    return commit(`nudge ${id} to ${fmtTime(newT, 2)}`, (o) => { (o.lyrics = o.lyrics || {}).lines = L.setLineNudge((o.lyrics || {}).lines, id, shown, a, newT); });
-  }
-  function nudgeLine(id, dtMs) {
-    const ln = V.model.lines.find((l) => l.id === id);
-    if (!ln) return;
-    return setLineTime(id, ln.t + lineShift(id) + dtMs / 1000);
-  }
-  // ---- single words
-  const wordById = (id) => (V.song._get('lyrics').words || []).find((x) => x.id === id);
-  /** where a word shows now (see logic.wordPos): {t, d, pending} */
-  function wordShown(w, dlt) {
-    const ov = ((ovr().lyrics || {}).words || {})[w.id];
-    const p = pendingWord(w.id);
-    return Object.assign(L.wordPos(w, ov, p, dlt == null ? lineShift(w.line_id) : dlt), { pending: !!p });
-  }
-  function setWordTime(id, t) {
-    // an absolute start replaces any relative shift of the word
-    return commit(`retime word ${id} to ${fmtTime(t, 3)}`, (o) => {
-      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t: Math.max(0, t) });
-      delete ws[id].dt;
-      o.lyrics.words = ws;
-    });
-  }
-  function setWordDur(id, d) {
-    const w = wordById(id);
-    if (!w) return;
-    const t = wordShown(w).t;
-    return commit(`word ${id} length ${Math.round(d * 1000)} ms`, (o) => {
-      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t, d: Math.max(0.02, d) });
-      delete ws[id].dt;
-      o.lyrics.words = ws;
-    });
-  }
-  function nudgeWord(id, ms) {
-    const w = wordById(id);
-    if (!w) return;
-    // relative to where the word is when this save runs (queued saves before it may have moved it)
-    return commit(`move word ${id} ${ms > 0 ? '+' : ''}${ms} ms`, (o) => {
-      const ws = L.setWord((o.lyrics = o.lyrics || {}).words, id, { t: Math.max(0, wordShown(w).t + ms / 1000) });
-      delete ws[id].dt;
-      o.lyrics.words = ws;
-    });
-  }
-  function resetWord(id) {
-    return commit(`reset word ${id}`, (o) => { const ws = Object.assign({}, (o.lyrics || {}).words || {}); delete ws[id]; (o.lyrics = o.lyrics || {}).words = ws; });
-  }
-  function selectWord(id, lineId) {
-    SEL.lineId = lineId; SEL.wordId = id;
-    requestDraw('lyrics'); refreshPanel();
-  }
   function setLineVoice(id, voice) {
-    return commit(`${id} sung by ${voice || '(auto)'}`, (o) => { const v = (o.voices = o.voices || {}); v.lines = Object.assign({}, v.lines || {}); if (voice) v.lines[id] = voice; else delete v.lines[id]; });
+    const ln = lineById(id);
+    const ks = ln ? L.lineKeys(ln) : [id], k = ks[0];
+    return commit(`${id} sung by ${voice || '(auto)'}`, (o) => {
+      const v = (o.voices = o.voices || {});
+      v.lines = Object.assign({}, v.lines || {});
+      if (!ln || !ln.source_part) for (const x of ks.slice(1)) delete v.lines[x];   // an older key of the same line
+      if (voice) v.lines[k] = voice; else delete v.lines[k];
+    });
+  }
+  /** remove a voice: its lines go to `target` on the next re-run (null keeps the voice) */
+  function mergeVoice(vid, target) {
+    return commit(target ? `merge ${vid} into ${target}` : `keep ${vid}`, (o) => {
+      const v = (o.voices = o.voices || {});
+      v.merge = Object.assign({}, v.merge || {});
+      if (target) v.merge[vid] = target; else delete v.merge[vid];
+      if (!Object.keys(v.merge).length) delete v.merge;
+    });
   }
   function setRhythm(patch, label) {
     return commit(label, (o) => { o.rhythm = Object.assign({}, o.rhythm || {}, patch); for (const k of Object.keys(o.rhythm)) if (o.rhythm[k] == null) delete o.rhythm[k]; });
@@ -496,24 +632,42 @@ const Edit = (() => {
         h('div', { class: 'dim small' }, pin ? `Pinned at ${fmtTime(pin.t, 2)}${pendingPin(ln) ? ': applies on the next re-run.' : '.'}`
           : 'When a part is out of place, pin the first line of each pass where it really starts, then re-run: the lines up to the next pin are placed again and their words snap to the singing.'));
       const vopts = M.voices.map((v) => v.id);
-      const curV = (((ovr().voices || {}).lines || {})[ln.id]) || M.voiceOfLine.get(ln.id) || '';
+      const vmap = (ovr().voices || {}).lines || {};
+      const curV = L.lineKeys(ln).map((k) => vmap[k]).find(Boolean) || M.voiceOfLine.get(ln.id) || '';
+      const added = [...new Set(Object.values(vmap))].filter((v) => !vopts.includes(v));   // voices added since the last run
+      const nextV = 'V' + (Math.max(0, ...[...vopts, ...added].map((v) => +v.slice(1))) + 1);
       host.append(h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'sung by'), h('select', { onchange: (e) => setLineVoice(ln.id, e.target.value) }, h('option', { value: '' }, '(automatic)'),
-        vopts.map((v) => h('option', { value: v, selected: v === curV }, v + (M.charOfVoice.get(v) ? ' — ' + M.charName(M.charOfVoice.get(v)) : ''))))));
+        [...vopts, ...added].map((v) => h('option', { value: v, selected: v === curV }, v + (M.charOfVoice.get(v) ? ' — ' + M.charName(M.charOfVoice.get(v)) : added.includes(v) ? ' (new, after re-run)' : ''))),
+        h('option', { value: nextV }, `+ new voice (${nextV})`))));
+      if (ln.source_part != null && ln.source_part > 0) {
+        host.append(h('div', { class: 'btnrow' }, btn('join with the bar before', () => splitAt(ln, [], [ln.source_word]), 'undo the split that started this bar')));
+      }
+      const sel = [...SEL.words].map(wordById).filter(Boolean);
       const w = SEL.wordId ? wordById(SEL.wordId) : null;
-      if (w && w.line_id === ln.id) {
+      if (w && sel.length) {
+        const many = sel.length > 1;
         const pos = wordShown(w);
-        const ov = ((ovr().lyrics || {}).words || {})[w.id];
-        host.append(h('div', { class: 'card' }, h('b', null, w.id), ' ', w.text, ' ',
-          h('span', { class: 'dim small' }, `${fmtTime(pos.t, 3)} · ${Math.round(pos.d * 1000)} ms${pos.pending ? ' · not re-run yet' : ''}`)),
+        const anyOv = sel.some((x) => wordEntry(x, (ovr().lyrics || {}).words));
+        const oneBar = sel.every((x) => x.line_id === w.line_id);
+        const first = wordsInBars(sel.map((x) => x.id)).reduce((m, x) => (m == null || x.t < m ? x.t : m), null);
+        const wIdx = (V.model.wordsByLine.get(w.line_id) || []).indexOf(w);
+        host.append(h('div', { class: 'card' },
+          many ? h('b', null, `${sel.length} words selected`) : [h('b', null, w.id), ' ', w.text, ' ',
+            h('span', { class: 'dim small' }, `${fmtTime(pos.t, 3)} · ${Math.round(pos.d * 1000)} ms${pos.pending ? ' · not re-run yet' : ''}`)],
+          many ? h('div', { class: 'dim small' }, sel.map((x) => x.text).join(' ')) : null),
         h('div', { class: 'btnrow' }, [-50, -10, 10, 50].map((d) => btn((d > 0 ? '+' : '') + d + ' ms', () => nudgeWord(w.id, d))),
-          btn('start at playhead', () => setWordTime(w.id, V.t), 'the word starts where the playhead is'),
-          btn('end at playhead', () => { if (V.t - pos.t >= 0.02) setWordDur(w.id, V.t - pos.t); else toast('The playhead is before the word: nothing changed', 'bad'); }, 'the word ends where the playhead is'),
-          ov ? btn('reset', () => resetWord(w.id), 'back to the analysed timing') : null),
-        numRow('word start', Math.round(pos.t * 1000), 'ms', (v) => setWordTime(w.id, v / 1000), { step: 5 }),
-        numRow('word length', Math.round(pos.d * 1000), 'ms', (v) => setWordDur(w.id, v / 1000), { step: 5, min: 20 }),
-        h('div', { class: 'dim small' }, 'In the Lyrics lane: drag a word to move it, drag its right edge to change its length, click it to select it. Keys < and > move the selected word by 10 ms.'));
+          btn('start at playhead', () => moveWords(sel.map((x) => x.id), V.t - first, many ? 'selection to the playhead' : `word ${w.id} to the playhead`), many ? 'the first selected word starts where the playhead is' : 'the word starts where the playhead is'),
+          many ? null : btn('end at playhead', () => { if (V.t - pos.t >= 0.02) setWordDur(w.id, V.t - pos.t); else toast('The playhead is before the word: nothing changed', 'bad'); }, 'the word ends where the playhead is'),
+          anyOv ? btn('reset', () => resetWord(w.id), 'back to the analysed timing') : null,
+          btn('clear selection', clearWords)),
+        many ? null : numRow('word start', Math.round(pos.t * 1000), 'ms', (v) => setWordTime(w.id, v / 1000), { step: 5 }),
+        many ? null : numRow('word length', Math.round(pos.d * 1000), 'ms', (v) => setWordDur(w.id, v / 1000), { step: 5, min: 20 }),
+        oneBar ? h('div', { class: 'btnrow' },
+          !many && wIdx > 0 ? btn('split the bar before this word', () => { const r = L.refWord(w.ref); if (r) splitAt(lineById(w.line_id), [r.k], []); else toast('Re-run the analysis once to split lines (this folder was made by an older version)', 'bad', 6000); }, 'this word and the ones after it become a new bar') : null,
+          btn(many ? 'move these words to a new bar' : 'move this word to its own bar', () => splitSelection(sel.map((x) => x.id)), 'cut the bar around the selection; give the new bar its own voice under "sung by"')) : null,
+        h('div', { class: 'dim small' }, 'Click a word to select it, Ctrl+click to add or remove one, Shift+click for a range; drag a selected word to move them all, drag a word\'s right edge to change its length. Words stay inside their bar: drag the bar\'s left or right edge to stretch it. Keys < and > move the selection by 10 ms, Esc clears it.'));
       } else {
-        host.append(h('div', { class: 'dim small' }, 'Single words: zoom in on the Lyrics lane until the words show under the line, then drag one or click it to select it.'));
+        host.append(h('div', { class: 'dim small' }, 'Single words: zoom in on the Lyrics lane until the words show under the line, then click or drag one. A bar\'s left and right edges stretch it.'));
       }
     }
     const allPins = (ovr().lyrics || {}).pins || [];
@@ -526,7 +680,8 @@ const Edit = (() => {
       }));
     }
     // ---- voices -> characters (intent.md)
-    host.append(h('h3', null, 'Voices → characters'), h('div', { class: 'dim small' }, 'Written to meaning/intent.md (managed block). Re-runs: voices, meaning.'));
+    host.append(h('h3', null, 'Voices → characters'), h('div', { class: 'dim small' }, 'Characters are written to meaning/intent.md (managed block). To add a voice, choose "+ new voice" under a line\'s "sung by"; to remove one, merge it into another. Re-runs: voices, meaning.'));
+    const merges = (ovr().voices || {}).merge || {};
     const chars = M.characters.length ? M.characters : [];
     for (const v of M.voices) {
       const mapped = (V.intent.voices || {})[v.id] || {};
@@ -536,7 +691,11 @@ const Edit = (() => {
         chars.map((c) => h('option', { value: c.id, selected: c.id === curC }, `${c.id} ${c.name}`)),
         h('option', { value: '__new' }, '+ new character'));
       csel.addEventListener('change', () => { if (csel.value && csel.value !== '__new') { const c = chars.find((x) => x.id === csel.value); nameInp.value = c ? c.name : nameInp.value; } });
-      host.append(h('div', { class: 'card' }, h('div', { class: 'row-between' }, h('b', null, v.id), h('span', { class: 'dim small' }, `${Math.round(v.seconds || 0)} s · ${v.n_lines || 0} lines`)),
+      const into = merges[v.id];
+      const mergeSel = h('select', { onchange: (e) => mergeVoice(v.id, e.target.value || null), title: 'remove this voice: its lines go to the voice you choose' },
+        h('option', { value: '' }, into ? `(keep ${v.id})` : '(keep)'), M.voices.filter((x) => x.id !== v.id).map((x) => h('option', { value: x.id, selected: x.id === into }, `merge into ${x.id}`)));
+      host.append(h('div', { class: 'card' + (into ? ' dim' : '') }, h('div', { class: 'row-between' }, h('b', null, v.id + (into ? ` → ${into} on the next re-run` : '')), h('span', { class: 'dim small' }, `${Math.round(v.seconds || 0)} s · ${v.n_lines || 0} lines`)),
+        h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'remove voice'), mergeSel),
         h('div', { class: 'form-row' }, csel, nameInp, btn('save', () => {
           let cid = csel.value;
           if (cid === '__new' || (!cid && nameInp.value)) { const used = new Set([...chars.map((c) => c.id), ...Object.values(V.intent.voices || {}).map((x) => x.character_id)]); let n = 1; while (used.has('C' + n)) n++; cid = 'C' + n; }
@@ -556,6 +715,6 @@ const Edit = (() => {
     host.scrollTop = keep;
   }
 
-  return { wordShown, nudgeWord, selectWord, resetWord, linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
+  return { lineView, wordsInBars, moveWords, stretchLine, clearWords, pendingSplitWords, splitSelection, mergeVoice, wordShown, nudgeWord, selectWord, resetWord, linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
     refreshPanel, renderBar, save, commit, state: st };
 })();

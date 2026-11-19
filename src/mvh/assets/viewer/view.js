@@ -230,7 +230,7 @@ function attachPointer(lane, canvas) {
     const r = rectOf(), x = e.clientX - r.left, y = e.clientY - r.top;
     const hit = laneHit(lane, x, y);
     VW.drag = { lane, x0: x, y0: y, cx: e.clientX, t0: VW.t0, t1: VW.t1, moved: false, hit, edit: !!(hit && hit.drag && V.mode === 'edit') };
-    if (VW.drag.edit && hit.onDragStart) hit.onDragStart(x2t(x));
+    if (VW.drag.edit && hit.onDragStart) hit.onDragStart(x2t(x), e);
     e.preventDefault();
   });
   canvas.addEventListener('wheel', (e) => {

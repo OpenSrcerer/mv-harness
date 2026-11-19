@@ -42,8 +42,8 @@ KNOWN_SECTIONS = ("schema", "schema_version", "rhythm", "structure", "lyrics", "
 KNOWN_FIELDS = {
     "rhythm": {"beat_offset_s", "bpm", "downbeat_phase"},
     "structure": {"boundaries", "labels"},
-    "lyrics": {"lines", "words", "pins"},
-    "voices": {"lines"},
+    "lyrics": {"lines", "words", "pins", "splits"},
+    "voices": {"lines", "merge"},
     "cues": {"pinned"},
 }
 _TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8",

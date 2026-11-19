@@ -9,7 +9,10 @@
 4. Agglomerative clustering (cosine, average); items shorter than ``min_item_s`` inherit their neighbours' voice.
 5. Duets: where backing_vocals is active inside a line, the backing segment is embedded and, when it matches a
    voice other than the line's lead voice, a second span (role backing) is added.
-6. ``voices.lines`` overrides and per-line assignments in intent.md force a voice (conf 1, review false).
+6. ``voices.lines`` overrides and per-line assignments in intent.md force a voice (conf 1, review false). A key is
+   a line id or (D83) a stable reference: ``r12`` (source line 12, every bar of it), ``r12p1`` (its second bar). A
+   forced voice the clustering did not find is a new voice (the user added it). ``voices.merge`` {V3: V1} removes a
+   voice: its spans go to the other one.
 7. Outputs: events voice_spans (per line or word span) and voice_activity (merged per voice), meta/voices.json.
    Voice ids V1..Vn in order of first appearance; the user maps voices to characters (the viewer and intent.md).
 """
@@ -105,6 +108,43 @@ def backing_window(segs: list[tuple[float, float]] | None, t0: float, t1: float,
     return a, b, active / (b - a)
 
 
+def forced_voices(lines: list[dict[str, Any]], intent_lines: dict[str, str], ovr: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """{line id: (voice, source)} from intent.md's per-line voices and the overrides. Override keys: a line id, or (D83)
+    a stable reference ``r12`` (every bar of source line 12) or ``r12p1`` (its second bar); the most specific wins
+    (bar > whole line > line id > intent)."""
+    out: dict[str, tuple[str, str]] = {}
+    for ln in lines:
+        lid, ref = ln["id"], ln.get("ref")
+        whole = re.sub(r"p\d+$", "", ref) if ref else None
+        # an id key means the numbering before any split (lyrics.json legacy_id; the id itself for older folders)
+        old = ln.get("legacy_id") or lid
+        for key, src in ((ref, "override"), (whole, "override"), (old, "override")):
+            if key and key in ovr and re.fullmatch(r"V[1-9]\d*", str(ovr[key])):
+                out[lid] = (str(ovr[key]), src)
+                break
+        else:
+            if lid in intent_lines:
+                out[lid] = (intent_lines[lid], "intent")
+    return out
+
+
+def merge_map(merge: dict[str, str], warnings: list[str]) -> dict[str, str]:
+    """D83 ``voices.merge`` {V3: V1}: chains are followed (V4 -> V3 -> V1); a cycle or a bad id is ignored."""
+    m = {str(a): str(b) for a, b in merge.items()
+         if re.fullmatch(r"V[1-9]\d*", str(a)) and re.fullmatch(r"V[1-9]\d*", str(b)) and a != b}
+    out: dict[str, str] = {}
+    for a in m:
+        seen, b = {a}, m[a]
+        while b in m and b not in seen:
+            seen.add(b)
+            b = m[b]
+        if b in seen:
+            warnings.append(f"voices.merge has a cycle through {a}; ignored")
+            continue
+        out[a] = b
+    return out
+
+
 def run(ctx) -> StageResult:  # noqa: C901
     p = dict(ctx.params)
     warnings: list[str] = []
@@ -118,7 +158,8 @@ def run(ctx) -> StageResult:  # noqa: C901
     intent_path = ctx.external("intent")
     intent = parse_intent(intent_path.read_text(encoding="utf-8", errors="replace") if intent_path else None)
     ovr = dict(ctx.overrides.get("voices.lines") or {})
-    forced: dict[str, str] = {**intent["line_voice"], **ovr}
+    forced = forced_voices(lines, intent["line_voice"], ovr)
+    merge = merge_map(ctx.overrides.get("voices.merge") or {}, warnings)
 
     def empty(reason: str, status: str = "skipped") -> StageResult:
         ctx.writer.events("voice_spans", [])
@@ -268,9 +309,9 @@ def run(ctx) -> StageResult:  # noqa: C901
     # ---------------------------------------------------------------- 5. forced assignments (overrides > intent lines)
     n_forced = 0
     for it in items:
-        v = forced.get(it["line_id"])
-        if v:
-            it["voice"], it["conf"], it["source"] = v, 1.0, "override" if it["line_id"] in ovr else "intent"
+        f = forced.get(it["line_id"])
+        if f:
+            it["voice"], it["conf"], it["source"] = f[0], 1.0, f[1]
             n_forced += 1
 
     # ---------------------------------------------------------------- 6. spans (merge consecutive same-voice chunks)
@@ -321,6 +362,14 @@ def run(ctx) -> StageResult:  # noqa: C901
             spans.append({"t": t0, "d": t1 - t0, "line_id": ln["id"], "first_word": ws[0]["id"], "last_word": ws[-1]["id"],
                           "voice_id": vid[best], "_c": [conf], "role": "backing", "source": "embedding"})
             n_backing += 1
+    # D83: a removed voice's spans go to the voice it was merged into; a backing span that now has the lead's voice
+    # is the same singer twice and is dropped
+    if merge:
+        for s in spans:
+            s["voice_id"] = merge.get(s["voice_id"], s["voice_id"])
+        lead_of = {(s["line_id"], s["voice_id"]) for s in spans if s["role"] == "lead"}
+        spans = [s for s in spans if s["role"] == "lead" or (s["line_id"], s["voice_id"]) not in lead_of]
+        notes.append("merged voice(s) " + ", ".join(f"{a} -> {b}" for a, b in sorted(merge.items())))
     review_thr = float(p.get("review_below", 0.5))
     # M5-D22: a grade-D lyrics alignment puts the embedding windows on unreliable spans: every estimated span
     # is flagged for review (forced voices from overrides / intent are the user's and stay unflagged)

@@ -108,9 +108,9 @@
       ]
      },
      "propertyNames": {
-      "pattern": "^L\\d{3,}$"
+      "pattern": "^(L\\d{3,}|r\\d+(p\\d+)?)$"
      },
-     "description": "line id -> nudge"
+     "description": "line id or reference -> nudge"
     },
     "words": {
      "type": "object",
@@ -135,9 +135,40 @@
       "required": []
      },
      "propertyNames": {
-      "pattern": "^L\\d{3,}\\.\\d{2,}$"
+      "pattern": "^(L\\d{3,}\\.\\d{2,}|r\\d+w\\d+)$"
      },
-     "description": "word id -> timing"
+     "description": "word id or reference -> timing"
+    },
+    "splits": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "index": {
+        "type": "integer",
+        "description": "0-based position of the line in the lyric source",
+        "minimum": 0
+       },
+       "at": {
+        "type": "array",
+        "items": {
+         "type": "integer",
+         "description": "0-based place in the source line of the word that starts a new bar",
+         "minimum": 1
+        },
+        "minItems": 1
+       },
+       "key": {
+        "type": "string",
+        "description": "lyrics.json lines[].pin_key: ignored when the text changed"
+       }
+      },
+      "required": [
+       "at",
+       "index"
+      ]
+     },
+     "description": "split a lyric line into bars (D83)"
     },
     "pins": {
      "type": "array",
@@ -185,9 +216,21 @@
       "pattern": "^V[1-9]\\d*$"
      },
      "propertyNames": {
-      "pattern": "^L\\d{3,}$"
+      "pattern": "^(L\\d{3,}|r\\d+(p\\d+)?)$"
      },
-     "description": "line id -> voice id"
+     "description": "line id or reference -> voice id (a new id adds a voice)"
+    },
+    "merge": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "string",
+      "description": "Voice cluster (one singing or rapping voice) id",
+      "pattern": "^V[1-9]\\d*$"
+     },
+     "propertyNames": {
+      "pattern": "^V[1-9]\\d*$"
+     },
+     "description": "removed voice -> the voice its spans go to (D83)"
     }
    },
    "required": []

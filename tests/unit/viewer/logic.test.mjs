@@ -174,3 +174,28 @@ test('wordPos: where a lyric word shows while it is being corrected', () => {
   assert.deepEqual(L.wordPos(w, { dt: 0.1 }, { dt: 0.1 }, 0), { t: 10.1, d: 0.3 });           // a relative shift typed by hand
   assert.deepEqual(L.wordPos(w, { d: 0.5 }, { d: 0.5 }, 0), { t: 10.0, d: 0.5 });
 });
+
+test('bars: a word stays inside its bar; a group moves only as far as all of them can', () => {
+  assert.deepEqual(L.barOf(10, 2, [{ t: 10.2, d: 0.3 }, { t: 11.5, d: 0.6 }]), [10, 12.1]);   // a word past the span widens it
+  assert.deepEqual(L.barOf(10, 2, []), [10, 12]);
+  const items = [{ t: 10.0, d: 0.3, a: 10, b: 12 }, { t: 20.5, d: 0.2, a: 20, b: 21 }];
+  assert.ok(Math.abs(L.clampGroupDelta(items, 0.5) - 0.3) < 1e-9);          // the second word reaches its bar's end first
+  assert.equal(L.clampGroupDelta(items, -0.2), 0);           // the first word already starts at its bar's start
+  assert.ok(Math.abs(L.clampGroupDelta([{ t: 10.5, d: 0.3, a: 10, b: 12 }], -2) + 0.5) < 1e-9);
+  assert.equal(L.clampGroupDelta([{ t: 10.5, d: 0.3, a: 10, b: 12 }], 0.1), 0.1);
+  assert.deepEqual(L.stretch(11, 0.5, 10, 12, 10, 14), { t: 12, d: 1 });
+  assert.deepEqual(L.stretch(10, 0.5, 10, 12, 9, 11), { t: 9, d: 0.5 });
+});
+
+test('splits and keys: positions per source line; every key the stage applies to a line', () => {
+  assert.deepEqual(L.refWord('r12w4'), { index: 12, k: 4 });
+  assert.equal(L.refWord('L012.03'), null);
+  let sp = L.editSplits(undefined, 12, 'k1', [4], []);
+  assert.deepEqual(sp, [{ index: 12, at: [4], key: 'k1' }]);
+  sp = L.editSplits(L.editSplits(sp, 3, 'k3', [2], []), 12, 'k1', [7, 0], []);
+  assert.deepEqual(sp.map((s) => [s.index, s.at]), [[3, [2]], [12, [4, 7]]]);
+  assert.deepEqual(L.editSplits(sp, 12, 'k1', [], [4, 7]).map((s) => s.index), [3]);   // joined back: the entry goes
+  assert.deepEqual(L.lineKeys({ id: 'L016', ref: 'r15p1' }), ['r15p1', 'r15', 'L016']);
+  assert.deepEqual(L.lineKeys({ id: 'L016', ref: 'r15' }), ['r15', 'L016']);
+  assert.deepEqual(L.lineKeys({ id: 'L040', ref: null }), ['L040']);
+});
