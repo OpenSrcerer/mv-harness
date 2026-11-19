@@ -1,6 +1,6 @@
 ---
 name: mv-harness
-description: Use when building a music video (Remotion, three.js/WebGL, Blender, ComfyUI/Deforum, ffmpeg, the viz/ scenes) from a song analysed by mv-harness, or when asked to analyse a song for a video. Gives choreography (eight-counts, grooves, hit points, holds), characters and per-singer lip-sync, lyrics with word timing, cues to cut on, and the user's meaning, all on one clock. Plans the video first (concept, storyboard, tools, agent split) and builds only after the user approves the plan. Read brief.md first; load data through lib/, never by pasting files into context.
+description: Use when building a music video (Remotion, three.js, Blender, ComfyUI, ffmpeg, the viz/ scenes or any engine) from a song analysed by mv-harness, or when asked to analyse a song for a video. Gives choreography (eight-counts, grooves, hit points, holds), characters and per-singer lip-sync, lyrics with word timing, cues to cut on, and the user's meaning, all on one clock. Plans the video first (concept, storyboard, tools, agent split) and builds only after the user approves the plan. Read brief.md first; load data through lib/, never by pasting files into context.
 ---
 
 # mv-harness: one song folder -> an art-piece music video
@@ -14,15 +14,15 @@ approved the plan (§4 below).
 ## 1. Run it, check it, pack it
 
 ```powershell
-Set-Location <mv-harness repo>; . .\scripts\mvh-env.ps1
+# <repo> holds skill\mv-harness (if linked: (Get-Item <skill folder>).Target)
+Set-Location <repo>; . .\scripts\mvh-env.ps1
 uv run --frozen --no-sync mvh analyze "<song.flac>" --out out\<slug> [--lyrics lyrics.txt]   # new song only
 uv run --frozen --no-sync mvh status out\<slug>          # ALWAYS first: anything stale?
 uv run --frozen --no-sync mvh analyze out\<slug>         # refresh: re-runs only what changed
 uv run --frozen --no-sync mvh pack out\<slug> <project>\public\song   # what a page/video project loads
 ```
 `analyze` prints one JSON line `{manifest, brief, viewer, warnings, pending}`. **If `status` shows a stale stage**
-(the user edited intent.md or corrections in the viewer), refresh before reading: brief and data are older than the
-user's answers. Never edit generated files; it never touches `meaning/intent.md` or `overrides.json`.
+(the user edited intent.md or the viewer), refresh before reading: the brief is older than the user's answers. Never edit generated files; it never touches `meaning/intent.md` or `overrides.json`.
 
 ## 2. Read in this order (context budget)
 
@@ -72,7 +72,7 @@ plan did not list needs a new yes.
   mix clips). Play and mux exactly that file, never the original: every time is seconds from its first sample.
 - Frame rule `{fps, frame0 = 0, early = false}`; NTSC is `[24000, 1001]` (23.976 is literal). Blender: `frame0: 1`.
   Frame n shows `timeOf(n, fr)`; an event belongs to `frameOf(t, fr)`.
-- Curves are 0..1 with absolute twins (`bands.bass` / `bands.bass_db`); helpers never return NaN.
+- Curves are 0..1 with absolute twins (`bands.bass_db`); helpers never return NaN.
 - IDs: section `S03`, phrase `P02`, eight-count `E012`, line `L007`, word `L007.03`, voice `V2`, character `C1`, cue
   `Q0034`, hit point `H004`, hold `O002`; repeats share `repeat_group` / `LG01`. `E000` is a 5-6-7-8 lead-in that may
   start before 0 s.
@@ -93,7 +93,7 @@ plan did not list needs a new yes.
 | Shaders | `song.spectrumAt(t)`, `song.textureData(ids)` + `lib/mvh.glsl` |
 | Other tools | `mvh frames out/<slug> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` -> `frames/*.csv` |
 
-Browsers/Remotion: `load()` has only what `include` lists (see RECIPES); Node reads lazily, so it proves nothing.
+Browsers/Remotion: `load()` has only what `include` lists (RECIPES) (Node reads lazily).
 
 ## 7. Check the result
 
