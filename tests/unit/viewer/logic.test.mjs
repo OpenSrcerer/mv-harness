@@ -183,8 +183,17 @@ test('bars: a word stays inside its bar; a group moves only as far as all of the
   assert.equal(L.clampGroupDelta(items, -0.2), 0);           // the first word already starts at its bar's start
   assert.ok(Math.abs(L.clampGroupDelta([{ t: 10.5, d: 0.3, a: 10, b: 12 }], -2) + 0.5) < 1e-9);
   assert.equal(L.clampGroupDelta([{ t: 10.5, d: 0.3, a: 10, b: 12 }], 0.1), 0.1);
-  assert.deepEqual(L.stretch(11, 0.5, 10, 12, 10, 14), { t: 12, d: 1 });
-  assert.deepEqual(L.stretch(10, 0.5, 10, 12, 9, 11), { t: 9, d: 0.5 });
+});
+
+test('bar edges (D84): resizing a bar moves no word and never leaves one outside it', () => {
+  const ws = [{ t: 10.2, d: 0.3 }, { t: 11.5, d: 0.6 }];
+  assert.deepEqual(L.barOf(10, 2, ws, 8, 15), [8, 15]);               // a wider bar
+  assert.deepEqual(L.barOf(10, 2, ws, 10.2, 12.1), [10.2, 12.1]);     // shrunk to its words
+  assert.deepEqual(L.barOf(10, 2, ws, 11, 11.8), [10.2, 12.1]);       // asked narrower than its words: holds them anyway
+  assert.deepEqual(L.barOf(10, 2, ws, null, 14), [10, 14]);           // one edge set, the other from the line
+  const lim = L.barEdgeLimits(ws);
+  assert.equal(lim.maxStart, 10.2);
+  assert.ok(Math.abs(lim.minEnd - 12.1) < 1e-9);
 });
 
 test('splits and keys: positions per source line; every key the stage applies to a line', () => {

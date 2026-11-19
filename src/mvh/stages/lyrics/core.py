@@ -529,8 +529,7 @@ def run(ctx) -> StageResult:  # noqa: C901  (one linear pipeline; each step is c
             if fl:
                 wd["flags"] = fl
             out_words.append(wd)
-        t0 = x["wt"][0]
-        t1 = max(x["wt"][i] + x["wd"][i] for i in range(len(x["wt"])))
+        t0, t1 = _line_span(x)
         conf = round(float(np.mean(wconf)) if wconf else 0.0, 4)
         out_lines.append({
             "id": lid, "t": round(t0, 6), "d": round(max(0.05, t1 - t0), 6), "text": x["text"],
@@ -1107,6 +1106,18 @@ def _stable_ts(lines: list[dict[str, Any]], lead: np.ndarray, model_dir: Path, t
 
 
 # ------------------------------------------------------------------------------------------ finalise
+def _line_span(x: dict[str, Any]) -> tuple[float, float]:
+    """A line's span: its first word to its last word's end, widened (never narrowed) by a bar start or end set in
+    the viewer (D84: ``lyrics.lines {key: {start, end}}``), so the span always holds every word."""
+    t0 = min(x["wt"])
+    t1 = max(x["wt"][i] + x["wd"][i] for i in range(len(x["wt"])))
+    if x.get("bar_a") is not None:
+        t0 = min(t0, max(0.0, float(x["bar_a"])))
+    if x.get("bar_b") is not None:
+        t1 = max(t1, float(x["bar_b"]))
+    return t0, t1
+
+
 def _cap_line_tails(lines: list[dict[str, Any]], gap: float = 0.01) -> int:
     """W3C-5: a lead line's held last word ends before the next lead line's first word (dense rap: the sustain
     extension ran up to 1.5 s into the next rapper's line, so two singers showed at every hand-off). Backing lines
@@ -1292,7 +1303,7 @@ _WREF = re.compile(r"^r(\d+)w(\d+)$")
 
 
 def _apply_overrides(lines: list[dict[str, Any]], ovr: dict[str, Any], warnings: list[str]) -> None:
-    """lyrics.lines {L001 | r12 | r12p1: {dt}} and lyrics.words {L001.03 | r12w4: {t, d, dt}}, applied after
+    """lyrics.lines {L001 | r12 | r12p1: {dt, start, end}} and lyrics.words {L001.03 | r12w4: {t, d, dt}}, applied after
     alignment, before the exports. ``L`` ids are the ones this run assigns (lines sorted by start time; kept for files
     written by hand); ``r`` references (D83) are stable: r12 is source line 12 (every bar of it when it is split),
     r12p1 its second bar, r12w4 its fifth word wherever that word is now."""
@@ -1336,10 +1347,18 @@ def _apply_overrides(lines: list[dict[str, Any]], ovr: dict[str, Any], warnings:
         if not targets:
             miss += 1
             continue
-        dt = float(v.get("dt", 0.0))
-        for i in targets:
-            lines[i]["wt"] = [t + dt for t in lines[i]["wt"]]
-            lines[i]["timing_source"] = "user"
+        if "dt" in v:
+            dt = float(v["dt"])
+            for i in targets:
+                lines[i]["wt"] = [t + dt for t in lines[i]["wt"]]
+                lines[i]["timing_source"] = "user"
+        # D84: the bar's own start and end (absolute; the words never move). A key naming every bar of a split line
+        # sets the start of its first bar and the end of its last one.
+        bars = sorted(targets, key=lambda i: lines[i].get("part") or 0)
+        if v.get("start") is not None:
+            lines[bars[0]]["bar_a"] = float(v["start"])
+        if v.get("end") is not None:
+            lines[bars[-1]]["bar_b"] = float(v["end"])
     for wid, v in sorted(wo.items()):
         hit = word_at(wid)
         if hit is None:

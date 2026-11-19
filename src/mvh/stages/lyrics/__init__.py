@@ -14,7 +14,7 @@ STAGE = StageSpec(
     "lyrics",
     ('identity', 'ingest', 'separate_hq', 'stem_activity', 'structure'),
     "main",
-    "1.3.0",
+    "1.4.0",
     override_keys=('lyrics.lines', 'lyrics.words', 'lyrics.pins', 'lyrics.splits'),
     outputs=catalog_outputs("lyrics"),
     params={'window_s': 30.0, 'context_s': 2.0, 'stable_ts_below_coverage': 0.6, 'stable_ts': True,

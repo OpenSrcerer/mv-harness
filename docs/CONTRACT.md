@@ -1018,7 +1018,7 @@ envs[], files[{path, url, revision, sha256, size}], licence, used_by[]}`), and t
 (`mvh/envelope/stage_result`). Override keys (dotted `<section>.<field>`; a stage declares the ones it reads in `override_keys`):
 `rhythm.beat_offset_s`, `rhythm.bpm`, `rhythm.downbeat_phase` (rhythm, applied after tracking and before fusion);
 `structure.boundaries`, `structure.labels` (structure; anchored by **time**, since section IDs move); `lyrics.lines`, `lyrics.words`
-(lyrics; keyed by line/word id or by a stable reference r12 / r12p1 / r12w4, D83); `lyrics.pins` (lyrics; fixed line starts, keyed
+(lyrics; keyed by line/word id or by a stable reference r12 / r12p1 / r12w4, D83; a line entry may also hold its bar's own start / end, D84); `lyrics.pins` (lyrics; fixed line starts, keyed
 by the line's position in the lyric source, D82); `lyrics.splits` (lyrics; a line cut into bars, D83); `voices.lines` (voices; line id
 or reference -> voice id, a new id adds a voice); `voices.merge` (voices; a removed voice -> the voice that takes its lines, D83);
 `cues.pinned` (cues). Singer assignments made in the
@@ -1676,4 +1676,9 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
     is a line of its own (`source_part`, `source_word`) and keeps its words' timing.
   - **Voices.** A voice in `voices.lines` that the clustering did not find is a new voice; `voices.merge` = `{V3: V1}` removes
     V3 (its spans go to V1).
-  - **Viewer.** Words stay inside their bar; a bar's edges stretch it; words can be selected together and moved together.
+  - **Viewer.** Words stay inside their bar; a bar's edges resize it (D84); words can be selected together and moved together.
+- **D84 A bar's own start and end (user decision UD6; lyrics 1.4.0, viewer 1.5.0).** Details: docs/contract/decisions/UD6.md.
+  `lyrics.lines {key: {dt?, start?, end?}}`: `start` / `end` are absolute times of the line's bar. lyrics.json `lines[].t` / `d` are
+  the words' span widened by them, never narrowed, so the bar always holds every word; no word moves. A key naming every bar of a
+  split line sets the start of its first bar and the end of its last one. In the viewer a bar's edges resize it (they stop at the
+  first word's start and the last word's end); moving the line moves its edges with it. Supersedes the D83 bar stretching.

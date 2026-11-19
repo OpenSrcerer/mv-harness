@@ -182,7 +182,8 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
     length, click it to select it. The selected word has -50/-10/+10/+50 ms buttons, "start / end at playhead" and
     "reset" in the Edit tab, and the keys `<` / `>` move it by 10 ms. Ctrl+click adds a word to the selection,
     Shift+click selects a range, Esc clears it; dragging a selected word or nudging moves the whole selection. A word
-    stays inside its bar: drag the bar's left or right edge to stretch it (its words keep their places). Moving a line
+    stays inside its bar: drag the bar's left or right edge to make it longer or shorter (no word moves; an edge stops
+    at the first word's start or the last word's end, D84). Moving a line
     moves its hand-placed words with it (D83);
   - **split a bar and give it its own voice** (`lyrics.splits`, `voices.lines`, D83): select words of one bar, then
     "split the bar before this word" or "move these words to a new bar"; after the re-run the new bar is a line of its

@@ -28,7 +28,8 @@ User decision UD5 (2026-11-19), merged into docs/CONTRACT.md as **D83**. lyrics 
 - **UD5-4 Bars and groups in the viewer.**
   - A word never leaves its bar (the line's span joined with where its words show now). A group of words moves only
     as far as all of them can stay in their bars.
-  - Dragging a bar's left or right edge stretches it: every word keeps its relative place (saved as word timings).
+  - Dragging a bar's left or right edge stretched it, moving its words with it. Replaced by UD6 (D84): an edge resizes
+    only the bar and stops at the first or last word.
   - Selection: click, Ctrl/Cmd+click (add or remove), Shift+click (range in sung order), Esc (clear). Dragging a
     selected word, the ±ms buttons, "start at playhead" and the `<` / `>` keys move the whole selection.
   - Moving a line also moves the words of it that were placed by hand (they have absolute times).

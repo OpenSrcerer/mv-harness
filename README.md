@@ -83,7 +83,7 @@ inside such an app are invisible to a normal terminal.
    *One word off?* Zoom in until the words show under the line, then drag the word (its right edge changes its
    length), or click it and use the buttons in the Edit tab or the `<` / `>` keys (10 ms steps). Ctrl+click or
    Shift+click selects several words to move together. Words stay inside their line's bar; drag the bar's edge to
-   stretch it.
+   make it longer or shorter (the words stay put; the edge stops at the first or last word).
 
    *Two singers merged into one voice?* Select the words the other singer sings, press **move these words to a new
    bar**, re-run, then pick **+ new voice** under "sung by" for the new bar. A voice that should not exist can be

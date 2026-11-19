@@ -163,8 +163,19 @@ const Edit = (() => {
       const p = wordShown(w, sh);
       return { w, t: p.t + extra, d: p.d, pending: p.pending };
     });
-    const [a, b] = L.barOf(ln.t + sh + extra, ln.d, words);
+    const e = barEdges(ln);
+    const [a, b] = L.barOf(ln.t + sh + extra, ln.d, words, e.start != null ? e.start + extra : null, e.end != null ? e.end + extra : null);
     return { lt: ln.t + sh + extra, a, b, words };
+  }
+  /** the bar's own start and end as saved (D84; absolute times, null = the line's span). A key naming every bar of a
+   *  split line gives the start of its first bar and the end of its last one, as in the stage. */
+  function barEdges(ln) {
+    const ls = (ovr().lyrics || {}).lines || {};
+    const ks = L.lineKeys(ln), own = ls[ks[0]] || {};
+    const parts = ln.source_part == null ? [] : V.model.lines.filter((l) => l.ref && l.source_index === ln.source_index);
+    const first = !parts.some((l) => (l.source_part || 0) < ln.source_part), last = !parts.some((l) => (l.source_part || 0) > ln.source_part);
+    const from = (f, ok) => (own[f] != null ? own[f] : ok ? (ks.slice(1).map((k) => (ls[k] || {})[f]).find((x) => x != null) ?? null) : null);
+    return { start: from('start', first), end: from('end', last) };
   }
   function setLineTime(id, newT) {
     const ln = lineById(id);
@@ -175,9 +186,20 @@ const Edit = (() => {
       const ls = Object.assign({}, (o.lyrics = o.lyrics || {}).lines || {});
       const want = sumDt(appliedLines(), ks) + (newT - ln.t);   // what the stage should add to this line in total
       const old = ks[ks.length - 1];
-      if (k !== old && ls[old] && !ln.source_part) { ls[k] = { dt: ((ls[k] || {}).dt || 0) + ls[old].dt }; delete ls[old]; }
+      if (k !== old && ls[old] && !ln.source_part) { ls[k] = Object.assign({}, ls[old], ls[k] || {}, { dt: ((ls[k] || {}).dt || 0) + (ls[old].dt || 0) }); delete ls[old]; }
       const dt = L.r3(want - sumDt(ls, ks.filter((x) => x !== k)));
-      if (Math.abs(dt) < 0.0005) delete ls[k]; else ls[k] = { dt };
+      const e = Object.assign({}, ls[k] || {}, { dt });
+      if (Math.abs(dt) < 0.0005) delete e.dt;
+      // the bar's own edges are absolute times: they move with the line (D84)
+      for (const x of ks) {
+        const src = x === k ? e : ls[x];
+        if (!src || (src.start == null && src.end == null)) continue;
+        const moved = Object.assign({}, src);
+        if (moved.start != null) moved.start = L.r3(Math.max(0, moved.start + delta));
+        if (moved.end != null) moved.end = L.r3(moved.end + delta);
+        if (x === k) Object.assign(e, moved); else ls[x] = moved;
+      }
+      if (Object.keys(e).length) ls[k] = e; else delete ls[k];
       o.lyrics.lines = ls;
       // words placed by hand have an absolute time: they move with their line
       for (const w of V.model.wordsByLine.get(id) || []) {
@@ -248,14 +270,21 @@ const Edit = (() => {
       (o.lyrics = o.lyrics || {}).words = ws;
     });
   }
-  /** a line's bar stretched to [a2, b2]: its words keep their places relative to the bar */
-  function stretchLine(id, a2, b2) {
+  /** a line's bar resized to [a2, b2] (D84): only the bar changes, no word moves; an edge stops at the first word's
+   *  start or the last word's end, so every word stays inside */
+  function resizeBar(id, a2, b2) {
     const ln = lineById(id);
     if (!ln) return;
-    const v = lineView(ln);
-    if (b2 - a2 < 0.1) { toast('A bar needs at least 0.1 s', 'bad'); return; }
-    return commit(`stretch ${id} to ${fmtTime(a2, 2)}-${fmtTime(b2, 2)}`, (o) => {
-      for (const x of v.words) putWord(o, x.w, L.stretch(x.t, x.d, v.a, v.b, a2, b2));
+    const v = lineView(ln), lim = L.barEdgeLimits(v.words);
+    const a = L.r3(Math.max(0, Math.min(a2, lim.maxStart))), b = L.r3(Math.max(b2, lim.minEnd, a + 0.05));
+    const k = L.lineKeys(ln)[0];
+    return commit(`bar ${id} ${fmtTime(a, 2)}-${fmtTime(b, 2)}`, (o) => {
+      const ls = Object.assign({}, (o.lyrics = o.lyrics || {}).lines || {});
+      const e = Object.assign({}, ls[k] || {});
+      if (Math.abs(a - v.a) > 0.0005) e.start = a;
+      if (Math.abs(b - v.b) > 0.0005) e.end = b;
+      ls[k] = e;
+      o.lyrics.lines = ls;
     });
   }
   /** the words an action applies to: the selection when `id` is in it, else just `id` */
@@ -665,9 +694,9 @@ const Edit = (() => {
         oneBar ? h('div', { class: 'btnrow' },
           !many && wIdx > 0 ? btn('split the bar before this word', () => { const r = L.refWord(w.ref); if (r) splitAt(lineById(w.line_id), [r.k], []); else toast('Re-run the analysis once to split lines (this folder was made by an older version)', 'bad', 6000); }, 'this word and the ones after it become a new bar') : null,
           btn(many ? 'move these words to a new bar' : 'move this word to its own bar', () => splitSelection(sel.map((x) => x.id)), 'cut the bar around the selection; give the new bar its own voice under "sung by"')) : null,
-        h('div', { class: 'dim small' }, 'Click a word to select it, Ctrl+click to add or remove one, Shift+click for a range; drag a selected word to move them all, drag a word\'s right edge to change its length. Words stay inside their bar: drag the bar\'s left or right edge to stretch it. Keys < and > move the selection by 10 ms, Esc clears it.'));
+        h('div', { class: 'dim small' }, 'Click a word to select it, Ctrl+click to add or remove one, Shift+click for a range; drag a selected word to move them all, drag a word\'s right edge to change its length. Words stay inside their bar: drag the bar\'s left or right edge to make it longer or shorter (no word moves; an edge stops at the first or last word). Keys < and > move the selection by 10 ms, Esc clears it.'));
       } else {
-        host.append(h('div', { class: 'dim small' }, 'Single words: zoom in on the Lyrics lane until the words show under the line, then click or drag one. A bar\'s left and right edges stretch it.'));
+        host.append(h('div', { class: 'dim small' }, 'Single words: zoom in on the Lyrics lane until the words show under the line, then click or drag one. A bar\'s left and right edges make it longer or shorter; its words stay where they are.'));
       }
     }
     const allPins = (ovr().lyrics || {}).pins || [];
@@ -715,6 +744,6 @@ const Edit = (() => {
     host.scrollTop = keep;
   }
 
-  return { lineView, wordsInBars, moveWords, stretchLine, clearWords, pendingSplitWords, splitSelection, mergeVoice, wordShown, nudgeWord, selectWord, resetWord, linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
+  return { lineView, barEdges, wordsInBars, moveWords, resizeBar, clearWords, pendingSplitWords, splitSelection, mergeVoice, wordShown, nudgeWord, selectWord, resetWord, linePinOf, pinLine, unpinLine, moveBoundary, addBoundary, removeBoundary, setLabel, setLineTime, nudgeLine, setLineVoice, setRhythm, saveIntent, setWordTime, setWordDur, addPin, removePin, undo, pendingLine, pendingWord, pendingBoundaries, lineShift,
     refreshPanel, renderBar, save, commit, state: st };
 })();

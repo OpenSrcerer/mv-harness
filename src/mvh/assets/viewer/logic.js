@@ -89,10 +89,17 @@ const MVHLOGIC = (function () {
   }
   // ---------------------------------------------------------------------------------- bars, groups, splits (D83)
   /** the bar a line's words live in: its analysed span joined with where its words show now, [a, b] */
-  function barOf(lineT, lineD, words) {
-    let a = lineT, b = lineT + Math.max(0.05, lineD || 0);
+  function barOf(lineT, lineD, words, start, end) {
+    // D84: a bar start or end set in the viewer replaces that edge of the line's span; the bar always holds its words
+    let a = start != null ? start : lineT, b = end != null ? end : lineT + Math.max(0.05, lineD || 0);
     for (const w of words || []) { a = Math.min(a, w.t); b = Math.max(b, w.t + w.d); }
     return [a, b];
+  }
+  /** how far a bar's edges can go (D84): its start at most to its first word, its end at least to its last word's end */
+  function barEdgeLimits(words) {
+    let lo = Infinity, hi = -Infinity;
+    for (const w of words || []) { lo = Math.min(lo, w.t); hi = Math.max(hi, w.t + w.d); }
+    return { maxStart: lo, minEnd: hi };
   }
   /** the largest move <= |delta| that keeps every word inside its bar: items [{t, d, a, b}] (a, b = the bar) */
   function clampGroupDelta(items, delta) {
@@ -100,11 +107,6 @@ const MVHLOGIC = (function () {
     for (const x of items) { lo = Math.max(lo, x.a - x.t); hi = Math.min(hi, x.b - (x.t + x.d)); }
     if (lo > hi) return 0;
     return Math.min(Math.max(delta, Math.min(0, lo)), Math.max(0, hi));
-  }
-  /** a word of a bar stretched from [a, b] to [a2, b2] */
-  function stretch(t, d, a, b, a2, b2) {
-    const s = (b2 - a2) / Math.max(1e-6, b - a);
-    return { t: r3(a2 + (t - a) * s), d: r3(Math.max(0.02, d * s)) };
   }
   /** the word's place in its source line, from its stable reference r12w4 -> 4 (null without one) */
   function refWord(ref) {
@@ -313,7 +315,7 @@ const MVHLOGIC = (function () {
     return state.kind === 'suggestion' && !!accepted && t !== '';
   }
 
-  return { barOf, clampGroupDelta, stretch, refWord, editSplits, lineKeys, legacyWordKey, wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  return { barOf, barEdgeLimits, clampGroupDelta, refWord, editSplits, lineKeys, legacyWordKey, wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

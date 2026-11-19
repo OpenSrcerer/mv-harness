@@ -461,7 +461,8 @@ OVERRIDES = obj(opt={
                                                 opt={"to_t": num("s")}), "edits anchored by time"),
                           "labels": arr(obj({"t": num("s", "any time inside the section"), "label": string(pattern=r"^[a-z][a-z-]*$")}))}),
     # D83: line and word keys are ids (L012, L012.03) or stable references to the lyric source (r11, r11p1, r11w2)
-    "lyrics": obj(opt={"lines": mapof(obj({"dt": num("s")}), "line id or reference -> nudge", keys=LINE_KEY),
+    "lyrics": obj(opt={"lines": mapof(obj(opt={"dt": num("s"), "start": num("s"), "end": num("s")}),
+                                          "line id or reference -> nudge (dt) and the bar's own start / end (D84)", keys=LINE_KEY),
                        "words": mapof(obj(opt={"t": num("s"), "d": D, "dt": num("s")}), "word id or reference -> timing", keys=WORD_KEY),
                        "splits": arr(obj({"index": integer("0-based position of the line in the lyric source", minimum=0),
                                           "at": arr(integer("0-based place in the source line of the word that starts a new bar",

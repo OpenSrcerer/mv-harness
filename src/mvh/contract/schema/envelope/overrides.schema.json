@@ -101,16 +101,22 @@
        "dt": {
         "type": "number",
         "x-unit": "s"
+       },
+       "start": {
+        "type": "number",
+        "x-unit": "s"
+       },
+       "end": {
+        "type": "number",
+        "x-unit": "s"
        }
       },
-      "required": [
-       "dt"
-      ]
+      "required": []
      },
      "propertyNames": {
       "pattern": "^(L\\d{3,}|r\\d+(p\\d+)?)$"
      },
-     "description": "line id or reference -> nudge"
+     "description": "line id or reference -> nudge (dt) and the bar's own start / end (D84)"
     },
     "words": {
      "type": "object",

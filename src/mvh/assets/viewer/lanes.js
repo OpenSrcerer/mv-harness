@@ -308,7 +308,7 @@ LANES.push({
       const label = fitText(c, ln.text, ww - 6);
       if (label) c.fillText(label, Math.max(x0, 0) + 4, y + (hasWords ? 9 : bh / 2));
       // words (D83): click selects, Ctrl+click adds, Shift+click selects a range; drag moves the selection, the right edge
-      // changes a word's length. A word never leaves its bar; the bar's edges stretch it. While dragged, words are drawn
+      // changes a word's length. A word never leaves its bar; the bar's edges resize it (D84). While dragged, words are drawn
       // where they will go.
       if (hasWords) {
         c.font = FONT_S;
@@ -316,7 +316,6 @@ LANES.push({
         for (const x of view.words) {
           const wd = x.w;
           let wt = x.t, wdd = x.d;
-          if (bd) { const st = L.stretch(x.t, x.d, view.a, view.b, bd.a2, bd.b2); wt = st.t; wdd = st.d; }
           const g = dr && dr.base[wd.id];
           if (g) { if (dr.mode === 'move') wt = g.t + dr.delta; else wdd = Math.max(0.02, g.d + dr.delta); }
           const wx0 = t2x(wt), wx1 = t2x(wt + (wdd || 0.1));
@@ -352,16 +351,18 @@ LANES.push({
           if (wpx >= 14) lane.hits.push({ wid: wd.id, x: wx1 - 5, y: y + 11, w: 8, h: bh - 11, drag: true, cursor: 'col-resize', tip, onDragStart: begin('length'), onDrag: drag, onDragEnd: wordDragEnd });
         }
       }
-      // the bar's left and right edges stretch it (its words keep their places in it)
-      if (V.mode === 'edit' && hasWords && x1 - x0 >= 24) {
+      // the bar's left and right edges resize it (D84): no word moves, and an edge stops at the first word's start or
+      // the last word's end so no word is left outside
+      if (V.mode === 'edit' && view.words.length && x1 - x0 >= 24) {
+        const lim = L.barEdgeLimits(view.words);
         for (const side of ['a', 'b']) {
           const ex = side === 'a' ? x0 : x1;
           // inward strips: where two bars touch, the left half of the boundary is the left bar's end, the right half the next bar's start
           edges.push({ x: side === 'a' ? ex : ex - 6, y, w: 6, h: bh, drag: true, cursor: 'col-resize',
-            tip: () => `${ln.id}: drag to stretch the bar from its ${side === 'a' ? 'start' : 'end'}; its words keep their places in it`,
+            tip: () => `${ln.id}: drag to move the bar's ${side === 'a' ? 'start' : 'end'}; the words stay where they are, and the edge stops at the ${side === 'a' ? 'first' : 'last'} word`,
             onDragStart: (t) => { E.barDrag = { id: ln.id, side, a: view.a, b: view.b, a2: view.a, b2: view.b, anchor: t - (side === 'a' ? view.a : view.b) }; },
-            onDrag: (t) => { const d = E.barDrag; if (!d) return; const v = t - d.anchor; if (d.side === 'a') d.a2 = Math.max(0, Math.min(v, d.b - 0.1)); else d.b2 = Math.max(v, d.a + 0.1); requestDraw('lyrics'); },
-            onDragEnd: (_t, moved) => { const d = E.barDrag; E.barDrag = null; if (d && moved && (Math.abs(d.a2 - d.a) > 0.0005 || Math.abs(d.b2 - d.b) > 0.0005)) Edit.stretchLine(ln.id, d.a2, d.b2); requestDraw('lyrics'); } });
+            onDrag: (t) => { const d = E.barDrag; if (!d) return; const v = t - d.anchor; if (d.side === 'a') d.a2 = Math.max(0, Math.min(v, lim.maxStart)); else d.b2 = Math.max(v, lim.minEnd); requestDraw('lyrics'); },
+            onDragEnd: (_t, moved) => { const d = E.barDrag; E.barDrag = null; if (d && moved && (Math.abs(d.a2 - d.a) > 0.0005 || Math.abs(d.b2 - d.b) > 0.0005)) Edit.resizeBar(ln.id, d.a2, d.b2); requestDraw('lyrics'); } });
         }
       }
       const hit = { x: x0, y, w: ww, h: bh, tip: () => lineTip(ln), onClick: () => { selectLine(ln.id); seek(lt); } };
