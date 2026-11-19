@@ -16,7 +16,7 @@ STAGE = StageSpec(
     "meaning",
     ('identity', 'lyrics', 'voices', 'structure', 'mood', 'vocals', 'instruments', 'cues'),
     "main",
-    "1.2.0",
+    "1.3.0",
     override_keys=(),
     outputs=catalog_outputs("meaning"),
     params={'draft': 'agent', 'lyrics_to_agents': True},

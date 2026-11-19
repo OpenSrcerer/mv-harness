@@ -1684,3 +1684,8 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
   the words' span widened by them, never narrowed, so the bar always holds every word; no word moves. A key naming every bar of a
   split line sets the start of its first bar and the end of its last one. In the viewer a bar's edges resize it (they stop at the
   first word's start and the last word's end); moving the line moves its edges with it. Supersedes the D83 bar stretching.
+- **D85 Casting is not meaning (meaning 1.3.0).** The song's meaning `status` is `user` only when meaning/intent.md answers
+  something about the song (logline, summary, setting, tone, themes, perspective, symbolism, motifs, palette, sections,
+  do_not, references, notes, or a character's description). Naming the character behind a voice or the singer of a line
+  (what the viewer writes) is casting: it stays the user's, but a song with only casting is `pending` (or `draft`), so an
+  agent interviews the user before building.

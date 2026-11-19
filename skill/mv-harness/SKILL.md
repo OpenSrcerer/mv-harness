@@ -32,7 +32,7 @@ Recipes per engine: `references/RECIPES.md`.
 
 ## 3. The meaning rule (the user is the authority)
 
-- Status line `meaning: pending` and `meaning/intent.md` empty or missing: **show the user the questions in
+- Status line `meaning: pending` (character names alone are no answer): **show the user the questions in
   `meaning/interview.md` and wait for their answers.** Write their answers to `meaning/intent.md` only in their words.
   **Anything that must be obeyed goes in the template** (the YAML block at the end of the interview: characters,
   `voices` (`V1: C1 Name`), section feel/meaning/movement/camera/palette, `do_not`). Everything else may be free text:

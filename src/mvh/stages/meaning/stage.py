@@ -415,12 +415,17 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
     for bad in intent["palette_unparsed"]:
         questions.append(f"Palette colour '{bad}' was not understood; give it as a hex code (#rrggbb).")
     motifs = _motifs(intent, d, lines_by_id, gsrc)
+    # D85: casting (who a voice is, who sings a line: names only) is not meaning. A song whose intent.md only casts
+    # characters is still "pending", so an agent asks the user the interview before building; the characters stay the
+    # user's. A character with a description is an answer about the song.
+    described = any((c or {}).get("description") for c in (intent.get("characters") or {}).values())
+    casting = bool(intent.get("characters") or intent.get("line_singers"))
     has_user = intent["present"] and (any(intent.get(k) for k in ("logline", "summary", "setting", "tone", "themes",
                                                                    "symbolism", "do_not", "palette", "motifs", "sections",
-                                                                   "characters", "line_singers", "references", "notes"))
-                                      or any(intent["perspective"].values()))
+                                                                   "references", "notes"))
+                                      or described or any(intent["perspective"].values()))
     status = "user" if has_user else ("draft" if draft is not None else "pending")
-    if intent["present"] and not has_user:
+    if intent["present"] and not has_user and not casting:
         warnings.append("meaning/intent.md exists but no answer was recognised (see the template in meaning/interview.md)")
     open_q = list(dict.fromkeys(questions))
     free = set(intent.get("free_notes") or [])

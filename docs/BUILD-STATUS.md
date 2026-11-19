@@ -129,6 +129,9 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
 - **UD6, a bar's own start and end: APPROVED and built (2026-11-19, by the orchestrator, no agents).** CONTRACT D84,
   docs/contract/decisions/UD6.md. lyrics 1.4.0, viewer 1.5.0. A bar edge resizes only the bar; words never move.
 
+- **D85, casting is not meaning (2026-11-19, by the orchestrator).** meaning 1.3.0: a song whose intent.md only
+  names characters stays `meaning: pending`, so the skill's interview rule fires.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.
