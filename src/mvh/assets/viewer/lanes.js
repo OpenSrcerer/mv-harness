@@ -282,12 +282,15 @@ LANES.push({
     const top = 4;
     const splits = V.mode === 'edit' ? Edit.pendingSplitWords() : new Set();   // splits waiting for a re-run
     const edges = [];   // bar edges: grabbed before the words of a neighbouring bar that touches them
-    for (const ln of visible(M.lines, VW.t0, VW.t1)) {
+    // every line, culled by where its bar shows now: a moved line keeps its analysed time until the re-run, so culling
+    // by that time hid a bar dragged far from where it was analysed
+    for (const ln of M.lines) {
       // the bar: the line's span joined with where its words show now (D83: words stay inside it)
       const ed = E.lineDrag && E.lineDrag.id === ln.id ? E.lineDrag : null;
       const view = Edit.lineView(ln, ed ? ed.t : null);
       const bd = E.barDrag && E.barDrag.id === ln.id ? E.barDrag : null;
       const ba = bd ? bd.a2 : view.a, bb = bd ? bd.b2 : view.b, lt = view.lt;
+      if (bb < VW.t0 || ba > VW.t1) continue;
       const pend = Edit.pendingLine(ln.id) || view.words.some((x) => x.pending);
       const x0 = t2x(ba), x1 = t2x(bb), ww = Math.max(2, x1 - x0 - 1);
       const row = M.rowOfLine(ln), y = top + row * LROW, bh = LROW - 6;
