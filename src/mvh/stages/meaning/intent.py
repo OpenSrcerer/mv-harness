@@ -229,6 +229,8 @@ def empty_intent() -> dict[str, Any]:
         "unparsed_keys": [],
         # D81: key paths of the template lines still marked '# suggestion' (typed from a draft, not answers)
         "suggested": [],
+        # D87: the viewer's lyric-line notes {r12 | r12p1 | L012: {note, repeats}}
+        "line_notes": {},
     }
 
 
@@ -1090,6 +1092,8 @@ _VB_KV = re.compile(r"^- (feel|meaning|movement|camera|palette|do not): ?(.*)$")
 _VB_SONG = re.compile(r"^### Song$")
 _VB_GROUP = re.compile(r"^### (Every section|Every \S.*?)$")
 _VB_SONG_KV = re.compile(r"^- (logline|summary|setting|tone|theme|palette|do not): ?(.*)$")
+_VB_LINES = re.compile(r"^### Lines$")
+_VB_LINE_NOTE = re.compile(r"^- (r\d+(?:p\d+)?|L\d{3,})( only)?: ?(.*)$")
 
 
 def _map_voice(out: dict[str, Any], v: str, cid: str, name: str | None) -> None:
@@ -1110,7 +1114,7 @@ def _parse_viewer_block(body: str, out: dict[str, Any]) -> None:
     words edited in the viewer. It wins over the template (it is the latest edit)."""
     claims: list[dict[str, Any]] = []
     cur: dict[str, Any] | None = None
-    in_song = False
+    in_song = in_lines = False
     themes: list[str] = []
     for raw in body.splitlines():
         line = raw.rstrip()
@@ -1120,7 +1124,13 @@ def _parse_viewer_block(body: str, out: dict[str, Any]) -> None:
             continue
         if line.startswith("### "):
             in_song = bool(_VB_SONG.match(line))
+            in_lines = bool(_VB_LINES.match(line))
             cur = None
+        if in_lines:  # D87: what a lyric line means, in the user's words (optional extra information)
+            lm = _VB_LINE_NOTE.match(line)
+            if lm and lm.group(3).strip():
+                out.setdefault("line_notes", {})[lm.group(1)] = {"note": lm.group(3).strip(), "repeats": not lm.group(2)}
+            continue
         if in_song:  # D81: the whole-song box of the viewer; it wins over the template (do-not rules: a union)
             km = _VB_SONG_KV.match(line)
             v = km.group(2).strip() if km else ""

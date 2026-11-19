@@ -11,7 +11,7 @@ STAGE = StageSpec(
     "brief",
     ANALYSIS_STAGES,
     "main",
-    "1.2.0",
+    "1.3.0",
     override_keys=(),
     outputs=catalog_outputs("brief"),
     params={'max_tokens': 4000, 'target_tokens': 2500},

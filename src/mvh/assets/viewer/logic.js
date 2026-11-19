@@ -131,6 +131,21 @@ const MVHLOGIC = (function () {
     if (!ks.includes(old)) ks.push(old);
     return ks;
   }
+  /** D87: the meaning note a line shows: its own (under any of its keys), else the note of the earliest repeat of it
+   *  (same repeat_group) that is marked for every repeat; null without one. notes = intent.md's viewer lines
+   *  {key: {note, repeats}}; lines in time order. The meaning stage resolves notes the same way. */
+  function lineNoteOf(notes, lines, ln) {
+    notes = notes || {};
+    const k = lineKeys(ln).find((x) => notes[x]);
+    if (k) return { note: notes[k].note, repeats: notes[k].repeats !== false, key: k, own: true, from: ln.id };
+    if (!ln.repeat_group) return null;
+    for (const r of lines || []) {
+      if (r.id === ln.id || r.repeat_group !== ln.repeat_group) continue;
+      const rk = lineKeys(r).find((x) => notes[x]);
+      if (rk && notes[rk].repeats !== false) return { note: notes[rk].note, repeats: true, key: rk, own: false, from: r.id };
+    }
+    return null;
+  }
   /** the id key of a word in the numbering before any split (what an old correction was written against) */
   function legacyWordKey(word, line) {
     const m = /\.(\d+)$/.exec(word.id);
@@ -315,7 +330,7 @@ const MVHLOGIC = (function () {
     return state.kind === 'suggestion' && !!accepted && t !== '';
   }
 
-  return { barOf, barEdgeLimits, clampGroupDelta, refWord, editSplits, lineKeys, legacyWordKey, wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
+  return { barOf, barEdgeLimits, lineNoteOf, clampGroupDelta, refWord, editSplits, lineKeys, legacyWordKey, wordPos, linePin, setLinePin, removeLinePin, meaningField, meaningFieldWrite, r3, clamp, moveBoundary, addBoundary, removeBoundary, setSectionLabel, cleanLabel, lineDt, setLineNudge, setWord,
     rebar, previewGrid, nearestIndex, alignOffset, poolCurve, wavePyramid, niceStep, fmtTime, midiName, sectionIndexAt,
     wordIndexAt, NOTE_NAMES, SEC_TOL };
 })();

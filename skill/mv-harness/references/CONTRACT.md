@@ -1705,3 +1705,14 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
   audio marked `(audio)`, not `(draft)`. SKILL.md: run `mvh status` first and refresh with `mvh analyze` when a stage is stale;
   `mvh pack`; `lib/mvh.d.ts` is the API; cues define cuts, kicks drive flashes; meaning-free work may start while the meaning is
   pending. RECIPES.md: Node import by file URL, the browser include list, karaoke, characters by id, the soundtrack everywhere.
+- **D87 Meaning: the whole song, plus optional notes on single lyric lines (user decision UD7; meaning 1.4.0, viewer 1.6.0,
+  brief 1.3.0).** Details: docs/contract/decisions/UD7.md.
+  - The viewer's meaning boxes per section and per group of sections are removed: sections are the music's parts. The
+    template still accepts answers by section, the drafts may still suggest them, and older viewer answers stay in effect.
+  - A lyric line can carry a note in the user's words: viewer block `### Lines`, `- r12: <note>` (also every repeat of the
+    line, same `repeat_group`) or `- r12 only: <note>` (that line alone). Keys are stable references (r12, r12p1; a line id
+    for a line the harness added).
+  - meaning.json `line_notes[]` = `{line_id, ref, t, d, repeat_group, note, key, from_line, shared, source: user}`, one per
+    line that has a note (its own first, else the earliest repeat's shared note). A note counts as the user's meaning
+    (`status: user`). Keys that match no line become an open question. brief.md lists them; the section zoom shows each
+    line's note; meaning.md has them all. The interview asks about single lines instead of every section.

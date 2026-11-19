@@ -69,6 +69,42 @@ def unparsed_question(unparsed: list[dict[str, Any]]) -> str:
                                   if rules else "") + " Fix them in the template (the meaning stage warnings say why).")
 
 
+def resolve_line_notes(notes: dict[str, Any], lines: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+    """D87: the user's lyric-line notes on this run's lines. A note is keyed by the line's stable reference (r12; r12p1
+    for one bar of a split line; r12 covers every bar) or, for a line the harness added, its id. A note marked for
+    repeats also applies to every line of the same repeat_group that has no note of its own. Returns the notes in time
+    order and the keys that matched no line."""
+    if not notes:
+        return [], []
+    used: set[str] = set()
+    own: dict[str, tuple[str, dict[str, Any]]] = {}
+    for ln in lines:
+        ref = ln.get("ref")
+        keys = [ref, re.sub(r"p\d+$", "", ref) if ref else None, ln.get("legacy_id"), ln.get("id")]
+        for k in keys:
+            if k and k in notes:
+                own[ln["id"]] = (k, notes[k])
+                used.add(k)
+                break
+    order = sorted(lines, key=lambda x: float(x.get("t") or 0.0))
+    shared: dict[str, tuple[str, dict[str, Any], str]] = {}
+    for ln in order:
+        rg, mine = ln.get("repeat_group"), own.get(ln["id"])
+        if rg and mine and mine[1].get("repeats", True) and rg not in shared:
+            shared[rg] = (mine[0], mine[1], ln["id"])
+    out = []
+    for ln in order:
+        base = {"line_id": ln["id"], "ref": ln.get("ref"), "t": ln.get("t"), "d": ln.get("d"),
+                "repeat_group": ln.get("repeat_group")}
+        if ln["id"] in own:
+            k, rec = own[ln["id"]]
+            out.append({**base, "note": rec["note"], "key": k, "from_line": ln["id"], "shared": False, "source": "user"})
+        elif ln.get("repeat_group") in shared:
+            k, rec, src = shared[ln["repeat_group"]]
+            out.append({**base, "note": rec["note"], "key": k, "from_line": src, "shared": True, "source": "user"})
+    return out, sorted(k for k in notes if k not in used)
+
+
 def run(ctx) -> StageResult:
     src = CtxSource(ctx)
     intent_text = _read_text(ctx.external("intent"))
@@ -422,11 +458,15 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
     casting = bool(intent.get("characters") or intent.get("line_singers"))
     has_user = intent["present"] and (any(intent.get(k) for k in ("logline", "summary", "setting", "tone", "themes",
                                                                    "symbolism", "do_not", "palette", "motifs", "sections",
-                                                                   "references", "notes"))
+                                                                   "references", "notes", "line_notes"))
                                       or described or any(intent["perspective"].values()))
     status = "user" if has_user else ("draft" if draft is not None else "pending")
     if intent["present"] and not has_user and not casting:
         warnings.append("meaning/intent.md exists but no answer was recognised (see the template in meaning/interview.md)")
+    line_notes, lost_notes = resolve_line_notes(intent.get("line_notes") or {}, lines)
+    if lost_notes:
+        questions.append(f"{len(lost_notes)} line note(s) of meaning/intent.md name lyric lines that no longer exist "
+                         f"({', '.join(lost_notes[:5])}); the lyrics changed? Re-enter them in the viewer.")
     open_q = list(dict.fromkeys(questions))
     free = set(intent.get("free_notes") or [])
     rule_like = [k + 1 for k, n in enumerate(intent.get("notes") or []) if n in free and RULE_WORDS.search(str(n))]
@@ -467,6 +507,8 @@ def build(src: Source, intent_text: str | None, authored: Any, params: Mapping[s
         "intent_suggested": list(intent.get("suggested") or []),
         # additive (docs/contract/decisions/W4-words.md): template entries that did not parse, kept as notes
         "intent_unparsed": unparsed,
+        # D87 (additive): what single lyric lines mean, in the user's words (optional extra information)
+        "line_notes": line_notes,
     }
     meaning, final_probs = check_claims(meaning, known | set(chars) | {m["id"] for m in motifs}, duration, status="user")
     # check_claims stamps one status on everything; restore the per-claim origin

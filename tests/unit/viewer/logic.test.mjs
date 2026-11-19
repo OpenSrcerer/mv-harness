@@ -208,3 +208,16 @@ test('splits and keys: positions per source line; every key the stage applies to
   assert.deepEqual(L.lineKeys({ id: 'L016', ref: 'r15' }), ['r15', 'L016']);
   assert.deepEqual(L.lineKeys({ id: 'L040', ref: null }), ['L040']);
 });
+
+test('line notes (D87): own note first, else the earliest repeat marked for every repeat', () => {
+  const lines = [
+    { id: 'L001', ref: 'r0', repeat_group: 'LG01' }, { id: 'L002', ref: 'r1', repeat_group: null },
+    { id: 'L003', ref: 'r2', repeat_group: 'LG01' }, { id: 'L004', ref: 'r3', repeat_group: 'LG01' },
+  ];
+  const notes = { r0: { note: 'hook', repeats: true }, r2: { note: 'twist', repeats: false } };
+  assert.deepEqual(L.lineNoteOf(notes, lines, lines[0]), { note: 'hook', repeats: true, key: 'r0', own: true, from: 'L001' });
+  assert.equal(L.lineNoteOf(notes, lines, lines[2]).note, 'twist');                 // its own, not shared
+  assert.deepEqual(L.lineNoteOf(notes, lines, lines[3]), { note: 'hook', repeats: true, key: 'r0', own: false, from: 'L001' });
+  assert.equal(L.lineNoteOf(notes, lines, lines[1]), null);                         // no repeats, no note
+  assert.equal(L.lineNoteOf({ r0: { note: 'x', repeats: false } }, lines, lines[3]), null);   // 'only' does not spread
+});

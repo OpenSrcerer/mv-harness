@@ -50,6 +50,9 @@ user's answers. Never edit generated files; it never touches `meaning/intent.md`
 - **`do_not` rules** (template only, verbatim in brief.md) are hard constraints on every frame. If brief.md says
   **template entries did not parse** (`intent_unparsed`), a rule may be missing: ask the user to fix it first.
 - `notes` (`meaning.json`): the user's own words; direction, not rules. A note that reads like a rule is a question.
+- The meaning is the whole song's. Sections are the music's parts and usually carry no answer: pick their look from
+  the music and the song meaning. **`line_notes`** (`song.meaning.line_notes`) explain single lyric lines in the
+  user's words (a reference, who a line is aimed at); `shared: true` = a repeat's note. Direction, not rules.
 - Who wrote a field: `field_sources` on `sections[]`, `characters[]` and the top level: `user` = authored, `draft` =
   an agent's suggestion (tell the user before building on it), `audio` = measured from the song (a fact, nobody's
   direction). brief.md marks them `(draft)` / `(audio)`. A section's `provenance` `{source: audio, status: draft}`
@@ -76,7 +79,7 @@ user's answers. Never edit generated files; it never touches `meaning/intent.md`
 | **Cuts** | **cues define cuts**: `events('cues').next(t, {minTier: 2})`, `lead_in_s` to anticipate. Hero shots: `events('moments')` sorted by `rank` |
 | Kick | flashes and shake only: `song.kicks()` / `song.pulse('kick', t)` (one timeline, `kickSource`). A kick may sit one frame off a cue: keep the cut on the cue. `qa:kick_sources_disagree`: prefer bars and tier 1-2 cues |
 | Characters, lip-sync | `song.meaning.characters` (array, by `id`); `song.singerAt(t)` -> `[{character_id, voice_id, lead_backing, line_id, mouth_open}]` |
-| Karaoke | `song.linesAt(t)`: every line sounding (overlaps = two singers), each with all its `words`; `line.singer` is an array |
+| Karaoke | `song.linesAt(t)`: every line sounding (overlaps = two singers), each with all its `words`; `line.singer` is an array; the user's note on a line: `song.meaning.line_notes` by `line_id` |
 | Look | `song.meaningAt(t)` -> feel, emotion, palette_hint, movement/camera hints, characters_present, do_not, field_sources |
 | Energy | `curve('dyn.intensity')`, `curve('loud.short_term')`, `events('edm_roles')` (build/drop) |
 | Melody | `song.vocalAt(t)`, `events('notes.bass')`, `events('chords')` |

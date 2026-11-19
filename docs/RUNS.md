@@ -196,12 +196,12 @@ Jeremy and Versatile are loud masters, so their stems also get float WAV twins (
     of place, pin the first line of each pass (for example each time the hook starts);
   - pin cues (`cues.pinned`);
   - map voices to characters and write the meaning (the managed block of `meaning/intent.md`; mapped voices are a
-    floor for the voice count, D69). Three forms, the same fields as the template (D81): the **whole song** (logline,
-    story, setting, tone, themes, palette, never-show rules), a **group of sections** (`every section`, `every drop`:
-    feel / meaning / movement / camera / palette, inherited by the group's sections) and **one section** (only what
-    differs from its group). A draft's value appears prefilled and marked `suggestion`: accept it, change it, or
-    dismiss it (removes it from `meaning/authored.json`). A suggestion left alone is not saved as yours. Text typed
-    but not saved survives selecting another section.
+    floor for the voice count, D69). The **whole song** (logline, story, setting, tone, themes, palette, never-show
+    rules; D81) and, optionally, **a note on one lyric line** (D87: select the line, "what this line means"; a note on
+    a line that repeats covers every repeat unless "same for every repeat" is unticked). There is no box per section
+    or group any more (sections are the music's parts); answers by section still work in the template. A draft's
+    value appears prefilled and marked `suggestion`: accept it, change it, or dismiss it (removes it from
+    `meaning/authored.json`). A suggestion left alone is not saved as yours.
   The server answers each save with the stages it affects; "re-run" starts `mvh analyze <folder>`, which re-runs only
   those stages. `tests/integration/test_override_roundtrip.py` checks the whole loop on real runs.
 - **By hand.** `overrides.json` and `meaning/intent.md` are user inputs: the runner never writes or deletes them. Edit

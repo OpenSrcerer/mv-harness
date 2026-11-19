@@ -617,6 +617,73 @@
     "type": "string"
    }
   },
+  "line_notes": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "line_id": {
+      "type": "string",
+      "description": "Lyric line, in sung order id",
+      "pattern": "^L\\d{3,}$"
+     },
+     "note": {
+      "type": "string",
+      "description": "the user's words, verbatim"
+     },
+     "key": {
+      "type": "string",
+      "description": "the key in meaning/intent.md: r12, r12p1 or a line id"
+     },
+     "from_line": {
+      "type": "string",
+      "description": "Lyric line, in sung order id",
+      "pattern": "^L\\d{3,}$"
+     },
+     "shared": {
+      "type": "boolean",
+      "description": "true: the note of a repeat of this line"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "user"
+      ]
+     },
+     "ref": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "t": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "time in seconds from the first sample of audio/mix.flac"
+     },
+     "d": {
+      "type": "number",
+      "x-unit": "s",
+      "description": "duration in seconds",
+      "minimum": 0
+     },
+     "repeat_group": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "from_line",
+     "key",
+     "line_id",
+     "note",
+     "shared",
+     "source"
+    ]
+   }
+  },
   "field_sources": {
    "type": "object",
    "properties": {},

@@ -135,6 +135,9 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
 - **D86, the skill reviewed as a video agent's reference (2026-11-19).** brief 1.2.0; lib soundtrack / meaning /
   linesAt; SKILL.md and RECIPES.md rewritten after a dry run by a fresh agent.
 
+- **UD7, meaning of the whole song plus optional line notes: APPROVED and built (2026-11-19).** CONTRACT D87,
+  docs/contract/decisions/UD7.md. meaning 1.4.0, viewer 1.6.0, brief 1.3.0.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.

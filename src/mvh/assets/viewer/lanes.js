@@ -301,6 +301,8 @@ LANES.push({
       if (conf < 0.5) { c.save(); roundRect(c, x0, y, ww, bh, 4); c.clip(); c.strokeStyle = rgba(T.bad, 0.55); c.lineWidth = 1; for (let k = -bh; k < ww; k += 6) { c.beginPath(); c.moveTo(x0 + k, y + bh); c.lineTo(x0 + k + bh, y); c.stroke(); } c.restore(); }
       const selected = SEL.lineId === ln.id;
       if (selected || pend || ed) { c.strokeStyle = ed || pend ? T.edit : T.text; c.lineWidth = 1.5; roundRect(c, x0 + 0.5, y + 0.5, ww - 1, bh - 1, 4); c.stroke(); }
+      // a line with a meaning note (D87): a small dot at its top right
+      if (L.lineNoteOf((V.intent || {}).lines, M.lines, ln)) { c.fillStyle = T.text; c.beginPath(); c.arc(x0 + ww - 5, y + 4, 2.5, 0, Math.PI * 2); c.fill(); }
       // a pinned line start (D82): a flag on its left edge
       if (V.mode === 'edit' && Edit.linePinOf(ln)) { c.fillStyle = T.edit; c.beginPath(); c.moveTo(x0, y - 3); c.lineTo(x0 + 8, y - 3); c.lineTo(x0, y + 6); c.closePath(); c.fill(); c.fillRect(x0, y - 3, 1.5, bh + 3); }
       c.fillStyle = T.text; c.font = FONT; c.textAlign = 'left';
@@ -402,7 +404,9 @@ function lineTip(ln) {
   const M = V.model, sg = M.singers.get(ln.id) || [];
   const who = sg.map((s) => `${s.character_id || '?'}/${s.voice_id}${s.lead_backing === 'backing' ? ' (backing)' : ''}`).join(', ') || (M.voiceOfLine.get(ln.id) || ln.speaker_hint || 'singer unknown');
   const zoom = V.mode === 'edit' && VW.w / (VW.t1 - VW.t0) <= WORD_PXS ? '\nZoom in (+ or Ctrl+wheel) to move single words' : '';
-  return `${ln.id}  ${fmtTime(ln.t, 2)} - ${fmtTime(ln.t + ln.d, 2)}\n${ln.text}\nsinger: ${who}   conf ${ln.conf != null ? ln.conf.toFixed(2) : '-'}  grade ${ln.grade || '-'}  timing ${ln.timing_source || '-'}${zoom}`;
+  const n = L.lineNoteOf((V.intent || {}).lines, M.lines, ln);   // D87: the user's note on this line
+  const note = n ? `\nmeaning${n.own ? '' : ' (from ' + n.from + ')'}: ${n.note}` : '';
+  return `${ln.id}  ${fmtTime(ln.t, 2)} - ${fmtTime(ln.t + ln.d, 2)}\n${ln.text}\nsinger: ${who}   conf ${ln.conf != null ? ln.conf.toFixed(2) : '-'}  grade ${ln.grade || '-'}  timing ${ln.timing_source || '-'}${note}${zoom}`;
 }
 
 // ================================================================================================ beats and counts

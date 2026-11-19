@@ -506,10 +506,8 @@ const Edit = (() => {
     };
     return { id, rows, collect, nSugg: fields.filter((f) => f.st.kind === 'suggestion').length };
   }
-  const SEC_FIELDS = [['feel', 'feel', 'how it feels', 1], ['meaning', 'meaning', 'what it means', 2], ['movement', 'movement_hint', 'movement', 2],
-    ['camera', 'camera_hint', 'camera', 2], ['palette', 'palette_hint', 'palette (hex, comma separated)', 1]];
   function meaningPanel(host, M) {
-    const m = M.meaning || {}, defs = m.section_defaults || [];
+    const m = M.meaning || {};
     const I = V.intent || {};
     // a draft value is hidden once it was dismissed here
     const live = (item, eff, src) => (src === 'draft' && dismissed.has(dkey(item)) ? ['', undefined] : [eff, src]);
@@ -547,60 +545,53 @@ const Edit = (() => {
           btn('dismiss', () => dismiss([{ scope: 'song', field: 'do_not', value: r }], 'a rule'), 'remove this suggestion from the draft')))),
       saveRow(song, 'whole-song meaning', (rec) => ({ song: Object.assign(rec, { do_not: rules.value }) }), { song: null }));
 
-    // ---- a group of sections: every section, every <label>
-    host.append(h('h3', null, 'Meaning by group of sections'),
-      h('div', { class: 'dim small' }, 'Answer once for many sections. A single section overrides its group, and a group overrides "every section".'));
-    const gOwn = I.groups || {};
-    const groups = defs.filter((g) => g.key === 'all' || (g.section_ids || []).length > 1 || Object.keys(g.field_sources || {}).length || gOwn[g.key]);
-    const allDef = defs.find((g) => g.key === 'all') || {};
-    // an answer one level up, as a hint: what the viewer saved since the last run first, then the last run's
-    const upAll = (key, mf) => (gOwn.all || {})[key] || ((allDef.field_sources || {})[mf] === 'user' ? [].concat(allDef[mf] || []).join(', ') : '');
-    if (!groups.length) host.append(h('div', { class: 'dim' }, 'Re-run the analysis once to edit by group (this folder was made by an older version).'));
-    else {
-      if (!groups.some((g) => g.key === st.group)) st.group = 'all';
-      const g = groups.find((x) => x.key === st.group);
-      const level = g.key === 'all' ? 'all' : 'type';
-      const form = meaningForm('group:' + g.key, SEC_FIELDS.map(([key, mf, label, rows]) => {
-        const dis = { scope: 'group', key: g.key, field: key };
-        const [e, sc] = live(dis, g[mf], (g.field_sources || {})[mf]);
-        const stt = L.meaningField((gOwn[g.key] || {})[key], e, sc, level, level);
-        const up = level === 'type' && stt.kind === 'empty' ? upAll(key, mf) : '';
-        return { key, label, rows, dis, st: stt, placeholder: up ? 'from every section: ' + up : '' };
-      }));
-      const name = g.key === 'all' ? 'every section' : 'every ' + g.key;
-      host.append(h('div', { class: 'form-row' }, h('span', { class: 'lbl' }, 'group'),
-        h('select', { onchange: (e) => { st.group = e.target.value; refreshPanel(); } }, groups.map((x) => h('option', { value: x.key, selected: x.key === g.key },
-          x.key === 'all' ? `every section (${(x.section_ids || []).length})` : `every ${x.key} (${(x.section_ids || []).length}: ${(x.section_ids || []).join(' ')})`)))),
-      ...form.rows, saveRow(form, 'meaning of ' + name, (rec) => ({ groups: { [g.key]: rec } }), { groups: { [g.key]: null } }));
+    // ---- single lyric lines (D87): optional notes. Sections are the music's parts: they get no meaning box here
+    const notes = I.lines || {};
+    const withNote = M.lines.map((l) => [l, L.lineNoteOf(notes, M.lines, l)]).filter((x) => x[1]);
+    host.append(h('h3', null, 'Meaning of single lines (optional)'),
+      h('div', { class: 'dim small' }, 'Extra information where a line needs it. Select a line in the Lyrics lane and write it under "Lyrics & singers". A line that repeats shares its meaning with every repeat unless you untick that.'),
+      withNote.length ? withNote.map(([l, n]) => h('div', { class: 'pendrow' }, btn(l.id, () => { selectLine(l.id); seek(l.t); }, 'select this line'), ' ',
+        n.note.length > 90 ? n.note.slice(0, 90) + '…' : n.note, n.own ? null : h('span', { class: 'dim small' }, ` (from ${n.from})`)))
+        : h('div', { class: 'dim' }, 'No line has a note.'));
+    // answers by section or group saved before this change stay in intent.md, and agents still get them
+    const oldSec = Object.keys(I.sections || {}), oldGrp = Object.keys(I.groups || {});
+    if (oldSec.length || oldGrp.length) {
+      const clear = { sections: Object.fromEntries(oldSec.map((x) => [x, null])), groups: Object.fromEntries(oldGrp.map((x) => [x, null])) };
+      host.append(h('div', { class: 'dim small' }, `meaning/intent.md still holds ${oldSec.length + oldGrp.length} answer(s) by section or group from an earlier version of the viewer (${[...oldGrp.map((x) => 'every ' + (x === 'all' ? 'section' : x)), ...oldSec].join(', ')}). Agents still get them.`),
+        h('div', { class: 'btnrow' }, btn('remove them', () => saveIntent(clear, 'removed the section answers'), 'only the viewer block of intent.md; the template is not touched')));
     }
+  }
 
-    // ---- one section
-    host.append(h('h3', null, 'Meaning of a section'), h('div', { class: 'dim small' }, 'Only what differs from its group. Anchored by section time. Select a section (click it in the Sections or Meaning lane).'));
-    const msec = SEL.sectionId ? M.sections.find((x) => x.id === SEL.sectionId) : null;
-    if (!msec) { host.append(h('div', { class: 'dim' }, 'No section selected.')); return; }
-    const ex = (I.sections || {})[msec.id] || {};
-    const base = M.meaningSections.get(msec.id) || {};
-    const grp = defs.find((x) => x.key !== 'all' && (x.section_ids || []).includes(msec.id));
-    const form = meaningForm('sec:' + msec.id, SEC_FIELDS.map(([key, mf, label, rows]) => {
-      const dis = { scope: 'section', id: msec.id, field: key };
-      const [e, sc] = live(dis, base[mf], (base.field_sources || {})[mf]);
-      let stt = L.meaningField(ex[key], e, sc, (base.field_scope || {})[mf], 'section');
-      // an answer for the group saved in the viewer since the last run beats a draft: show it as inherited
-      const viaGroup = grp ? (gOwn[grp.key] || {})[key] : '';
-      const viaAll = (gOwn.all || {})[key];
-      if (stt.kind === 'suggestion' && (viaGroup || viaAll)) stt = { value: '', kind: 'empty' };
-      let ph = '';
-      if (stt.kind === 'inherited') ph = `from every ${stt.from === 'all' ? 'section' : (grp ? grp.key : 'section of this type')}: ${stt.value}`;
-      else if (stt.kind === 'empty') ph = viaGroup ? `from every ${grp.key}: ${viaGroup}` : (upAll(key, mf) ? 'from every section: ' + upAll(key, mf) : '');
-      return { key, label, rows, dis, st: stt, placeholder: ph };
-    }));
-    const dn = keptArea('sec:' + msec.id + '|do_not', (ex.do_not || []).join('\n'), { rows: 2, class: 'txt', placeholder: 'rules for this section only, one per line' });
-    const heard = (base.emotion || {}).audio;
-    host.append(h('div', { class: 'card' }, h('b', null, `${msec.id} ${msec.occurrence_label || msec.label}`), ' ', h('span', { class: 'dim' }, `${fmtTime(msec.t, 1)}-${fmtTime(msec.t + msec.d, 1)}`),
-        heard ? h('div', { class: 'dim small' }, `Heard in the audio: ${heard}. Measured by the mood model: intensity is more reliable than happy or sad.`) : null),
-      ...form.rows, h('div', { class: 'blk' }, h('div', { class: 'lbl' }, 'never show in this section (one per line)'), dn),
-      saveRow(form, 'meaning of ' + msec.id, (rec) => ({ sections: { [msec.id]: Object.assign({ t0: msec.t, t1: msec.t + msec.d, label: msec.occurrence_label || msec.label }, rec, { do_not: dn.value }) } }),
-        { sections: { [msec.id]: null } }));
+  /** D87: what one lyric line means (optional extra information, the user's words). A line that repeats shares one
+   *  note with every repeat by default; unticking gives this line its own. */
+  function lineNoteBox(host, ln) {
+    const M = V.model, notes = (V.intent || {}).lines || {};
+    const cur = L.lineNoteOf(notes, M.lines, ln);
+    const reps = ln.repeat_group ? M.lines.filter((l) => l.repeat_group === ln.repeat_group && l.id !== ln.id) : [];
+    const ks = L.lineKeys(ln), k = ks[0], fid = 'line|' + ln.id;
+    const ta = keptArea(fid, cur ? cur.note : '', { rows: 2, class: 'txt', placeholder: 'optional: what this line means, who it is aimed at, a reference ...' });
+    const chk = reps.length ? h('input', { type: 'checkbox', checked: cur ? cur.repeats : true }) : null;
+    if (chk) chk.addEventListener('change', () => {   // unticked on a line that shows a repeat's note: start its own
+      if (!chk.checked && cur && !cur.own && ta.value === cur.note) { ta.value = ''; typed.set(fid, ''); }
+    });
+    const save = () => {
+      const note = ta.value.trim(), repeats = chk ? chk.checked : true;
+      // a shared note edited from another repeat is the same note: it stays under the line that holds it
+      const target = repeats && cur && !cur.own ? cur.key : k;
+      const patch = { lines: {} };
+      for (const x of ks) if (x !== target && notes[x]) patch.lines[x] = null;   // an older key of this line
+      patch.lines[target] = note ? { note, repeats } : null;
+      saveIntent(patch, `meaning of ${ln.id}`, () => typed.delete(fid));
+    };
+    const clear = () => saveIntent({ lines: Object.fromEntries(ks.filter((x) => notes[x]).map((x) => [x, null])) }, `cleared the meaning of ${ln.id}`, () => typed.delete(fid));
+    host.append(h('div', { class: 'blk' },
+      h('div', { class: 'lbl' }, 'what this line means (optional) ', cur ? h('span', { class: 'pill good' }, cur.own ? 'yours' : 'yours, from ' + cur.from) : null),
+      ta,
+      chk ? h('label', { class: 'small' }, chk, ` same for every repeat of this line (${reps.length + 1} in all)`) : null,
+      h('div', { class: 'btnrow' }, btn('save line meaning', save), cur && cur.own ? btn('clear', clear, 'remove this line\'s own note') : null),
+      h('div', { class: 'dim small' }, reps.length
+        ? 'Written to meaning/intent.md for the video agents. Ticked: one meaning for every repeat. Untick to give this repeat a meaning of its own. Re-runs: meaning, brief.'
+        : 'Written to meaning/intent.md for the video agents. Re-runs: meaning, brief.')));
   }
 
   function refreshPanel() {
@@ -671,6 +662,7 @@ const Edit = (() => {
       if (ln.source_part != null && ln.source_part > 0) {
         host.append(h('div', { class: 'btnrow' }, btn('join with the bar before', () => splitAt(ln, [], [ln.source_word]), 'undo the split that started this bar')));
       }
+      lineNoteBox(host, ln);
       const sel = [...SEL.words].map(wordById).filter(Boolean);
       const w = SEL.wordId ? wordById(SEL.wordId) : null;
       if (w && sel.length) {
@@ -732,7 +724,7 @@ const Edit = (() => {
         }))));
     }
     if (!M.voices.length) host.append(h('div', { class: 'dim' }, 'No voices detected.'));
-    // ---- meaning: the whole song, a group of sections, one section (D81)
+    // ---- meaning: the whole song (D81), single lines (D87)
     meaningPanel(host, M);
     // ---- pins
     host.append(h('h3', null, 'Pinned moments'), h('div', { class: 'dim small' }, 'Pins become tier-1 cues. Double-click the Cues lane or add one at the playhead. Re-runs: cues.'));

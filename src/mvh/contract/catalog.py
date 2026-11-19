@@ -638,6 +638,12 @@ FILE_SCHEMAS: dict[str, dict] = {
             "notes": arr(string("the user's own words, verbatim: free text of meaning/intent.md and the template's "
                                 "notes; direction, never a field or a rule")),
             "references": arr(string()),
+            # D87: what single lyric lines mean, in the user's words (optional; from the viewer's line box)
+            "line_notes": arr(obj({"line_id": idref("line"), "note": string("the user's words, verbatim"),
+                                   "key": string("the key in meaning/intent.md: r12, r12p1 or a line id"),
+                                   "from_line": idref("line"), "shared": boolean("true: the note of a repeat of this line"),
+                                   "source": string(enum=["user"])},
+                                  opt={"ref": nullable(string()), "t": T, "d": D, "repeat_group": nullable(string())})),
             "field_sources": obj(desc="per top-level field: user (intent template / notes) | draft (authored.json)"),
             "intent_form": string("how meaning/intent.md was read: none | yaml (template) | text (notes) | yaml+text, "
                                   "+viewer when the viewer block is present")}),

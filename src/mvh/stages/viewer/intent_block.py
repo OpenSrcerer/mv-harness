@@ -29,6 +29,9 @@ voices and M6b meaning as the user's authoritative words::
     - camera: ...
     - palette: #1b2a49, #f2a541
     - do not: ...            (one line per rule)
+    ### Lines
+    - r12: ...               (D87: what lyric line 12 means; also every repeat of it)
+    - r14 only: ...          (this line only, not its repeats)
     <!-- mvh-viewer:end -->
 
 ``### Song`` is the whole-song box. ``### Every section`` is the default for every section and ``### Every <label>``
@@ -50,6 +53,9 @@ _GROUP_RE = re.compile(r"^### Every (\S.*?)$")
 _KV_RE = re.compile(r"^- (feel|meaning|movement|camera|palette|do not): ?(.*)$")
 _SONG_KV_RE = re.compile(r"^- (logline|summary|setting|tone|theme|palette|do not): ?(.*)$")
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+# D87: a lyric line's meaning, keyed by its stable reference (r12, r12p1) or, for a line the harness added, its id
+_LINE_KEY_RE = re.compile(r"^(r\d+(?:p\d+)?|L\d{3,})$")
+_LINE_NOTE_RE = re.compile(r"^- (r\d+(?:p\d+)?|L\d{3,})( only)?: ?(.*)$")
 _GROUP_KEY_RE = re.compile(r"^[a-z][a-z\-]{0,39}$")
 FIELDS = ("feel", "meaning", "movement", "camera", "palette", "do_not")
 SONG_TEXT = ("logline", "summary", "setting", "tone")
@@ -82,7 +88,7 @@ def _items(v: Any) -> list[str]:
 
 
 def empty() -> dict[str, Any]:
-    return {"voices": {}, "sections": {}, "song": {}, "groups": {}}
+    return {"voices": {}, "sections": {}, "song": {}, "groups": {}, "lines": {}}
 
 
 def parse(text: str) -> dict[str, Any]:
@@ -93,6 +99,7 @@ def parse(text: str) -> dict[str, Any]:
         return state
     cur: dict[str, Any] | None = None
     song: dict[str, Any] | None = None
+    in_lines = False
     for raw in m.group(0).split("\n"):
         line = raw.rstrip()
         vm = _VOICE_RE.match(line)
@@ -101,8 +108,11 @@ def parse(text: str) -> dict[str, Any]:
             continue
         if line.startswith("### "):
             cur = song = None
+            in_lines = line == "### Lines"
             if line == "### Song":
                 song = state["song"]
+                continue
+            if in_lines:
                 continue
             sm = _SEC_RE.match(line)
             if sm:
@@ -113,6 +123,11 @@ def parse(text: str) -> dict[str, Any]:
             if gm:
                 key = "all" if gm.group(1).lower() == "section" else gm.group(1).lower()
                 cur = state["groups"].setdefault(key, {})
+            continue
+        if in_lines:
+            lm = _LINE_NOTE_RE.match(line)
+            if lm and lm.group(3).strip():
+                state["lines"][lm.group(1)] = {"note": lm.group(3).strip(), "repeats": not lm.group(2)}
             continue
         if song is not None:
             km = _SONG_KV_RE.match(line)
@@ -197,7 +212,17 @@ def merge(state: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Apply a viewer patch: ``voices`` {V1: {character_id, name} | None}, ``sections`` {S02: {...} | None},
     ``song`` {...} | None (replaces the whole-song record) and ``groups`` {all | <label>: {...} | None}."""
     out = {"voices": dict(state.get("voices", {})), "sections": dict(state.get("sections", {})),
-           "song": dict(state.get("song", {})), "groups": dict(state.get("groups", {}))}
+           "song": dict(state.get("song", {})), "groups": dict(state.get("groups", {})),
+           "lines": dict(state.get("lines", {}))}
+    for key, rec in (patch.get("lines") or {}).items():   # D87: {r12: {note, repeats} | None}
+        key = str(key)
+        if not _LINE_KEY_RE.match(key):
+            raise IntentError(f"bad line key {key[:12]!r}")
+        note = "" if rec is None else _text(rec if isinstance(rec, dict) else {"note": rec}, "note")
+        if note:
+            out["lines"][key] = {"note": note, "repeats": bool(rec.get("repeats", True)) if isinstance(rec, dict) else True}
+        else:
+            out["lines"].pop(key, None)
     for vid, rec in (patch.get("voices") or {}).items():
         if not re.fullmatch(r"V[1-9]\d*", str(vid)):
             raise IntentError(f"bad voice id {str(vid)[:12]!r}")
@@ -237,6 +262,11 @@ def _sid_key(s: str) -> int:
     return int(s[1:])
 
 
+def _line_sort(k: str) -> tuple[int, int, int]:
+    m = re.match(r"^r(\d+)(?:p(\d+))?$", k)
+    return (0, int(m.group(1)), int(m.group(2) or 0)) if m else (1, int(k[1:]), 0)
+
+
 def render(state: dict[str, Any]) -> str:
     lines = [BEGIN, "## Viewer corrections",
              "_Written by `mvh view`. This block is the latest edit, so it wins over the template above. Change these values in the viewer, or right here._"]
@@ -263,6 +293,12 @@ def render(state: dict[str, Any]) -> str:
         for k in GROUP_FIELDS:
             if groups[key].get(k):
                 lines.append(f"- {k}: {groups[key][k]}")
+    notes = state.get("lines") or {}
+    if notes:
+        lines += ["", "### Lines"]
+        for key in sorted(notes, key=_line_sort):
+            r = notes[key]
+            lines.append(f"- {key}{'' if r.get('repeats', True) else ' only'}: {r['note']}")
     for sid in sorted(state.get("sections", {}), key=_sid_key):
         r = state["sections"][sid]
         head = f"### {sid}" + (f" {r['label']}" if r.get("label") else "") + f" {r['t0']:.3f}-{r['t1']:.3f} s"
@@ -278,7 +314,7 @@ def render(state: dict[str, Any]) -> str:
 
 def apply(text: str, state: dict[str, Any]) -> str:
     """Replace (or append) the managed block in ``text``; everything outside it is untouched."""
-    empty_state = not any(state.get(k) for k in ("voices", "sections", "song", "groups"))
+    empty_state = not any(state.get(k) for k in ("voices", "sections", "song", "groups", "lines"))
     if _BLOCK_RE.search(text or ""):
         if empty_state:
             return _BLOCK_RE.sub("", text, count=1).rstrip("\n") + ("\n" if text.strip() else "")

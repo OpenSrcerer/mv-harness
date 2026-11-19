@@ -13,8 +13,8 @@ OBEY = "Anything that must be obeyed goes in the template."
 
 PREAMBLE = ("The harness found the facts below. **You are the authority on what the song means.** Answer in "
             "`meaning/intent.md`, in two ways. **" + OBEY + "** The template at the end holds the characters, "
-            "which voice each one sings, each section's feel, meaning, movement, camera and palette, and the do-not "
-            "rules (the only hard constraints). Everything else can be free text: every agent reads it as your own "
+            "which voice each one sings, the song's palette and the do-not rules (the only hard constraints), and, "
+            "only if you want to direct a part of the music, a section's feel, movement, camera and palette. Everything else can be free text: every agent reads it as your own "
             "notes, word for word, but never as a rule or a field. `mvh analyze` never edits that file. An agent may "
             "draft the gaps into `meaning/authored.json` only after you have seen these questions; your answers always "
             "win over its draft.")
@@ -31,7 +31,8 @@ QUESTIONS: tuple[tuple[str, str], ...] = (
      r"One sentence \(the logline\), then as much as you like\.(?:\s*Credits found: .*?\)\.)?"),
     (r"Who sings to whom\?", r"\d+ voice\(s\) were found\b.*?lane\):"),
     (r"Check the singer", r"of \d+ low-confidence line\(s\).*?under `line_singers`\."),
-    (r"The hooks", r"repeat:\s*\S+ \(\d+x:.*?Should they look the same each time\?"),
+    (r"The hooks", r"repeat:\s*\S+ \(\d+x:.*?Should they look the same each time\?"
+                   r"(?:\s*\(a note on one of them in the viewer covers every repeat\))?"),
     (r"The world", r":\s*where and when does the video take place\?(?:\s*Who are the characters "
                    r"\(look, age, costume\)\?)?(?:\s*Any visual references \(films, artists, photos\)\?)?"),
     (r"The mood arc", r"the audio models hear\b.*?Where should it differ\?"),
@@ -39,9 +40,14 @@ QUESTIONS: tuple[tuple[str, str], ...] = (
                                                  r"(?:\s*Put them under `sections` in the template\.)?"
                                                  r"(?:\s*You can answer once for a group \(`every section`, `every drop`\): "
                                                  r"a single section overrides its group\.)?"),
+    # D87: single lines instead of every section
+    (r"Single lines \(optional\)", r":\s*is there a lyric line a viewer would misread without help\b.*?"
+                                    r"covers every repeat unless you untick that\."),
+    (r"The music's big moments", r".*?Otherwise the video agent picks the look per section from the music and "
+                                 r"your answers above\."),
     (r"The top moments", r":\s*#\d+ \d+:\d.*?What should happen on screen at each\?"),
     (r"Colours", r":\s*which palette belongs to the song\b[^?]*\?(?:\s*Per-section colours\?)?"
-                 r"(?:\s*\(template: `palette`, `sections\.\*\.palette`\))?"),
+                 r"(?:\s*\(template: `palette`(?:, `sections\.\*\.palette`)?\))?"),
     (r"Never show", r":\s*what must never appear on screen\?(?:\s*\(copied verbatim to every agent\))?"
                     r"(?:\s*Write each rule under `do_not` in the template \(copied verbatim to every agent\); free text is "
                     r"never a rule\.)?"),

@@ -207,7 +207,8 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
     if hooks:
         top = sorted(hooks.items(), key=lambda kv: -len(kv[1]))[:3]
         parts = [f"{g} ({len(v)}x: {', '.join(x['id'] for x in v[:6])}, {_quote(v[0].get('text'), 6) if fc.get('lyrics_to_agents', True) else 'text in lines.tsv'})" for g, v in top]
-        ask("**The hooks** repeat: " + "; ".join(parts) + ". What do they mean to you? Should they look the same each time?")
+        ask("**The hooks** repeat: " + "; ".join(parts) + ". What do they mean to you? Should they look the same each time? "
+            "(a note on one of them in the viewer covers every repeat)")
     ask("**The world**: where and when does the video take place? Who are the characters (look, age, costume)? Any visual references (films, artists, photos)?")
     arc = []
     for s in fc["sections"]:
@@ -220,22 +221,24 @@ def interview_md(fc: Mapping[str, Any], intent: Mapping[str, Any], meaning: Mapp
             + ("; ..." if len(arc) > 12 else "") + ". Does this match the feeling you want? Where should it differ?")
     roles = [f"{r.get('role')} {r.get('id')} at {_mmss(float(r['t']))} ({r.get('section_id')})" for r in fc["roles"]]
     tier1 = [c for c in fc["cues"] if c.get("tier") == 1]
-    ask("**How should each section feel and move?** Sections: "
-        + ", ".join(f"{s['id']} {s.get('occurrence_label')} {_mmss(float(s['t']))}" for s in fc["sections"][:24])
-        + (" ..." if len(fc["sections"]) > 24 else "")
-        + (". EDM roles: " + ", ".join(roles) if roles else "")
-        + (f". {len(tier1)} tier-1 cues (section starts, drops, builds) are in events/cues.json" if tier1 else "")
-        + ". For each: feel, what it means, movement/choreography, camera. Put them under `sections` in the template. "
-          "You can answer once for a group (`every section`, `every drop`): a single section overrides its group.")
+    # D87: no question per section. Sections are the music's parts; the meaning is the song's, plus optional notes on
+    # single lyric lines. Answers by section are still read from the template when the user writes them.
+    ask("**Single lines (optional)**: is there a lyric line a viewer would misread without help (a reference, a name, "
+        "slang, who it is aimed at)? Add a note to it in the viewer (select the line, 'what this line means'); a note on a "
+        "line that repeats covers every repeat unless you untick that.")
+    ask("**The music's big moments**"
+        + (" (EDM roles: " + ", ".join(roles[:8]) + ")" if roles else "")
+        + (f": {len(tier1)} tier-1 cues (section starts, drops, builds) are in events/cues.json" if tier1 else "")
+        + ". Anything that must happen there? Otherwise the video agent picks the look per section from the music and "
+          "your answers above.")
     mom = sorted(fc["moments"], key=lambda m: m.get("rank", 99))[:5]
     if mom:
         ask("**The top moments**: " + "; ".join(f"#{m.get('rank')} {_mmss(float(m['t']))} {m.get('kind')} ({m.get('cue_id')})" for m in mom)
             + ". What should happen on screen at each?")
-    ask("**Colours**: which palette belongs to the song (hex codes or words like 'night blue')? Per-section colours? "
-        "(template: `palette`, `sections.*.palette`)")
+    ask("**Colours**: which palette belongs to the song (hex codes or words like 'night blue')? (template: `palette`)")
     ask("**Never show**: " + IV.NEVER_SHOW_Q)
     if intent.get("present"):
-        got = [k for k in ("logline", "summary", "setting", "tone", "themes", "palette", "do_not", "motifs") if intent.get(k)]
+        got = [k for k in ("logline", "summary", "setting", "tone", "themes", "palette", "do_not", "motifs", "line_notes") if intent.get(k)]
         out.append("")
         out.append(f"Already answered in intent.md: {', '.join(got) or 'nothing recognised yet'}; "
                    f"{len(intent.get('characters') or {})} character(s), {len(intent.get('sections') or [])} section note(s), "
@@ -378,6 +381,13 @@ def meaning_md(identity: Mapping[str, Any], meaning: Mapping[str, Any], orphans:
             out += ["> " + ln if ln.strip() else ">" for ln in str(r).splitlines()] + [""]
         if len(meaning["notes"]) > 60:
             out.append(f"... {len(meaning['notes']) - 60} more in meaning/meaning.json notes")
+    if meaning.get("line_notes"):  # D87
+        out += ["", "## Line notes (user)", "",
+                "What single lyric lines mean, in the user's words (optional extra information). A shared note is the note "
+                "of a repeat of the line.", ""]
+        for x in meaning["line_notes"]:
+            out.append(f"- **{x['line_id']}** ({float(x.get('t') or 0):.1f} s)"
+                       + (f" shared from {x['from_line']}" if x.get("shared") else "") + f": {x['note']}")
     out += ["", "## Never show", ""] + ([f"- {r}" for r in meaning.get("do_not") or []] or ["- (no rules yet)"])
     if orphans:
         out += ["", f"## Orphaned claims ({len(orphans)})", "", "Claims whose section no longer exists (meaning/orphans.json):"]

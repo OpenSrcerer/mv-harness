@@ -104,7 +104,7 @@ function renderMeaning() {
   if (!m) {
     host.append(h('h3', null, 'Meaning is pending'),
       h('p', { class: 'dim' }, 'The meaning stage has no output for this song yet. The harness asks the questions in meaning/interview.md; answer them in meaning/intent.md (free text) and run mvh meaning. The user is the authority on what a song means; any draft is labelled as such.'),
-      V.mode === 'edit' ? h('p', null, 'You can write it here: ', editMeaningLink('edit the meaning'), ' (the whole song, a group of sections, or one section).') : h('p', { class: 'dim' }, 'Open this song with mvh view to write meaning notes here.'));
+      V.mode === 'edit' ? h('p', null, 'You can write it here: ', editMeaningLink('edit the meaning'), ' (the whole song, and optionally single lyric lines).') : h('p', { class: 'dim' }, 'Open this song with mvh view to write meaning notes here.'));
     return;
   }
   const status = m.status || 'pending';

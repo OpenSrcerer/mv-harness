@@ -69,6 +69,9 @@ for (const row of song.linesAt(t)) {          // every line sounding at t; two r
   drawLine(row.words, wipe, row.word_progress, colourOf(who[0]));
 }
 ```
+- The user's note on a line (optional, their words): `const noteOf = new Map((song.meaning?.line_notes ?? []).map((n) =>
+  [n.line_id, n]))`, then `noteOf.get(row.line.id)?.note`. Use it to stage the line (a reference to show, who it is
+  aimed at), not as on-screen text unless the user says so. `shared: true` marks a repeat's note.
 - `song.lyricAt(t)` returns one line (the latest that started): fine for a single caption, wrong where lines overlap.
 - `lyrics/lyrics.srt|.vtt|.ass|.lrc` are ready-made subtitle files on the same clock (ffmpeg can burn `.ass` in).
 

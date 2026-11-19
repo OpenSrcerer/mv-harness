@@ -93,8 +93,8 @@ inside such an app are invisible to a normal terminal.
    press **pin start at playhead** (or **pin at start of** the section). Do the same for each pass, for example each
    time the hook starts, then re-run: the lines between pins are placed again and their words snap to the singing.
 4. **Write the meaning**: `mvh meaning out\my-song --edit` creates `meaning\intent.md`, opens it in your editor, and
-   applies it when you close the file. The viewer's Edit tab has the same fields. You can answer once for a whole
-   group of sections, and review an agent's draft instead of writing every field. See
+   applies it when you close the file. The viewer's Edit tab has the whole-song fields, and an optional note per
+   lyric line for anything a viewer would miss; you can review an agent's draft instead of writing every field. See
    [Writing the meaning](#writing-the-meaning).
 5. **Hand it to a video agent**: `mvh pack out\my-song <dest>` copies what a page or video project needs (no stems or
    cache). Point the agent at that folder and at [skill/mv-harness/SKILL.md](skill/mv-harness/SKILL.md). For
@@ -110,7 +110,7 @@ There are two places to write it. They hold the same fields and save to the same
 | Place | Command | Good for |
 |---|---|---|
 | Your editor | `mvh meaning out\my-song --edit` | Writing everything in one go, as text |
-| The viewer | `mvh view out\my-song`, **Edit** tab | Writing while you listen: the whole song, a group of sections, or one section |
+| The viewer | `mvh view out\my-song`, **Edit** tab | Writing while you listen: the whole song, plus an optional note on any lyric line |
 
 ```powershell
 uv run --frozen --no-sync mvh meaning out\my-song --edit
@@ -125,17 +125,22 @@ That one command:
    `user`.
 
 Run it again whenever you want to refine the meaning. The questions to answer are in `meaning\interview.md`: what the
-song means to you, the world and characters, how each section should feel and move, the top moments, colours, and
-what must never appear.
+song means to you, the world and characters, the hooks and single lines that need a word of explanation, the top
+moments, colours, and what must never appear.
+
+**A note on one lyric line** (optional): select the line in the viewer's Lyrics lane and write under "what this line
+means" in the Edit tab. When the line repeats (a hook), the note covers every repeat; untick "same for every repeat"
+to give one repeat its own meaning. A small dot on the bar shows a line has a note.
 
 **The editor** is the first of these that exists: `--editor "<command>"`, then the `MVH_EDITOR`, `VISUAL` or `EDITOR`
 environment variable, then VS Code (`code --wait`), then `nvim` / `vim` / `vi` in a terminal, then Notepad. For
 example, to always use Vim: `$env:MVH_EDITOR = 'vim'`.
 
-### Answer once for many sections
+### Answers by section (optional, template only)
 
-A song has 20 to 30 sections, and you do not have to describe each one. Under `sections:` the template starts with
-groups. An answer is inherited downwards:
+Sections are the music's parts, and the viewer no longer asks for a meaning per section: the video agent picks each
+section's look from the music and your whole-song answers. If you do want to direct a part, the template still takes
+it under `sections:`, and an answer is inherited downwards:
 
 1. `every section`: the default for the whole song;
 2. `every drop`, `every chorus`, …: one entry per section type that occurs more than once;

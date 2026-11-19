@@ -417,6 +417,17 @@ def _meaning_block(d: Mapping[str, Any]) -> list[str]:
     if refs:
         out += ["", f"User references ({len(refs)}): " + "; ".join(_short(str(x), 8) for x in refs[:3])
                 + (" ..." if len(refs) > 3 else "")]
+    ln_notes = [x for x in m.get("line_notes") or [] if not x.get("shared")]
+    if ln_notes:  # D87: optional notes on single lyric lines (the user's words); shared ones cover every repeat
+        n_all = len(m.get("line_notes") or [])
+        out += ["", f"Line notes ({len(ln_notes)} written, on {n_all} line(s) with repeats; user-authored, meaning/meaning.json "
+                "line_notes; song.meaning.line_notes):"]
+        spread = {y["from_line"] for y in m.get("line_notes") or [] if y.get("shared")}
+        for x in ln_notes[:8]:
+            out.append(f"- {x['line_id']} {_f(x.get('t'), 1)} s{' and its repeats' if x['line_id'] in spread else ''}: "
+                       f"\"{_short(' '.join(str(x['note']).replace('|', '/').split()), 14)}\"")
+        if len(ln_notes) > 8:
+            out.append(f"- ... {len(ln_notes) - 8} more")
     out.append("Anything that must be obeyed goes in the template of meaning/intent.md (do_not); free-text notes are "
                "never rules.")
     pal = m.get("palette") or []
@@ -621,13 +632,17 @@ def render_section(d: Mapping[str, Any], sid: str, allow_lyrics: bool = False,
             for x in d.get("ev_singing") or []:
                 if x["character_id"] not in sing.setdefault(x["line_id"], []):
                     sing[x["line_id"]].append(x["character_id"])
-            L += ["", "## Lines (lyrics/lyrics.json, events/singing.json)"]
+            notes_of = {x["line_id"]: x for x in (d.get("meaning") or {}).get("line_notes") or []}
+            L += ["", "## Lines (lyrics/lyrics.json, events/singing.json" + (", meaning line_notes" if notes_of else "") + ")"]
             for ln in lines[: n * 4]:
                 q = ""
                 if allow_lyrics and ln.get("_text"):
                     ws = str(ln["_text"]).split()
                     q = ' "' + " ".join(ws[:10]) + (' ..."' if len(ws) > 10 else '"')
-                L.append(f"- {ln['id']} {_f(ln['t'], 2)} s +{_f(ln['d'], 2)} s {'+'.join(sing.get(ln['id'], [])) or '-'} grade {ln.get('grade', '?')}{q}")
+                nt = notes_of.get(ln["id"])   # D87: the user's note on this line
+                nq = (f' · meaning{" (from " + nt["from_line"] + ")" if nt.get("shared") else ""}: "'
+                      + _short(" ".join(str(nt["note"]).split()), 20) + '"') if nt else ""
+                L.append(f"- {ln['id']} {_f(ln['t'], 2)} s +{_f(ln['d'], 2)} s {'+'.join(sing.get(ln['id'], [])) or '-'} grade {ln.get('grade', '?')}{q}{nq}")
             if len(lines) > n * 4:
                 L.append(f"- ... {len(lines) - n * 4} more lines (lyrics/lines.tsv)")
         if f["counts"]:
