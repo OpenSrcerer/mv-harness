@@ -645,7 +645,7 @@ function sortedByT(items) {
 export const HELPER_NEEDS = Object.freeze({
   beatPos: ['events:beats'], beatPhase: ['events:beats'], barPhase: ['events:beats'], osc: ['events:beats'],
   pulse: ['events:beats'], count: ['events:beats', 'events:counts'],
-  lyricAt: ['lyrics', 'events:singing'],
+  lyricAt: ['lyrics', 'events:singing'], linesAt: ['lyrics', 'events:singing'],
   vocalAt: ['curves:vocal', 'events:vocal_phrases', 'events:notes.vocals'],
   singerAt: ['events:singing', 'curves:vocal'],
   meaningAt: ['events:sections', 'meaning'],
@@ -654,7 +654,7 @@ export const HELPER_NEEDS = Object.freeze({
   kicks: ['events:drum_hits', 'events:hits.kick'],
 });
 const SNAKE = { beat_pos: 'beatPos', beat_phase: 'beatPhase', bar_phase: 'barPhase', lyric_at: 'lyricAt', vocal_at: 'vocalAt',
-  singer_at: 'singerAt', meaning_at: 'meaningAt', spectrum_at: 'spectrumAt', spectrum_window: 'spectrumWindow', viz_state: 'vizState' };
+  singer_at: 'singerAt', lines_at: 'linesAt', meaning_at: 'meaningAt', spectrum_at: 'spectrumAt', spectrum_window: 'spectrumWindow', viz_state: 'vizState' };
 
 const JSON_FILES = { lyrics: 'lyrics/lyrics.json', meaning: 'meaning/meaning.json' };
 
@@ -862,6 +862,15 @@ export class Song {
     return this.eventNames.includes('drum_hits') ? 'drums' : 'mix';
   }
   _kickEventsName() { return this.kickSource === 'drums' ? 'drum_hits' : 'hits.kick'; }
+  /** The soundtrack every time is measured from (manifest timebase.soundtrack): audio/mix.flac, or audio/mix.wav when
+   * the mix peaks above 0 dBTP (D23). Play and mux this file, never the original. */
+  get soundtrack() {
+    const tb = this.manifest.timebase;
+    return (tb && tb.soundtrack) || 'audio/mix.flac';
+  }
+  /** meaning/meaning.json (characters, palette, palette_names, do_not, sections, notes, field_sources ...), or null
+   * when the folder has none. Include 'meaning' when loading over HTTP. */
+  get meaning() { return this._get('meaning'); }
   /** The kicks agents cut on, from kickSource: Events of {t, vel, conf, source}. song.events('kick') and
    * song.pulse('kick', t) use it too. */
   kicks() {
@@ -903,18 +912,36 @@ export class Song {
     return this._lyr;
   }
 
-  /** {line, word, progress, word_progress}; line joined with singer (character ids) and voice_ids. */
+  _joinLine(item) {
+    const sung = this.events('singing').items.filter((s) => s.line_id === item.id);
+    const order = sung.map((s, k) => [s, k]).sort((a, b) => ((a[0].lead_backing === 'lead' ? 0 : 1) -
+      (b[0].lead_backing === 'lead' ? 0 : 1)) || (a[1] - b[1])).map((p) => p[0]);
+    const uniq = (xs) => [...new Set(xs.filter((x) => x != null))];
+    return { ...item, singer: uniq(order.map((s) => s.character_id)), voice_ids: uniq(order.map((s) => s.voice_id)) };
+  }
+
+  /** {line, word, progress, word_progress}; line joined with singer (character ids) and voice_ids. One line: the
+   * latest that started; use linesAt(t) where lines overlap (two singers). */
   lyricAt(t) {
     const L = this._lyrics();
     const r = eventAt(L.lines, t);
     if (r === null) return { line: null, word: null, progress: null, word_progress: null };
-    const sung = this.events('singing').items.filter((s) => s.line_id === r.item.id);
-    const order = sung.map((s, k) => [s, k]).sort((a, b) => ((a[0].lead_backing === 'lead' ? 0 : 1) -
-      (b[0].lead_backing === 'lead' ? 0 : 1)) || (a[1] - b[1])).map((p) => p[0]);
-    const uniq = (xs) => [...new Set(xs.filter((x) => x != null))];
-    const line = { ...r.item, singer: uniq(order.map((s) => s.character_id)), voice_ids: uniq(order.map((s) => s.voice_id)) };
+    const line = this._joinLine(r.item);
     const wr = eventAt(L.words.get(r.item.id) || [], t);
     return { line, word: wr ? wr.item : null, progress: r.progress, word_progress: wr ? wr.progress : null };
+  }
+
+  /** Every lyric line sounding at t (overlapping lines too, in start order), for karaoke:
+   * [{line (joined like lyricAt), words (all of the line's words), word, progress, word_progress}]. */
+  linesAt(t) {
+    const L = this._lyrics();
+    return eventAllAt(L.lines, t).map((item) => {
+      const words = L.words.get(item.id) || [];
+      const wr = eventAt(words, t);
+      const d = +item.d || 0;
+      return { line: this._joinLine(item), words, word: wr ? wr.item : null,
+        progress: d > 0 ? Math.min(1, Math.max(0, (t - item.t) / d)) : 0, word_progress: wr ? wr.progress : null };
+    });
   }
 
   _vocalChannels() {

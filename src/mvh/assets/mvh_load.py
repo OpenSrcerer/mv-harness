@@ -774,6 +774,7 @@ HELPER_NEEDS: dict[str, list[str]] = {
     "pulse": ["events:beats"],
     "count": ["events:beats", "events:counts"],
     "lyric_at": ["lyrics", "events:singing"],
+    "lines_at": ["lyrics", "events:singing"],
     "vocal_at": ["curves:vocal", "events:vocal_phrases", "events:notes.vocals"],
     "singer_at": ["events:singing", "curves:vocal"],
     "meaning_at": ["events:sections", "meaning"],
@@ -1072,6 +1073,18 @@ class Song:
             return ks
         return "drums" if "drum_hits" in self.event_names else "mix"
 
+    @property
+    def soundtrack(self) -> str:
+        """The soundtrack every time is measured from (manifest timebase.soundtrack): audio/mix.flac, or audio/mix.wav
+        when the mix peaks above 0 dBTP (D23). Play and mux this file, never the original."""
+        return (self.manifest.get("timebase") or {}).get("soundtrack") or "audio/mix.flac"
+
+    @property
+    def meaning(self) -> dict[str, Any] | None:
+        """meaning/meaning.json (characters, palette, palette_names, do_not, sections, notes, field_sources ...), or
+        None when the folder has none."""
+        return self._get("meaning")
+
     def _kick_events_name(self) -> str:
         return "drum_hits" if self.kick_source == "drums" else "hits.kick"
 
@@ -1146,13 +1159,8 @@ class Song:
         }
         return self._lyr
 
-    def lyric_at(self, t: float) -> dict[str, Any]:
-        """{line, word, progress, word_progress}; line joined with singer (character ids) and voice_ids."""
-        L = self._lyrics()
-        r = event_at(L["lines"], t, L["lines_c"])
-        if r is None:
-            return {"line": None, "word": None, "progress": None, "word_progress": None}
-        lid = r["item"].get("id")
+    def _join_line(self, item: Mapping[str, Any]) -> dict[str, Any]:
+        lid = item.get("id")
         sung = [s for s in self.events("singing").items if s.get("line_id") == lid]
         sung.sort(key=lambda s: 0 if s.get("lead_backing") == "lead" else 1)  # stable
 
@@ -1163,9 +1171,20 @@ class Song:
                     out.append(x)
             return out
 
-        line = dict(r["item"])
+        line = dict(item)
         line["singer"] = uniq(s.get("character_id") for s in sung)
         line["voice_ids"] = uniq(s.get("voice_id") for s in sung)
+        return line
+
+    def lyric_at(self, t: float) -> dict[str, Any]:
+        """{line, word, progress, word_progress}; line joined with singer (character ids) and voice_ids. One line: the
+        latest that started; use lines_at(t) where lines overlap (two singers)."""
+        L = self._lyrics()
+        r = event_at(L["lines"], t, L["lines_c"])
+        if r is None:
+            return {"line": None, "word": None, "progress": None, "word_progress": None}
+        lid = r["item"].get("id")
+        line = self._join_line(r["item"])
         wr = event_at(L["words"].get(lid, []), t, L["words_c"].get(lid))
         return {
             "line": line,
@@ -1173,6 +1192,21 @@ class Song:
             "progress": r["progress"],
             "word_progress": wr["progress"] if wr else None,
         }
+
+    def lines_at(self, t: float) -> list[dict[str, Any]]:
+        """Every lyric line sounding at t (overlapping lines too, in start order), for karaoke:
+        [{line (joined like lyric_at), words (all of the line's words), word, progress, word_progress}]."""
+        L = self._lyrics()
+        out = []
+        for item in event_all_at(L["lines"], t, L["lines_c"]):
+            lid = item.get("id")
+            words = L["words"].get(lid, [])
+            wr = event_at(words, t, L["words_c"].get(lid))
+            d = float(item.get("d") or 0.0)
+            out.append({"line": self._join_line(item), "words": list(words), "word": wr["item"] if wr else None,
+                        "progress": min(1.0, max(0.0, (float(t) - float(item["t"])) / d)) if d > 0 else 0.0,
+                        "word_progress": wr["progress"] if wr else None})
+        return out
 
     def vocal_at(self, t: float) -> dict[str, Any]:
         ch = {}

@@ -206,7 +206,16 @@ def _feel(ms: Mapping[str, Any] | None, words: int = 7) -> str:
     txt = ms.get(key)
     if not txt:
         return "-"
-    return _short(txt, words) + (" (draft)" if _is_draft(ms, key) else "")
+    return _short(txt, words) + _src_tag(ms, key)
+
+
+def _src_tag(ms: Mapping[str, Any], field: str) -> str:
+    """' (draft)' for an agent's suggestion, ' (audio)' for a fact measured from the song (nobody authored it), ''
+    for the user's own words."""
+    fs = ms.get("field_sources") or {}
+    if fs.get(field) == "audio" or (field not in fs and (ms.get("provenance") or {}).get("source") == "audio"):
+        return " (audio)"
+    return " (draft)" if _is_draft(ms, field) else ""
 
 
 def _is_draft(ms: Mapping[str, Any], field: str) -> bool:
@@ -265,6 +274,8 @@ def _status_line(d: Mapping[str, Any]) -> str:
         flags.append(f"vocal_range:conf={_f(vr['conf'], 2)}")
     if grade in ("C", "D"):
         flags.append(f"lyrics:grade={grade}")
+    if ((d.get("drums_meta") or {}).get("agreement") or {}).get("low") and "qa:kick_sources_disagree" not in flags:
+        flags.append("qa:kick_sources_disagree")   # the runner's flag (finalize.kick_info), so agents see it here too
     flags_txt = ", ".join(flags[:14]) + (f", +{len(flags) - 14} more (manifest.json)" if len(flags) > 14 else "")
     line = (f"meaning: {m.get('status', 'pending')} · lyrics: {lyrics} · stems: {stems} · visemes: {vis} · "
             f"flags: {flags_txt or 'none'}")
@@ -289,6 +300,8 @@ def _header(d: Mapping[str, Any]) -> list[str]:
     dur = src.get("duration_s") if src.get("duration_s") is not None else ident.get("duration_s")
     if dur is not None:
         out.append(f"| duration | {_f(dur, 1)} s ({mmss(dur)}) (meta/source.json) |")
+    out.append(f"| soundtrack | {src.get('soundtrack') or 'audio/mix.flac'}: play and mux this file; every time is seconds from "
+               "its first sample (meta/source.json; lib: song.soundtrack) |")
     if tempo:
         alts = [c for c in tempo.get("candidates") or [] if c.get("relation") != "x1"][:2]
         alt = ("; alt " + ", ".join(f"{c.get('relation')} {_f(c.get('bpm'), 1)}" for c in alts)) if alts else ""
@@ -583,9 +596,11 @@ def render_section(d: Mapping[str, Any], sid: str, allow_lyrics: bool = False,
             L.append("Chords by time: " + ", ".join(f"{k} {_f(v, 1)} s" for k, v in sorted(dur.items(), key=lambda kv: -kv[1])[:6]) + " (events/chords.json)")
         ms = f["meaning"]
         if ms:
-            L += ["", f"## Meaning ({(ms.get('provenance') or {}).get('status')}, meaning/meaning.json)"]
+            pv = ms.get("provenance") or {}
+            st = "audio facts only, nothing authored" if pv.get("source") == "audio" and pv.get("status") != "user" else pv.get("status")
+            L += ["", f"## Meaning ({st}, meaning/meaning.json)"]
             def tag(k: str) -> str:
-                return " (draft)" if _is_draft(ms, k) else ""
+                return _src_tag(ms, k)
             for k, lab in (("feel", "feel"), ("meaning", "meaning"), ("movement_hint", "movement"), ("camera_hint", "camera")):
                 if ms.get(k):
                     L.append(f"- {lab}: {ms[k]}{tag(k)}")

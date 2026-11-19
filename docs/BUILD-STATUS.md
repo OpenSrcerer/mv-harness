@@ -132,6 +132,9 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
 - **D85, casting is not meaning (2026-11-19, by the orchestrator).** meaning 1.3.0: a song whose intent.md only
   names characters stays `meaning: pending`, so the skill's interview rule fires.
 
+- **D86, the skill reviewed as a video agent's reference (2026-11-19).** brief 1.2.0; lib soundtrack / meaning /
+  linesAt; SKILL.md and RECIPES.md rewritten after a dry run by a fresh agent.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.

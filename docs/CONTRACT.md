@@ -1154,7 +1154,8 @@ Producer `_runner` = the runner's finalize step; `_user` = user/agent-authored i
 
 Both implementations behave identically (Python = snake_case of the JS name; options objects become keyword arguments). Every helper is
 a pure function of t or of the frame number; once loaded, everything is synchronous. Reference column = the function in
-`conventions.py` that defines the semantics; the golden vectors cover every row.
+`conventions.py` that defines the semantics; the golden vectors cover every row. The complete typed API (every method,
+option and returned field) is `lib/mvh.d.ts`, copied into every song folder.
 
 | JS | Python | Args | Returns | Reference |
 |---|---|---|---|---|
@@ -1178,6 +1179,10 @@ a pure function of t or of the frame number; once loaded, everything is synchron
 | `song.beatPos(t)` · `beatPhase(t)` · `barPhase(t)` | `beat_pos` · `beat_phase` · `bar_phase` | t | `{value, in_pulse}` | `beat_pos`, `beat_phase`, `bar_phase` |
 | `song.count(t)` | `song.count(t)` | t | `{eight_id, count 1..8, sub 0..3 (1 e & a), phase, accent, partial, lead_in, in_pulse}`; count/eight_id/phase null outside every count | `count_at` |
 | `song.lyricAt(t)` | `song.lyric_at(t)` | t | `{line, word, progress, word_progress}`; line = the lyrics.json line containing t (latest start) **joined with** `singer` (character ids) and `voice_ids` from singing.json; word = the word of that line containing t; nulls when silent | `event_at` on lines/words |
+| `song.linesAt(t)` | `song.lines_at(t)` | t | **every** line sounding at t, in start order (overlapping lines: two singers), each `{line, words, word, progress, word_progress}`: line joined like lyricAt, `words` = all of the line's words (a karaoke row) | `event_all_at` on lines |
+| `song.soundtrack` | `song.soundtrack` | - | the file to play and mux: manifest `timebase.soundtrack` (`audio/mix.flac`, or `audio/mix.wav` when the mix peaks above 0 dBTP, D23) | - |
+| `song.meaning` | `song.meaning` | - | meaning/meaning.json (characters[], palette, palette_names, do_not, sections[], notes, field_sources) or null; include `"meaning"` over HTTP | - |
+| `song.kicks()` · `song.kickSource` | `song.kicks()` · `song.kick_source` | - | the agent-facing kicks (Events of `{t, vel, conf, source}`) from manifest `summary.kick_source` (D79); `events('kick')`, `pulse('kick', t)` use it | `kick_items` |
 | `song.vocalAt(t)` | `song.vocal_at(t)` | t | `{voiced, midi, hz, conf, pitch01, phrase_id, note}` (never NaN; midi/hz held through gaps) | `vocal_at` |
 | `song.singerAt(t)` | `song.singer_at(t)` | t | `[{character_id, voice_id, lead_backing, line_id, mouth_open}]`, lead first, then voice number | `singer_at` |
 | `song.meaningAt(t)` | `song.meaning_at(t)` | t | `{section_id, meaning, feel, emotion, palette_hint, movement_hint, camera_hint, characters_present, do_not, provenance}` for the section containing t (nulls/empty when none) | `event_at` on sections + meaning.sections |
@@ -1186,6 +1191,10 @@ a pure function of t or of the frame number; once loaded, everything is synchron
 | `song.textureData(ids, {layout:'wrap', width:1024, format:'r32f'})` | `song.texture_data(ids, width=1024, format='r32f')` | channel ids; format `r32f` or `r8` (value·255) | `{data, width, height, layout:[{id, row0, rows, n, rate}]}` | `texture_data` |
 | GLSL `float mvhCurve(sampler2D tex, float t, vec4 info)` | - | info = (rate, n, width, row0); uses texelFetch + manual lerp | value equal to `curve.at(t)` | `texture_sample` |
 | `song.vizState(t, fr)` | `song.viz_state(t, fr)` | t; **fr `{fps, frame0, early}` is mandatory** (or set once with `load(base, {fr})` / `load(path, fr=...)`; without either the call throws) | the viz `audio` fields (section 5 mapping) computed for the video frame containing t: onset flags, beat pulses and frame-pooled hit values depend on the frame length, so a 24/30 fps renderer must say so (viz scenes use `{fps: 60}`) | - |
+
+Include specs for `load(base, {include})` / `ensure`: `"all"`, `"curves:<file id>"`, `"events:<name>"`, `"lyrics"`, `"meaning"`,
+`"kick"`, `"helper:<name>"` (what that helper reads; `helper:pulse` loads only the beats, so include the events you pulse). Over HTTP a
+call whose data was not included throws "not loaded"; in Node it reads the file lazily, so a Node test does not prove a browser include list.
 
 Notes, visemes and sections need no helpers of their own: `events('notes.bass').at(t)`, `events('sections').at(t)`. Where segments overlap by
 design use `allAt(t)`: `events('visemes').allAt(t)` returns one item per voice (filter on `voice_id`; the lead character's voice
@@ -1687,3 +1696,10 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
   do_not, references, notes, or a character's description). Naming the character behind a voice or the singer of a line
   (what the viewer writes) is casting: it stays the user's, but a song with only casting is `pending` (or `draft`), so an
   agent interviews the user before building.
+- **D86 The skill as a complete reference for a video agent (brief 1.2.0; lib additions).** A dry run of the skill by a fresh agent
+  found gaps, fixed here. `lib`: `song.soundtrack` (manifest `timebase.soundtrack`), `song.meaning` (meaning.json),
+  `song.linesAt(t)` / `lines_at` (every line sounding at t, with its words: karaoke where singers overlap). brief.md: a
+  `soundtrack` row in the header, the runner's `qa:kick_sources_disagree` flag on the status line, and fields measured from the
+  audio marked `(audio)`, not `(draft)`. SKILL.md: run `mvh status` first and refresh with `mvh analyze` when a stage is stale;
+  `mvh pack`; `lib/mvh.d.ts` is the API; cues define cuts, kicks drive flashes; meaning-free work may start while the meaning is
+  pending. RECIPES.md: Node import by file URL, the browser include list, karaoke, characters by id, the soundtrack everywhere.

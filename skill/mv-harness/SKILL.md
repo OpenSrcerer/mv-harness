@@ -5,89 +5,88 @@ description: Use when building a music video (Remotion, three.js/WebGL, Blender,
 
 # mv-harness: one song folder -> an art-piece music video
 
-mv-harness analyses **one song** and writes `out/<slug>/`: timestamped metadata for choreography, characters and
+mv-harness analyses **one song** into `out/<slug>/`: timestamped metadata for choreography, characters and
 stylisation. It does not make videos; you do, in any technology, from this folder. The user authors the meaning.
 
-## 1. Run it (only if the folder does not exist yet)
+## 1. Run it, check it, pack it
 
 ```powershell
 Set-Location <mv-harness repo>; . .\scripts\mvh-env.ps1
-uv run --frozen --no-sync mvh analyze "<song.flac>" --out out\<slug>     # add --lyrics song.lrc if you have them
+uv run --frozen --no-sync mvh analyze "<song.flac>" --out out\<slug> [--lyrics lyrics.txt]   # new song only
+uv run --frozen --no-sync mvh status out\<slug>          # ALWAYS first: anything stale?
+uv run --frozen --no-sync mvh analyze out\<slug>         # refresh: re-runs only what changed
+uv run --frozen --no-sync mvh pack out\<slug> <project>\public\song   # what a page/video project loads
 ```
-stdout is one JSON line `{manifest, brief, viewer, warnings, pending}`. Other verbs: `mvh status|validate|view|brief|meaning|frames <folder>`.
+`analyze` prints one JSON line `{manifest, brief, viewer, warnings, pending}`. **If `status` shows a stale stage**
+(the user edited intent.md or corrections in the viewer), refresh before reading: brief and data are older than the
+user's answers. Never edit generated files; it never touches `meaning/intent.md` or `overrides.json`.
 
 ## 2. Read in this order (context budget)
 
-1. **`brief.md`** (<= 4k tokens): status line, header, meaning, characters, one row per section, choreography, top 15 moments.
-   Every number in it names its source file.
-2. **`mvh brief out/<slug> --section S05`** (<= 1.5k tokens) when you work on one section (lines, counts, hits, cues, meaning).
-3. **`lyrics/lines.tsv`** only if the video shows or acts on words: `id t d section_id singer repeat_group grade text`;
-   `singer` = characters on the line, lead first (`C1+C2`).
-4. `references/CONTRACT.md` **only the parts you need**: §2 time and frames, §3 IDs, §4 values, §9 helpers.
-   Do not read the whole contract (25k tokens) or `manifest.json` beyond `status`/`summary`.
+1. **`brief.md`** (<= 4k tokens): status line, soundtrack, meaning, characters, one row per section, choreography,
+   top moments. Every number names its source file.
+2. **`mvh brief out/<slug> --section S05`** (<= 1.5k tokens) when you work on one section.
+3. **`lyrics/lines.tsv`** only if the video shows words: `id t d section_id singer repeat_group grade text`.
+4. **API: `lib/mvh.d.ts`** (every method, option and field). `references/RECIPES.md` per engine;
+   `references/CONTRACT.md` only §2 time, §3 IDs, §4 values, §9 helpers (never the whole 25k-token file).
+   From `manifest.json` read only `status`, `summary`, `timebase`, `source`.
 
-**Never cat curves, events or tables into context.** They are large (100 Hz curves, thousands of events). Load them in
-code with `lib/mvh.js` (ES module, no deps) or `lib/mvh_load.py` (numpy), which are copied into every song folder.
-Recipes per engine: `references/RECIPES.md`.
+**Never cat curves, events or tables into context** (100 Hz curves, thousands of events). Load them in code with
+`lib/mvh.js` (ES module, no deps) or `lib/mvh_load.py` (numpy), copied into every song folder.
 
 ## 3. The meaning rule (the user is the authority)
 
-- Status line `meaning: pending` (character names alone are no answer): **show the user the questions in
-  `meaning/interview.md` and wait for their answers.** Write their answers to `meaning/intent.md` only in their words.
-  **Anything that must be obeyed goes in the template** (the YAML block at the end of the interview: characters,
-  `voices` (`V1: C1 Name`), section feel/meaning/movement/camera/palette, `do_not`). Everything else may be free text:
-  it reaches every agent verbatim as the user's notes, but is never parsed into a field or a rule.
-- Draft only after that, or when the user asks: follow `meaning/request.md`, write **`meaning/authored.json`** with
-  `"status": "draft"` (schema `meaning/schema.json`; every claim typed lyric|audio|external|speculative and cited by
-  id or time; quotes <= 10 words), then run `mvh meaning out/<slug>`. Never overwrite the user's claims; conflicts go
-  to `open_questions`. `mvh meaning out/<slug> --draft anthropic` drafts through the Claude API if the user wants that.
-  Draft after the user's song-level lines; word sections of one type alike.
-- Users review a draft in the viewer or with `mvh meaning --suggest` (lines marked `# suggestion` are not
-  answers): never unmark them or copy a draft into `intent.md`. Group answers (`every section`,
-  `every <label>`) are in `sections[]`.
-- **Do-not rules** (`meaning.json do_not`, from the template only, in brief.md verbatim) are hard constraints on
-  everything you render. When brief.md says **template entries of meaning/intent.md did not parse**
-  (`meaning.json intent_unparsed`), the user's typing broke part of the template: those lines are notes now, and a
-  rule typed under `do_not` may be missing. Ask the user to fix the template before you rely on the rule list.
-- `meaning.json` `notes` are the user's own words, verbatim (intent.md's free text and the template's `notes`; all of
-  them in meaning.md, the first 120 words in brief.md). Read them before you design: they are direction, not drafts
-  and not rules. A note that reads like a rule is an open question: ask the user to put it under `do_not`.
-- `meaning: draft` = an agent's suggestion: say so to the user before building on it. `user` = authored.
-- A `user` section or character can still hold draft text: `meaning.json` `sections[].field_sources` and
-  `characters[].field_sources` (and the top-level `field_sources`, incl. `perspective.narrator`/`.addressee`) give
-  each field's origin, `user` or `draft`.
-  Treat every `draft` field as a suggestion, whatever `provenance.status` says (brief.md marks them `(draft)`).
-- Never edit generated files. Corrections (beats, sections, lyric timing, singers) go through the viewer
-  (`mvh view out/<slug>`) or `overrides.json`, then `mvh analyze out/<slug>` re-runs only what changed.
+- `meaning: pending` (naming characters alone is no answer): **show the user the questions in
+  `meaning/interview.md` and wait.** Write their answers to `meaning/intent.md` in their words only; anything to be
+  obeyed goes in the template (YAML at the end: characters, `voices`, sections, `do_not`), the rest is free text
+  (verbatim notes, never parsed into a rule). Then `mvh analyze out/<slug>`.
+  While you wait you may build what needs no meaning (loader, timing, cuts, lip-sync rig, karaoke) with the
+  cover-art palette (`manifest.summary.palette`) as a placeholder; say so. The look and story wait.
+- Draft only after that, or when asked: follow `meaning/request.md`, write `meaning/authored.json`
+  (`"status": "draft"`, schema `meaning/schema.json`, every claim typed and cited, quotes <= 10 words), then
+  `mvh meaning out/<slug>`. Never overwrite the user's claims. `--draft anthropic` drafts through the Claude API.
+- The user reviews drafts in the viewer or with `mvh meaning out/<slug> --suggest` (`# suggestion` lines are not
+  answers): never unmark them or copy a draft into `intent.md`.
+- **`do_not` rules** (template only, verbatim in brief.md) are hard constraints on every frame. If brief.md says
+  **template entries did not parse** (`intent_unparsed`), a rule may be missing: ask the user to fix it first.
+- `notes` (`meaning.json`): the user's own words; direction, not rules. A note that reads like a rule is a question.
+- Who wrote a field: `field_sources` on `sections[]`, `characters[]` and the top level: `user` = authored, `draft` =
+  an agent's suggestion (tell the user before building on it), `audio` = measured from the song (a fact, nobody's
+  direction). brief.md marks them `(draft)` / `(audio)`. A section's `provenance` `{source: audio, status: draft}`
+  means no one wrote anything there.
+- Corrections (beats, sections, lyric timing, singers) go through the viewer (`mvh view out/<slug>`).
 
 ## 4. Time, frames, IDs (the rules that bite)
 
-- **Soundtrack = `audio/mix.flac`** (or `audio/mix.wav` when the manifest says so); stems are sample-aligned. Never the
-  original file: every time is seconds from the first sample of mix.flac.
-- Frame rule `{fps, frame0 = 0, early = false}`; NTSC is `[24000, 1001]` (23.976 is taken literally). Blender: `frame0: 1`.
-  Frame n shows time `timeOf(n, fr)`; an event belongs to `frameOf(t, fr)`, the same frame as its curve flash.
+- **Soundtrack = `song.soundtrack`** (`manifest.timebase.soundtrack`: `audio/mix.flac`, or `audio/mix.wav` when the
+  mix clips). Play and mux exactly that file, never the original: every time is seconds from its first sample.
+- Frame rule `{fps, frame0 = 0, early = false}`; NTSC is `[24000, 1001]` (23.976 is literal). Blender: `frame0: 1`.
+  Frame n shows `timeOf(n, fr)`; an event belongs to `frameOf(t, fr)`.
 - Curves are 0..1 with absolute twins (`bands.bass` / `bands.bass_db`); helpers never return NaN.
-- IDs link downstream to upstream: section `S03`, phrase `P02`, eight-count `E012`, line `L007`, word `L007.03`, voice `V2`,
-  character `C1`, cue `Q0034`, hit point `H004`, hold `O002`. Repeats share a `repeat_group` (sections) or `LG01` (lines).
+- IDs: section `S03`, phrase `P02`, eight-count `E012`, line `L007`, word `L007.03`, voice `V2`, character `C1`, cue
+  `Q0034`, hit point `H004`, hold `O002`; repeats share `repeat_group` / `LG01`. `E000` is a 5-6-7-8 lead-in that may
+  start before 0 s.
 
 ## 5. What to use for what
 
 | Want | Use |
 |---|---|
-| Dance on the beat / counts | `song.count(t)` -> `{eight_id, count 1..8, sub, accent}`; `song.beatPhase(t)`; `events('grooves')` per bar |
-| Hits and poses | `events('hit_points')` (ranked), `events('holds')`, `song.pulse('drum_hits', t)`, `curve('choreo.accent')` |
-| Cut on the kick | `song.kicks()` / `song.pulse('kick', t)`: ONE kick timeline, picked per song in `manifest.summary.kick_source` (`drums` = the bleed-gated drum-stem kick, the default; `mix` = `hits.kick`, a fallback of lower quality). Never mix `drum_hits` kicks with `hits.kick` yourself. Flag `qa:kick_sources_disagree` (MEGAFAUNA-style sidechained drops): trust `song.kicks()`, prefer bars and tier-1/2 cues for big cuts. The `hits.kick` curve stays the viz-style flash. |
-| Cuts and camera | `events('cues').next(t, {minTier: 2})` (tier 1 sections/drops/builds ... 4 beats), `lead_in_s` to anticipate |
-| Who sings, lip-sync | `song.singerAt(t)` -> `[{character_id, voice_id, lead_backing, line_id, mouth_open}]`; `curve('vocal.mouth_open.V2')` |
-| Karaoke / words | `song.lyricAt(t)` -> line, word, progress; `lyrics/lyrics.json` |
-| Palette, mood, intent | `song.meaningAt(t)` -> feel, emotion, palette_hint, movement_hint, camera_hint, characters_present, do_not |
-| Energy | `curve('dyn.intensity')`, `curve('loud.short_term')`, `events('dynamics')`, `events('edm_roles')` (build/drop) |
-| Melody and pitch | `song.vocalAt(t)` (pitch01, midi), `events('notes.bass')`, `events('chords')` |
-| Spectrum for shaders | `song.spectrumAt(t)`, `song.textureData(ids)` + `lib/mvh.glsl` |
-| Non-JS/Python tools | `mvh frames out/<slug> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` -> `frames/24fps.csv` (`frames/24_f1fps.csv` with `--frame0 1`) |
+| Dance | `song.count(t)` -> `{eight_id, count 1..8, sub, accent, in_pulse}`; `beatPhase(t)`; `events('grooves')`, `curve('choreo.movement')` |
+| Hits, poses | `events('hit_points')`, `events('holds')`, `song.pulse('hit_points', t)`, `curve('choreo.accent')` |
+| **Cuts** | **cues define cuts**: `events('cues').next(t, {minTier: 2})`, `lead_in_s` to anticipate. Hero shots: `events('moments')` sorted by `rank` |
+| Kick | flashes and shake only: `song.kicks()` / `song.pulse('kick', t)` (one timeline, `kickSource`). A kick may sit one frame off a cue: keep the cut on the cue. `qa:kick_sources_disagree`: prefer bars and tier 1-2 cues |
+| Characters, lip-sync | `song.meaning.characters` (array, by `id`); `song.singerAt(t)` -> `[{character_id, voice_id, lead_backing, line_id, mouth_open}]` |
+| Karaoke | `song.linesAt(t)`: every line sounding (overlaps = two singers), each with all its `words`; `line.singer` is an array |
+| Look | `song.meaningAt(t)` -> feel, emotion, palette_hint, movement/camera hints, characters_present, do_not, field_sources |
+| Energy | `curve('dyn.intensity')`, `curve('loud.short_term')`, `events('edm_roles')` (build/drop) |
+| Melody | `song.vocalAt(t)`, `events('notes.bass')`, `events('chords')` |
+| Shaders | `song.spectrumAt(t)`, `song.textureData(ids)` + `lib/mvh.glsl` |
+| Other tools | `mvh frames out/<slug> --fps 24 [--frame0 1] [--curves "*"] [--format deforum]` -> `frames/*.csv` |
+
+Browsers/Remotion: `load()` only has what `include` lists (RECIPES has the full list); Node reads lazily, so a Node
+test does not prove a browser include list.
 
 ## 6. Check the result
 
-Open `viewer.html` (read-only) or `mvh view out/<slug>` and scrub the lanes against your render. Respect the flags in
-the status line: low-confidence singers (`singers:review`), lyrics grade C/D, `degraded:*` stages and `fallback:*`
-mean the data there is shaky; prefer coarser cues (sections, tier 1-2) where it is.
+Scrub `mvh view out/<slug>` against your render. Status-line flags (`singers:review`, lyrics grade C/D, `degraded:*`,
+`fallback:*`, `qa:*`) mark shaky data: prefer coarser cues there; show grade C/D lines whole, without a word wipe.

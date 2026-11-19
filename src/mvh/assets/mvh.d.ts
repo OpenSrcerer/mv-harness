@@ -161,6 +161,8 @@ export interface LyricLine extends EventItem {
 }
 export interface LyricWord extends EventItem { id: string; line_id: string; d: number; text: string; conf: number; flags?: string[]; }
 export interface LyricValue { line: LyricLine | null; word: LyricWord | null; progress: number | null; word_progress: number | null; }
+/** One line sounding at t (linesAt): all its words for a karaoke row, the current word and both progresses. */
+export interface LineAtValue { line: LyricLine; words: LyricWord[]; word: LyricWord | null; progress: number; word_progress: number | null; }
 
 export interface MeaningValue {
   section_id: string | null; meaning: string | null; feel: string | null;
@@ -216,7 +218,7 @@ export class VizState {
 }
 
 export type HelperName = 'beatPos' | 'beatPhase' | 'barPhase' | 'osc' | 'pulse' | 'count' | 'lyricAt' | 'vocalAt' | 'singerAt' |
-  'meaningAt' | 'spectrumAt' | 'spectrumWindow' | 'vizState' | 'kicks';
+  'meaningAt' | 'spectrumAt' | 'spectrumWindow' | 'vizState' | 'kicks' | 'linesAt';
 
 /** D79 (user decision UD2): which kick timeline agents cut on. */
 export type KickSource = 'drums' | 'mix';
@@ -247,6 +249,12 @@ export class Song {
   /** 'drums' (the quality-gated DrumSep kick stem, the default) or 'mix' (hits.kick, the fallback): manifest
    * summary.kick_source. Cut on song.kicks(), not on a raw file. */
   readonly kickSource: KickSource;
+  /** The file to play and mux (manifest timebase.soundtrack): 'audio/mix.flac', or 'audio/mix.wav' when the mix peaks
+   * above 0 dBTP (D23). Every time is seconds from its first sample. */
+  readonly soundtrack: string;
+  /** meaning/meaning.json (characters[] {id, name, description, voice_ids ...}, palette, palette_names, do_not,
+   * sections[], notes, field_sources), or null without one. Browsers: include 'meaning'. */
+  readonly meaning: Record<string, any> | null;
   /** The agent-facing kicks (Events named 'kick'); events('kick') and pulse('kick', t) return the same.
    * Browsers: ensure('kick') (or 'helper:kicks') first. */
   kicks(): Events<KickItem>;
@@ -267,7 +275,10 @@ export class Song {
   beatPhase(t: number): PhaseValue;
   barPhase(t: number): PhaseValue;
   count(t: number): CountValue;
+  /** One line: the latest that started at or before t. Where lines overlap (two singers), use linesAt. */
   lyricAt(t: number): LyricValue;
+  /** Every line sounding at t, in start order (overlapping lines included), each with all its words. */
+  linesAt(t: number): LineAtValue[];
   vocalAt(t: number): VocalValue;
   singerAt(t: number): SingerValue[];
   meaningAt(t: number): MeaningValue;
