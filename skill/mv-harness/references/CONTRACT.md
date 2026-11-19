@@ -1716,3 +1716,7 @@ below (M1-S5, M2-D8, I-M3b-9, H6, M5-D15, ...) refer to them.
     line that has a note (its own first, else the earliest repeat's shared note). A note counts as the user's meaning
     (`status: user`). Keys that match no line become an open question. brief.md lists them; the section zoom shows each
     line's note; meaning.md has them all. The interview asks about single lines instead of every section.
+- **D88 Plan before building (skill).** SKILL.md §4 and references/PLAN.md: an agent writes `<project>/PLAN.md` (concept, look,
+  characters, storyboard per section from the data, hero moments, words on screen, the tools it chooses with every install,
+  account, key and cost, and the work split across parallel agents on model tiers matched to each task) and builds, installs,
+  generates or spends nothing until the user approves it; anything the plan did not list needs a new yes.

@@ -97,7 +97,9 @@ inside such an app are invisible to a normal terminal.
    lyric line for anything a viewer would miss; you can review an agent's draft instead of writing every field. See
    [Writing the meaning](#writing-the-meaning).
 5. **Hand it to a video agent**: `mvh pack out\my-song <dest>` copies what a page or video project needs (no stems or
-   cache). Point the agent at that folder and at [skill/mv-harness/SKILL.md](skill/mv-harness/SKILL.md). For
+   cache). Point the agent at that folder and at [skill/mv-harness/SKILL.md](skill/mv-harness/SKILL.md). The agent first
+   writes a plan (`PLAN.md`: concept, storyboard, the tools it picked, costs, which agents and models do what) and
+   builds nothing until you approve it. For
    frame-based tools, `mvh frames out\my-song --fps 24` writes one row per video frame.
 
 ## Writing the meaning

@@ -138,6 +138,8 @@ Every agent checkpoints to `docs/build/progress/<agent>.md` and resumes from it.
 - **UD7, meaning of the whole song plus optional line notes: APPROVED and built (2026-11-19).** CONTRACT D87,
   docs/contract/decisions/UD7.md. meaning 1.4.0, viewer 1.6.0, brief 1.3.0.
 
+- **D88, the skill plans before it builds (2026-11-19).** references/PLAN.md; build only after the user approves.
+
 ## Hold (user, 2026-11-09 00:30)
 When workflow C finishes: run the module gates, update this file, then **STOP**. Do not start workflow D or E until the user says the new usage
 window has started.
